@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { ResumeData, EditingField, ClipboardData } from "../types/resume"
-import { jsonToMarkdown, markdownToJson, generateId } from "../utils/conversion"
+import type { ResumeData, EditingField, ClipboardData, TabType } from "../types/resume"
+import { jsonToMarkdown, markdownToJson, jsonToHtml, htmlToJson, generateId } from "../utils/conversion"
 import { toast } from "@/components/ui/use-toast"
 
 const defaultResumeData = `{
@@ -55,12 +55,14 @@ const defaultResumeData = `{
   ]
 }`
 
+// Update the hook to include HTML state and functionality
 export const useResumeEditor = () => {
   const [jsonString, setJsonString] = useState(defaultResumeData)
   const [markdownString, setMarkdownString] = useState("")
+  const [htmlString, setHtmlString] = useState("")
   const [parsedData, setParsedData] = useState<ResumeData | null>(null)
   const [parseError, setParseError] = useState<string>("")
-  const [activeTab, setActiveTab] = useState<"json" | "markdown">("json")
+  const [activeTab, setActiveTab] = useState<TabType>("json")
   const [clipboard, setClipboard] = useState<ClipboardData>({
     type: "section",
     data: null,
@@ -84,8 +86,9 @@ export const useResumeEditor = () => {
         setParsedData(parsed)
         setParseError("")
 
-        // Update markdown when JSON changes
+        // Update other formats when JSON changes
         setMarkdownString(jsonToMarkdown(parsed))
+        setHtmlString(jsonToHtml(parsed))
       } catch (error) {
         setParseError("Invalid JSON format")
         setParsedData(null)
@@ -101,8 +104,9 @@ export const useResumeEditor = () => {
         setParsedData(parsed)
         setParseError("")
 
-        // Update JSON when markdown changes
+        // Update other formats when markdown changes
         setJsonString(JSON.stringify(parsed, null, 2))
+        setHtmlString(jsonToHtml(parsed))
       } catch (error) {
         setParseError("Error parsing markdown")
         setParsedData(null)
@@ -110,11 +114,30 @@ export const useResumeEditor = () => {
     }
   }, [markdownString, activeTab])
 
-  // Update JSON when parsed data changes
+  // Parse HTML when htmlString changes
+  useEffect(() => {
+    if (activeTab === "html") {
+      try {
+        const parsed = htmlToJson(htmlString)
+        setParsedData(parsed)
+        setParseError("")
+
+        // Update other formats when HTML changes
+        setJsonString(JSON.stringify(parsed, null, 2))
+        setMarkdownString(jsonToMarkdown(parsed))
+      } catch (error) {
+        setParseError("Error parsing HTML")
+        setParsedData(null)
+      }
+    }
+  }, [htmlString, activeTab])
+
+  // Update all formats when parsed data changes
   const updateJsonFromData = (newData: ResumeData) => {
     setParsedData(newData)
     setJsonString(JSON.stringify(newData, null, 2))
     setMarkdownString(jsonToMarkdown(newData))
+    setHtmlString(jsonToHtml(newData))
   }
 
   // Convert JSON to Markdown
@@ -135,6 +158,7 @@ export const useResumeEditor = () => {
       const data = markdownToJson(markdownString)
       setParsedData(data)
       setJsonString(JSON.stringify(data, null, 2))
+      setHtmlString(jsonToHtml(data))
       setActiveTab("json")
       toast({
         description: "Converted to JSON successfully",
@@ -147,12 +171,45 @@ export const useResumeEditor = () => {
     }
   }
 
+  // Convert to HTML
+  const convertToHtml = () => {
+    if (parsedData) {
+      const html = jsonToHtml(parsedData)
+      setHtmlString(html)
+      setActiveTab("html")
+      toast({
+        description: "Converted to HTML successfully",
+      })
+    }
+  }
+
+  // Convert HTML to JSON
+  const convertFromHtml = () => {
+    try {
+      const data = htmlToJson(htmlString)
+      setParsedData(data)
+      setJsonString(JSON.stringify(data, null, 2))
+      setMarkdownString(jsonToMarkdown(data))
+      setActiveTab("json")
+      toast({
+        description: "Converted from HTML successfully",
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        description: "Error converting HTML to JSON",
+      })
+    }
+  }
+
   return {
     // State
     jsonString,
     setJsonString,
     markdownString,
     setMarkdownString,
+    htmlString,
+    setHtmlString,
     parsedData,
     parseError,
     activeTab,
@@ -166,5 +223,7 @@ export const useResumeEditor = () => {
     updateJsonFromData,
     convertToMarkdown,
     convertToJson,
+    convertToHtml,
+    convertFromHtml,
   }
 }

@@ -169,3 +169,225 @@ export const markdownToJson = (markdown: string): ResumeData => {
 
   return { title, sections }
 }
+
+// Add HTML conversion functions at the end of the file
+
+// Convert JSON to HTML
+export const jsonToHtml = (data: ResumeData): string => {
+  let html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${data.title}</title>
+    <style>
+        body { font-family: 'Times New Roman', serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-size: 18px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #666; padding-bottom: 5px; margin-bottom: 15px; }
+        .item { margin-bottom: 15px; }
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
+        .item-title { font-weight: bold; font-size: 16px; }
+        .item-duration { font-size: 14px; color: #666; }
+        .item-organization { font-weight: bold; color: #333; margin-bottom: 5px; }
+        .item-description { font-size: 14px; color: #444; margin-left: 10px; }
+        .skills-category { font-weight: bold; }
+        .generic-field { margin-bottom: 3px; }
+        .field-label { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>${data.title}</h1>
+    </div>
+`
+
+  data.sections.forEach((section) => {
+    html += `    <div class="section">
+        <h2 class="section-title">${section["section name"]}</h2>
+`
+
+    section.content.forEach((item) => {
+      // Find key fields by name pattern
+      const jobTitleKey = Object.keys(item).find(
+        (key) => key.toLowerCase().includes("title") || key.toLowerCase().includes("position"),
+      )
+      const organizationKey = Object.keys(item).find(
+        (key) => key.toLowerCase().includes("organization") || key.toLowerCase().includes("company"),
+      )
+      const durationKey = Object.keys(item).find(
+        (key) =>
+          key.toLowerCase().includes("duration") ||
+          key.toLowerCase().includes("period") ||
+          key.toLowerCase().includes("date"),
+      )
+      const descriptionKey = Object.keys(item).find(
+        (key) => key.toLowerCase().includes("description") || key.toLowerCase().includes("summary"),
+      )
+      const degreeKey = Object.keys(item).find(
+        (key) => key.toLowerCase().includes("degree") || key.toLowerCase().includes("education"),
+      )
+      const gpaKey = Object.keys(item).find(
+        (key) => key.toLowerCase().includes("gpa") || key.toLowerCase().includes("grade"),
+      )
+      const categoryKey = Object.keys(item).find(
+        (key) => key.toLowerCase().includes("category") || key.toLowerCase().includes("type"),
+      )
+      const skillsKey = Object.keys(item).find(
+        (key) => key.toLowerCase().includes("skills") || key.toLowerCase().includes("abilities"),
+      )
+
+      html += `        <div class="item">
+`
+
+      if (jobTitleKey) {
+        html += `            <div class="item-header">
+                <div class="item-title">${item[jobTitleKey]}</div>`
+        if (durationKey && item[durationKey]) {
+          html += `
+                <div class="item-duration">${item[durationKey]}</div>`
+        }
+        html += `
+            </div>
+`
+
+        if (organizationKey && item[organizationKey]) {
+          html += `            <div class="item-organization">${item[organizationKey]}</div>
+`
+        }
+
+        if (descriptionKey && item[descriptionKey]) {
+          html += `            <div class="item-description">${item[descriptionKey]}</div>
+`
+        }
+      } else if (degreeKey) {
+        html += `            <div class="item-header">
+                <div class="item-title">${item[degreeKey]}</div>`
+        if (durationKey && item[durationKey]) {
+          html += `
+                <div class="item-duration">${item[durationKey]}</div>`
+        }
+        html += `
+            </div>
+`
+
+        if (organizationKey && item[organizationKey]) {
+          html += `            <div class="item-organization">${item[organizationKey]}</div>
+`
+        }
+
+        if (gpaKey && item[gpaKey]) {
+          html += `            <div class="item-description">GPA: ${item[gpaKey]}</div>
+`
+        }
+      } else if (categoryKey && skillsKey) {
+        html += `            <div><span class="skills-category">${item[categoryKey]}:</span> ${item[skillsKey]}</div>
+`
+      } else {
+        // Generic handling
+        Object.entries(item).forEach(([key, value]) => {
+          html += `            <div class="generic-field"><span class="field-label">${key}:</span> ${value}</div>
+`
+        })
+      }
+
+      html += `        </div>
+`
+    })
+
+    html += `    </div>
+`
+  })
+
+  html += `</body>
+</html>`
+
+  return html
+}
+
+// Convert HTML to JSON (basic implementation)
+export const htmlToJson = (html: string): ResumeData => {
+  // Create a temporary DOM parser
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(html, "text/html")
+
+  // Extract title
+  const titleElement = doc.querySelector("h1")
+  const title = titleElement ? titleElement.textContent || "Untitled Resume" : "Untitled Resume"
+
+  const sections: Section[] = []
+
+  // Extract sections
+  const sectionElements = doc.querySelectorAll(".section")
+
+  sectionElements.forEach((sectionEl) => {
+    const sectionTitleEl = sectionEl.querySelector(".section-title")
+    const sectionName = sectionTitleEl ? sectionTitleEl.textContent || "Untitled Section" : "Untitled Section"
+
+    const content: ContentItem[] = []
+    const itemElements = sectionEl.querySelectorAll(".item")
+
+    itemElements.forEach((itemEl) => {
+      const item: ContentItem = {}
+
+      // Try to extract structured data
+      const titleEl = itemEl.querySelector(".item-title")
+      const durationEl = itemEl.querySelector(".item-duration")
+      const organizationEl = itemEl.querySelector(".item-organization")
+      const descriptionEl = itemEl.querySelector(".item-description")
+
+      if (titleEl) {
+        item["job title"] = titleEl.textContent || ""
+      }
+      if (durationEl) {
+        item["Duration"] = durationEl.textContent || ""
+      }
+      if (organizationEl) {
+        item["Organization"] = organizationEl.textContent || ""
+      }
+      if (descriptionEl) {
+        item["Description"] = descriptionEl.textContent || ""
+      }
+
+      // Handle skills format
+      const skillsEl = itemEl.querySelector(".skills-category")
+      if (skillsEl && skillsEl.parentElement) {
+        const fullText = skillsEl.parentElement.textContent || ""
+        const categoryText = skillsEl.textContent || ""
+        const skillsText = fullText.replace(categoryText + ":", "").trim()
+        item["Category"] = categoryText
+        item["Skills"] = skillsText
+      }
+
+      // Handle generic fields
+      const genericFields = itemEl.querySelectorAll(".generic-field")
+      genericFields.forEach((fieldEl) => {
+        const labelEl = fieldEl.querySelector(".field-label")
+        if (labelEl) {
+          const label = labelEl.textContent?.replace(":", "") || ""
+          const value = fieldEl.textContent?.replace(labelEl.textContent || "", "").trim() || ""
+          if (label && value) {
+            item[label] = value
+          }
+        }
+      })
+
+      // Only add item if it has content
+      if (Object.keys(item).length > 0) {
+        content.push(item)
+      }
+    })
+
+    // Add section if it has content
+    if (content.length > 0) {
+      sections.push({
+        "section name": sectionName,
+        content,
+        id: generateId(),
+      })
+    }
+  })
+
+  return { title, sections }
+}

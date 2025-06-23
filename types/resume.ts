@@ -24,3 +24,6 @@ export interface ClipboardData {
   type: "section" | "content"
   data: Section | ContentItem | null
 }
+
+// Update the tab type to include HTML
+export type TabType = "json" | "markdown" | "html"

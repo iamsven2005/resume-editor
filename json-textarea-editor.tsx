@@ -11,11 +11,14 @@ import { PDFPreviewPanel } from "./components/pdf-preview-panel"
 import type { Section, ContentItem } from "./types/resume"
 
 export default function JsonTextareaEditor() {
+  // Update the main component to use HTML functionality
   const {
     jsonString,
     setJsonString,
     markdownString,
     setMarkdownString,
+    htmlString,
+    setHtmlString,
     parsedData,
     parseError,
     activeTab,
@@ -27,6 +30,8 @@ export default function JsonTextareaEditor() {
     updateJsonFromData,
     convertToMarkdown,
     convertToJson,
+    convertToHtml,
+    convertFromHtml,
   } = useResumeEditor()
 
   const [isExporting, setIsExporting] = useState(false)
@@ -424,16 +429,21 @@ export default function JsonTextareaEditor() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Input Panel with Tabs */}
+        {/* Update the DataInputPanel props */}
         <DataInputPanel
           jsonString={jsonString}
           markdownString={markdownString}
+          htmlString={htmlString}
           activeTab={activeTab}
           parseError={parseError}
           onJsonChange={setJsonString}
           onMarkdownChange={setMarkdownString}
+          onHtmlChange={setHtmlString}
           onTabChange={setActiveTab}
           onConvertToMarkdown={convertToMarkdown}
           onConvertToJson={convertToJson}
+          onConvertToHtml={convertToHtml}
+          onConvertFromHtml={convertFromHtml}
         />
 
         {/* Form View */}
