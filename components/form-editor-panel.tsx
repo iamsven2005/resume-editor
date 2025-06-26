@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { DragDropContext, Droppable } from "@hello-pangea/dnd"
-import { AlertCircle, Plus } from "lucide-react"
+import { AlertCircle, Plus, ChevronUp, ChevronDown } from "lucide-react"
 import type { ResumeData, EditingField, ClipboardData } from "../types/resume"
 import { SectionEditor } from "./section-editor"
 
@@ -13,6 +13,8 @@ interface FormEditorPanelProps {
   parsedData: ResumeData | null
   editingField: EditingField | null
   clipboard: ClipboardData
+  collapsedSections: Set<string>
+  onToggleSectionCollapse: (sectionId: string) => void
   onTitleChange: (title: string) => void
   onSectionNameChange: (sectionIndex: number, name: string) => void
   onFieldChange: (sectionIndex: number, contentIndex: number, field: string, value: string) => void
@@ -37,6 +39,8 @@ export const FormEditorPanel = ({
   parsedData,
   editingField,
   clipboard,
+  collapsedSections,
+  onToggleSectionCollapse,
   onTitleChange,
   onSectionNameChange,
   onFieldChange,
@@ -56,6 +60,9 @@ export const FormEditorPanel = ({
   onPasteItem,
   onDragEnd,
 }: FormEditorPanelProps) => {
+  const allCollapsed = parsedData ? parsedData.sections.every((section) => collapsedSections.has(section.id)) : false
+  const hasCollapsedSections = collapsedSections.size > 0
+
   return (
     <Card>
       <CardHeader>
@@ -79,17 +86,61 @@ export const FormEditorPanel = ({
             {/* Sections */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-lg font-semibold">Sections</Label>
-                <Button onClick={onAddSection} size="sm" className="flex items-center gap-1">
-                  <Plus className="h-4 w-4" />
-                  Add Section
-                </Button>
+                <Label className="text-lg font-semibold">Sections ({parsedData.sections.length})</Label>
+                <div className="flex gap-2">
+                  {parsedData.sections.length > 1 && (
+                    <Button
+                      onClick={() => {
+                        if (allCollapsed || hasCollapsedSections) {
+                          // Expand all
+                          parsedData.sections.forEach((section) => {
+                            if (collapsedSections.has(section.id)) {
+                              onToggleSectionCollapse(section.id)
+                            }
+                          })
+                        } else {
+                          // Collapse all
+                          parsedData.sections.forEach((section) => {
+                            if (!collapsedSections.has(section.id)) {
+                              onToggleSectionCollapse(section.id)
+                            }
+                          })
+                        }
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="flex items-center gap-1 text-xs"
+                    >
+                      {allCollapsed ? (
+                        <>
+                          <ChevronDown className="h-3 w-3" />
+                          Expand All
+                        </>
+                      ) : (
+                        <>
+                          <ChevronUp className="h-3 w-3" />
+                          Collapse All
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <Button onClick={onAddSection} size="sm" className="flex items-center gap-1">
+                    <Plus className="h-4 w-4" />
+                    Add Section
+                  </Button>
+                </div>
               </div>
 
               <DragDropContext onDragEnd={onDragEnd}>
                 <Droppable droppableId="sections" type="section">
-                  {(provided) => (
-                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-6">
+                  {(provided, snapshot) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className={`space-y-6 transition-colors duration-200 ${
+                        snapshot.isDraggingOver ? "bg-accent/20 rounded-lg p-2" : ""
+                      }`}
+                    >
                       {parsedData.sections.map((section, sectionIndex) => (
                         <SectionEditor
                           key={section.id}
@@ -97,6 +148,8 @@ export const FormEditorPanel = ({
                           sectionIndex={sectionIndex}
                           editingField={editingField}
                           clipboard={clipboard}
+                          isCollapsed={collapsedSections.has(section.id)}
+                          onToggleCollapse={() => onToggleSectionCollapse(section.id)}
                           onSectionNameChange={(name) => onSectionNameChange(sectionIndex, name)}
                           onFieldChange={(contentIndex, field, value) =>
                             onFieldChange(sectionIndex, contentIndex, field, value)

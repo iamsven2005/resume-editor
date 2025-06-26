@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Upload, FileText, AlertCircle, CheckCircle2, X, File } from "lucide-react"
-import { extractTextFromPDF, parseResumeWithAI } from "../utils/pdf-parser"
+import { Upload, FileText, AlertCircle, CheckCircle2, X, File, Info } from "lucide-react"
+import { extractTextFromPDF, extractTextFromPDFAdvanced, parseResumeWithAI } from "../utils/pdf-parser"
 import { extractFormattedTextFromWord, parseWordResumeWithAI } from "../utils/word-parser"
 import type { ResumeData } from "../types/resume"
 
@@ -23,7 +23,28 @@ const processDocumentFile = async (file: File): Promise<ResumeData> => {
   let extractedText: string
 
   if (fileType === "pdf") {
-    extractedText = await extractTextFromPDF(file)
+    try {
+      // Try primary PDF extraction method
+      extractedText = await extractTextFromPDF(file)
+    } catch (primaryError) {
+      console.warn("Primary PDF extraction failed, trying advanced method:", primaryError)
+      try {
+        // Try advanced PDF extraction method
+        extractedText = await extractTextFromPDFAdvanced(file)
+      } catch (advancedError) {
+        console.error("Both PDF extraction methods failed:", advancedError)
+        throw new Error(
+          "Failed to extract text from PDF. This PDF might be:\n\n" +
+            "• A scanned document (image-based)\n" +
+            "• Password-protected or encrypted\n" +
+            "• Corrupted or in an unsupported format\n\n" +
+            "Please try:\n" +
+            "• Converting to a text-based PDF\n" +
+            "• Uploading a Word document (.docx) instead\n" +
+            "• Manually copying and pasting the text",
+        )
+      }
+    }
     return parseResumeWithAI(extractedText)
   } else if (fileType === "docx") {
     extractedText = await extractFormattedTextFromWord(file)
@@ -97,10 +118,16 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
         detectedFileType === "pdf" ? "Extracting text from PDF..." : "Extracting text from Word document...",
       )
 
-      // Extract text first
+      // Extract text with improved error handling
       let text: string
       if (detectedFileType === "pdf") {
-        text = await extractTextFromPDF(file)
+        try {
+          text = await extractTextFromPDF(file)
+        } catch (primaryError) {
+          setCurrentStep("Primary extraction failed, trying advanced method...")
+          setProgress(35)
+          text = await extractTextFromPDFAdvanced(file)
+        }
       } else {
         text = await extractFormattedTextFromWord(file)
       }
@@ -192,9 +219,17 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
     if (files && files.length > 0) {
       handleFileSelect(files[0])
     }
+    // Reset the input value to allow selecting the same file again
+    if (e.target) {
+      e.target.value = ""
+    }
   }
 
-  const handleBrowseClick = () => {
+  const handleBrowseClick = (e?: React.MouseEvent) => {
+    // Prevent event bubbling if called from click handler
+    if (e) {
+      e.stopPropagation()
+    }
     fileInputRef.current?.click()
   }
 
@@ -230,15 +265,23 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
         </DialogDescription>
       </DialogHeader>
 
+      {/* PDF Information Alert */}
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          <strong>For best results:</strong> Use text-based PDFs or Word documents. Scanned PDFs or image-based
+          documents may not work well. Word documents (.docx) generally provide better text extraction.
+        </AlertDescription>
+      </Alert>
+
       {!isProcessing && !success && !error && (
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-muted-foreground/50"
           }`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={handleBrowseClick}
         >
           <div className="flex justify-center space-x-4 mb-4">
             <FileText className="h-8 w-8 text-red-500" title="PDF" />
@@ -253,13 +296,13 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
             onChange={handleFileInput}
             className="hidden"
           />
-          <Button variant="outline" onClick={handleBrowseClick}>
+          <Button variant="outline" onClick={(e) => handleBrowseClick(e)}>
             Choose Document
           </Button>
           <div className="mt-4 space-y-1">
             <p className="text-xs text-muted-foreground">Supported formats:</p>
-            <p className="text-xs text-muted-foreground">• PDF documents (.pdf)</p>
-            <p className="text-xs text-muted-foreground">• Word documents (.docx)</p>
+            <p className="text-xs text-muted-foreground">• Word documents (.docx) - recommended</p>
+            <p className="text-xs text-muted-foreground">• PDF documents (.pdf) - text-based only</p>
             <p className="text-xs text-muted-foreground">Maximum file size: 10MB</p>
           </div>
         </div>
@@ -275,8 +318,8 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
           <Progress value={progress} className="w-full" />
           <p className="text-sm text-muted-foreground text-center">
             {fileType === "docx"
-              ? "Processing Word document... This may take a few moments..."
-              : "Processing PDF... This may take a few moments..."}
+              ? "Processing Word document..."
+              : "Processing PDF... This may take longer for complex documents..."}
           </p>
           {extractedText && (
             <div className="mt-4 p-3 bg-muted rounded-md">
@@ -304,7 +347,7 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
         </Alert>
       )}
 

@@ -9,7 +9,13 @@ import { downloadHtml, downloadJson, downloadMarkdown } from "./utils/file-expor
 import { DataInputPanel } from "./components/data-input-panel"
 import { FormEditorPanel } from "./components/form-editor-panel"
 import { PDFPreviewPanel } from "./components/pdf-preview-panel"
+import { ResumeAnalysisPanel } from "./components/resume-analysis-panel"
+import { ResumeImprovementPanel } from "./components/resume-improvement-panel"
+import { PanelLayoutManager, type PanelConfig } from "./components/panel-layout-manager"
 import type { Section, ContentItem, TabType, ResumeData } from "./types/resume"
+import type { ResumeAnalysis } from "./types/analysis"
+import { FileText, Edit3, BarChart3, Eye, Upload, Download, Target, Sparkles } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function JsonTextareaEditor() {
   const {
@@ -35,6 +41,10 @@ export default function JsonTextareaEditor() {
   } = useResumeEditor()
 
   const [isExporting, setIsExporting] = useState(false)
+  const [jobRequirements, setJobRequirements] = useState("")
+  const [resumeAnalysis, setResumeAnalysis] = useState<ResumeAnalysis | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
 
   // Handle resume upload from PDF
   const handleResumeUploaded = (data: ResumeData) => {
@@ -482,12 +492,70 @@ export default function JsonTextareaEditor() {
     }
   }
 
-  return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <h1 className="text-3xl font-bold mb-6">JSON Resume Editor with PDF Preview</h1>
+  // Handle resume analysis
+  const analyzeResume = async () => {
+    if (!parsedData || !jobRequirements.trim()) {
+      toast({
+        variant: "destructive",
+        description: "Both resume data and job requirements are needed for analysis.",
+      })
+      return
+    }
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Input Panel with Tabs */}
+    setIsAnalyzing(true)
+    try {
+      const response = await fetch("/api/analyze-resume", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          resumeData: parsedData,
+          jobRequirements: jobRequirements.trim(),
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setResumeAnalysis(result.analysis)
+        toast({
+          description: "Resume analysis completed successfully!",
+        })
+      } else {
+        throw new Error(result.error || "Analysis failed")
+      }
+    } catch (error) {
+      console.error("Error analyzing resume:", error)
+      toast({
+        variant: "destructive",
+        description: "Failed to analyze resume. Please try again.",
+      })
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  // Handle section collapse toggle
+  const toggleSectionCollapse = (sectionId: string) => {
+    setCollapsedSections((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId)
+      } else {
+        newSet.add(sectionId)
+      }
+      return newSet
+    })
+  }
+
+  // Define panels configuration
+  const panels: PanelConfig[] = [
+    {
+      id: "data-input",
+      title: "Data Input",
+      icon: <FileText className="h-4 w-4" />,
+      component: (
         <DataInputPanel
           jsonString={jsonString}
           markdownString={markdownString}
@@ -505,13 +573,29 @@ export default function JsonTextareaEditor() {
           onConvertFromHtml={convertFromHtml}
           onDownloadFile={handleDownloadFile}
           onResumeUploaded={handleResumeUploaded}
+          jobRequirements={jobRequirements}
+          onJobRequirementsChange={setJobRequirements}
+          onAnalyzeResume={analyzeResume}
+          isAnalyzing={isAnalyzing}
         />
-
-        {/* Form View */}
+      ),
+      headerActions: (
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Upload document">
+          <Upload className="h-3 w-3" />
+        </Button>
+      ),
+    },
+    {
+      id: "form-editor",
+      title: "Form Editor",
+      icon: <Edit3 className="h-4 w-4" />,
+      component: (
         <FormEditorPanel
           parsedData={parsedData}
           editingField={editingField}
           clipboard={clipboard}
+          collapsedSections={collapsedSections}
+          onToggleSectionCollapse={toggleSectionCollapse}
           onTitleChange={handleTitleChange}
           onSectionNameChange={handleSectionNameChange}
           onFieldChange={handleContentFieldChange}
@@ -531,15 +615,76 @@ export default function JsonTextareaEditor() {
           onPasteItem={pasteContentItem}
           onDragEnd={handleDragEnd}
         />
-
-        {/* PDF Preview */}
+      ),
+    },
+    {
+      id: "resume-analysis",
+      title: "Resume Analysis",
+      icon: <BarChart3 className="h-4 w-4" />,
+      component: <ResumeAnalysisPanel analysis={resumeAnalysis} isLoading={isAnalyzing} />,
+      headerActions: resumeAnalysis && (
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Re-analyze" onClick={analyzeResume}>
+          <Target className="h-3 w-3" />
+        </Button>
+      ),
+      defaultCollapsed: !resumeAnalysis,
+    },
+    {
+      id: "resume-improvement",
+      title: "AI Improvement",
+      icon: <Sparkles className="h-4 w-4" />,
+      component: (
+        <ResumeImprovementPanel
+          analysis={resumeAnalysis}
+          resumeData={parsedData}
+          jobRequirements={jobRequirements}
+          onResumeImproved={(improvedResume) => {
+            updateJsonFromData(improvedResume)
+            toast({
+              description: "Resume improved successfully! Re-analyze to see the new score.",
+            })
+          }}
+        />
+      ),
+      defaultCollapsed: !resumeAnalysis,
+    },
+    {
+      id: "pdf-preview",
+      title: "PDF Preview",
+      icon: <Eye className="h-4 w-4" />,
+      component: (
         <PDFPreviewPanel
           parsedData={parsedData}
           isExporting={isExporting}
           onExportPDF={exportToPDF}
           onDownloadHtml={handleDownloadHtmlFromPreview}
         />
+      ),
+      headerActions: (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0"
+          title="Export PDF"
+          onClick={exportToPDF}
+          disabled={!parsedData || isExporting}
+        >
+          <Download className="h-3 w-3" />
+        </Button>
+      ),
+    },
+  ]
+
+  return (
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">JSON Resume Editor with PDF Preview</h1>
+        <p className="text-muted-foreground">
+          Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
+        </p>
       </div>
+
+      <PanelLayoutManager panels={panels} />
     </div>
   )
 }

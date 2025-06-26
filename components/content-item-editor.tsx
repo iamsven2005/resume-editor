@@ -49,21 +49,32 @@ export const ContentItemEditor = ({
       draggableId={`${sectionId}-content-${contentIndex}`}
       index={contentIndex}
     >
-      {(provided) => (
+      {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className="grid grid-cols-1 gap-2 p-3 border rounded-md bg-muted/50 relative group"
+          className={`grid grid-cols-1 gap-2 p-3 border rounded-md bg-muted/50 relative group transition-all duration-200 ${
+            snapshot.isDragging
+              ? "shadow-lg border-primary bg-accent/50 scale-[1.02] rotate-1 z-50"
+              : "hover:shadow-md hover:border-border"
+          }`}
         >
           <div
             {...provided.dragHandleProps}
-            className="absolute left-2 top-2 cursor-grab opacity-50 group-hover:opacity-100"
+            className="absolute left-2 top-2 cursor-grab active:cursor-grabbing opacity-30 group-hover:opacity-70 hover:opacity-100 transition-opacity duration-200 z-10"
+            title="Drag to reorder content item"
           >
-            <GripVertical className="h-4 w-4" />
+            <GripVertical className="h-4 w-4 text-muted-foreground hover:text-foreground" />
           </div>
 
-          <div className="absolute right-2 top-2 flex space-x-1">
-            <Button variant="ghost" size="icon" onClick={onCopyItem} title="Copy content item" className="h-6 w-6">
+          <div className="absolute right-2 top-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onCopyItem}
+              title="Copy content item"
+              className="h-6 w-6 hover:bg-accent"
+            >
               <Copy className="h-3 w-3" />
             </Button>
             <Button
@@ -71,7 +82,7 @@ export const ContentItemEditor = ({
               size="icon"
               onClick={onDeleteItem}
               title="Delete content item"
-              className="text-destructive hover:text-destructive h-6 w-6"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-6 w-6"
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -95,18 +106,18 @@ export const ContentItemEditor = ({
               />
             ))}
 
-            <Button variant="outline" size="sm" onClick={onAddField} className="mt-2 w-full text-xs">
+            <Button variant="outline" size="sm" onClick={onAddField} className="mt-2 w-full text-xs hover:bg-accent">
               <Plus className="h-3 w-3 mr-1" /> Add Field
             </Button>
           </div>
 
           {clipboard.type === "content" && clipboard.data && (
-            <div className="flex justify-end mt-2">
+            <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onPasteItem}
-                className="flex items-center gap-1 text-xs"
+                className="flex items-center gap-1 text-xs hover:bg-accent"
                 title="Paste content item after this one"
               >
                 <Clipboard className="h-3 w-3" />

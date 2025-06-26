@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { AlertCircle, Code, FileCode, Globe, Download, Upload } from "lucide-react"
+import { AlertCircle, Code, FileCode, Globe, Download, Upload, Target } from "lucide-react"
 import { DocumentUpload } from "./document-upload"
 import type { TabType, ResumeData } from "../types/resume"
 
@@ -28,6 +28,10 @@ interface DataInputPanelProps {
   onConvertFromHtml: () => void
   onDownloadFile: (format: TabType) => void
   onResumeUploaded: (data: ResumeData) => void
+  jobRequirements: string
+  onJobRequirementsChange: (value: string) => void
+  onAnalyzeResume: () => void
+  isAnalyzing: boolean
 }
 
 export const DataInputPanel = ({
@@ -47,6 +51,10 @@ export const DataInputPanel = ({
   onConvertFromHtml,
   onDownloadFile,
   onResumeUploaded,
+  jobRequirements,
+  onJobRequirementsChange,
+  onAnalyzeResume,
+  isAnalyzing,
 }: DataInputPanelProps) => {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 
@@ -153,6 +161,31 @@ export const DataInputPanel = ({
               {getDownloadButtonText()}
             </Button>
           </div>
+        </div>
+        {/* Job Requirements Section */}
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <label htmlFor="job-requirements" className="text-sm font-medium">
+              Job Requirements (Optional)
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAnalyzeResume}
+              disabled={!jobRequirements.trim() || isAnalyzing}
+              className="flex items-center gap-1"
+            >
+              <Target className="h-4 w-4" />
+              {isAnalyzing ? "Analyzing..." : "Analyze Resume"}
+            </Button>
+          </div>
+          <Textarea
+            id="job-requirements"
+            value={jobRequirements}
+            onChange={(e) => onJobRequirementsChange(e.target.value)}
+            className="text-sm min-h-[100px]"
+            placeholder="Paste the job description or requirements here to get AI-powered analysis of how well your resume matches..."
+          />
         </div>
       </CardHeader>
       <CardContent>
