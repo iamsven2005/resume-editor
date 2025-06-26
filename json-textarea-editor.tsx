@@ -676,15 +676,17 @@ export default function JsonTextareaEditor() {
   ]
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">JSON Resume Editor with PDF Preview</h1>
-        <p className="text-muted-foreground">
-          Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
-        </p>
-      </div>
+    <div className="min-h-screen w-full overflow-x-hidden">
+      <div className="container mx-auto p-6 max-w-full">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">JSON Resume Editor with PDF Preview</h1>
+          <p className="text-muted-foreground">
+            Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
+          </p>
+        </div>
 
-      <PanelLayoutManager panels={panels} />
+        <PanelLayoutManager panels={panels} />
+      </div>
     </div>
   )
 }

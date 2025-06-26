@@ -97,20 +97,45 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
   const getGridTemplateColumns = () => {
     if (isVerticalLayout || isMobile) return undefined
 
-    // Base unit for collapsed panels (narrow width)
     const collapsedWidth = "60px"
+    const expandedPanels = orderedPanels.filter((panel) => !collapsedPanels.has(panel.id))
 
-    // Create template with collapsed panels taking minimal space
-    // and expanded panels sharing the remaining space equally
+    if (expandedPanels.length === 0) {
+      return `repeat(${totalPanels}, ${collapsedWidth})`
+    }
+
+    // Calculate minimum width for expanded panels to prevent overflow
+    // Account for gaps between panels (gap-4 = 16px * (panels - 1))
+    const gapWidth = (totalPanels - 1) * 16
+    const collapsedTotalWidth = collapsedCount * 60
+    const availableWidth = `calc(100vw - ${collapsedTotalWidth + gapWidth + 96}px)` // 96px for container padding
+
+    // Set minimum width for expanded panels to prevent them from being too narrow
+    const minExpandedWidth = "280px"
+
+    // If we have too many expanded panels, some should be collapsed automatically
+    if (expandedCount > 4) {
+      // Force collapse some panels if there are too many expanded
+      const maxExpanded = Math.floor((window.innerWidth - 400) / 300) // Rough calculation
+      if (expandedCount > maxExpanded) {
+        // This is handled by the UI, but we can suggest it
+      }
+    }
+
     const columns = orderedPanels.map((panel) => {
-      return collapsedPanels.has(panel.id) ? collapsedWidth : "1fr"
+      if (collapsedPanels.has(panel.id)) {
+        return collapsedWidth
+      } else {
+        // Use minmax to ensure panels don't get too small but can grow
+        return `minmax(${minExpandedWidth}, 1fr)`
+      }
     })
 
     return columns.join(" ")
   }
 
   return (
-    <div className={cn("w-full", className)}>
+    <div className={cn("w-full overflow-hidden", className)}>
       {/* Panel Controls */}
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2">
@@ -120,6 +145,11 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
           {collapsedCount > 0 && (
             <Badge variant="secondary" className="text-xs">
               {collapsedCount} collapsed
+            </Badge>
+          )}
+          {expandedCount > 3 && !isVerticalLayout && (
+            <Badge variant="destructive" className="text-xs">
+              Consider collapsing some panels
             </Badge>
           )}
         </div>
@@ -167,13 +197,15 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
               className={cn(
                 "transition-colors duration-200 w-full",
                 // Vertical layout for mobile and smaller screens
-                isVerticalLayout || isMobile ? "flex flex-col gap-4" : "grid gap-4",
+                isVerticalLayout || isMobile ? "flex flex-col gap-4" : "grid gap-4 overflow-x-auto",
                 snapshot.isDraggingOver && "bg-accent/10 rounded-lg p-2",
               )}
               style={
                 !isVerticalLayout && !isMobile
                   ? {
                       gridTemplateColumns: getGridTemplateColumns(),
+                      maxWidth: "100vw",
+                      width: "100%",
                     }
                   : undefined
               }
@@ -192,6 +224,8 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
                   className={cn(
                     // Ensure minimum height for collapsed panels on desktop horizontal layout
                     !isVerticalLayout && !isMobile && collapsedPanels.has(panel.id) && "min-h-[600px]",
+                    // Prevent individual panels from overflowing
+                    !isVerticalLayout && !isMobile && "min-w-0 overflow-hidden",
                   )}
                 >
                   {panel.component}
