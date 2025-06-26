@@ -5,13 +5,13 @@ import { toast } from "@/components/ui/use-toast"
 import { useResumeEditor } from "./hooks/use-resume-editor"
 import { generatePDFFromMarkdown } from "./utils/pdf-generator"
 import { generateId } from "./utils/conversion"
+import { downloadHtml, downloadJson, downloadMarkdown } from "./utils/file-export"
 import { DataInputPanel } from "./components/data-input-panel"
 import { FormEditorPanel } from "./components/form-editor-panel"
 import { PDFPreviewPanel } from "./components/pdf-preview-panel"
-import type { Section, ContentItem } from "./types/resume"
+import type { Section, ContentItem, TabType, ResumeData } from "./types/resume"
 
 export default function JsonTextareaEditor() {
-  // Update the main component to use HTML functionality
   const {
     jsonString,
     setJsonString,
@@ -35,6 +35,65 @@ export default function JsonTextareaEditor() {
   } = useResumeEditor()
 
   const [isExporting, setIsExporting] = useState(false)
+
+  // Handle resume upload from PDF
+  const handleResumeUploaded = (data: ResumeData) => {
+    updateJsonFromData(data)
+    setActiveTab("json")
+    toast({
+      description: "Resume uploaded and processed successfully!",
+    })
+  }
+
+  // Handle file downloads
+  const handleDownloadFile = (format: TabType) => {
+    if (!parsedData) {
+      toast({
+        variant: "destructive",
+        description: "No data to download",
+      })
+      return
+    }
+
+    try {
+      switch (format) {
+        case "json":
+          downloadJson(jsonString, parsedData.title)
+          toast({
+            description: "JSON file downloaded successfully",
+          })
+          break
+        case "markdown":
+          downloadMarkdown(markdownString, parsedData.title)
+          toast({
+            description: "Markdown file downloaded successfully",
+          })
+          break
+        case "html":
+          downloadHtml(htmlString, parsedData.title)
+          toast({
+            description: "HTML file downloaded successfully",
+          })
+          break
+        default:
+          toast({
+            variant: "destructive",
+            description: "Unknown file format",
+          })
+      }
+    } catch (error) {
+      console.error("Error downloading file:", error)
+      toast({
+        variant: "destructive",
+        description: "Error downloading file. Please try again.",
+      })
+    }
+  }
+
+  // Handle HTML download from preview panel
+  const handleDownloadHtmlFromPreview = () => {
+    handleDownloadFile("html")
+  }
 
   // Handle title change
   const handleTitleChange = (newTitle: string) => {
@@ -429,13 +488,13 @@ export default function JsonTextareaEditor() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Input Panel with Tabs */}
-        {/* Update the DataInputPanel props */}
         <DataInputPanel
           jsonString={jsonString}
           markdownString={markdownString}
           htmlString={htmlString}
           activeTab={activeTab}
           parseError={parseError}
+          resumeTitle={parsedData?.title || "resume"}
           onJsonChange={setJsonString}
           onMarkdownChange={setMarkdownString}
           onHtmlChange={setHtmlString}
@@ -444,6 +503,8 @@ export default function JsonTextareaEditor() {
           onConvertToJson={convertToJson}
           onConvertToHtml={convertToHtml}
           onConvertFromHtml={convertFromHtml}
+          onDownloadFile={handleDownloadFile}
+          onResumeUploaded={handleResumeUploaded}
         />
 
         {/* Form View */}
@@ -472,7 +533,12 @@ export default function JsonTextareaEditor() {
         />
 
         {/* PDF Preview */}
-        <PDFPreviewPanel parsedData={parsedData} isExporting={isExporting} onExportPDF={exportToPDF} />
+        <PDFPreviewPanel
+          parsedData={parsedData}
+          isExporting={isExporting}
+          onExportPDF={exportToPDF}
+          onDownloadHtml={handleDownloadHtmlFromPreview}
+        />
       </div>
     </div>
   )

@@ -1,12 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, Code, FileCode, Globe } from "lucide-react"
-import type { TabType } from "../types/resume"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { AlertCircle, Code, FileCode, Globe, Download, Upload } from "lucide-react"
+import { DocumentUpload } from "./document-upload"
+import type { TabType, ResumeData } from "../types/resume"
 
 interface DataInputPanelProps {
   jsonString: string
@@ -14,6 +17,7 @@ interface DataInputPanelProps {
   htmlString: string
   activeTab: TabType
   parseError: string
+  resumeTitle: string
   onJsonChange: (value: string) => void
   onMarkdownChange: (value: string) => void
   onHtmlChange: (value: string) => void
@@ -22,6 +26,8 @@ interface DataInputPanelProps {
   onConvertToJson: () => void
   onConvertToHtml: () => void
   onConvertFromHtml: () => void
+  onDownloadFile: (format: TabType) => void
+  onResumeUploaded: (data: ResumeData) => void
 }
 
 export const DataInputPanel = ({
@@ -30,6 +36,7 @@ export const DataInputPanel = ({
   htmlString,
   activeTab,
   parseError,
+  resumeTitle,
   onJsonChange,
   onMarkdownChange,
   onHtmlChange,
@@ -38,7 +45,11 @@ export const DataInputPanel = ({
   onConvertToJson,
   onConvertToHtml,
   onConvertFromHtml,
+  onDownloadFile,
+  onResumeUploaded,
 }: DataInputPanelProps) => {
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+
   const getConversionButtons = () => {
     switch (activeTab) {
       case "json":
@@ -85,12 +96,63 @@ export const DataInputPanel = ({
     }
   }
 
+  const getDownloadButtonText = () => {
+    switch (activeTab) {
+      case "json":
+        return "Download JSON"
+      case "markdown":
+        return "Download Markdown"
+      case "html":
+        return "Download HTML"
+      default:
+        return "Download"
+    }
+  }
+
+  const getFileIcon = () => {
+    switch (activeTab) {
+      case "json":
+        return <Code className="h-4 w-4" />
+      case "markdown":
+        return <FileCode className="h-4 w-4" />
+      case "html":
+        return <Globe className="h-4 w-4" />
+      default:
+        return <Download className="h-4 w-4" />
+    }
+  }
+
+  const handleResumeUploaded = (data: ResumeData) => {
+    onResumeUploaded(data)
+    setIsUploadDialogOpen(false)
+  }
+
+  const handleUploadClick = () => {
+    setIsUploadDialogOpen(true)
+  }
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Data Input</CardTitle>
-          <div className="flex space-x-2">{getConversionButtons()}</div>
+          <div className="flex space-x-2 flex-wrap">
+            <Button variant="secondary" size="sm" onClick={handleUploadClick} className="flex items-center gap-1">
+              <Upload className="h-4 w-4" />
+              Upload Document
+            </Button>
+            {getConversionButtons()}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onDownloadFile(activeTab)}
+              className="flex items-center gap-1"
+              title={`Download current content as ${activeTab.toUpperCase()} file`}
+            >
+              {getFileIcon()}
+              {getDownloadButtonText()}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -144,6 +206,13 @@ export const DataInputPanel = ({
             <AlertDescription>{parseError}</AlertDescription>
           </Alert>
         )}
+
+        {/* Document Upload Dialog */}
+        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DocumentUpload onResumeExtracted={handleResumeUploaded} onClose={() => setIsUploadDialogOpen(false)} />
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   )

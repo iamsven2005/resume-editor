@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { ResumeData, EditingField, ClipboardData, TabType } from "../types/resume"
-import { jsonToMarkdown, markdownToJson, jsonToHtml, htmlToJson, generateId } from "../utils/conversion"
 import { toast } from "@/components/ui/use-toast"
+import { jsonToMarkdown, markdownToJson, jsonToHtml, htmlToJson, generateId } from "../utils/conversion"
+import type { ResumeData, EditingField, ClipboardData, TabType } from "../types/resume"
 
 const defaultResumeData = `{
   "title": "John Doe - Software Engineer",
@@ -55,7 +55,6 @@ const defaultResumeData = `{
   ]
 }`
 
-// Update the hook to include HTML state and functionality
 export const useResumeEditor = () => {
   const [jsonString, setJsonString] = useState(defaultResumeData)
   const [markdownString, setMarkdownString] = useState("")
@@ -86,7 +85,7 @@ export const useResumeEditor = () => {
         setParsedData(parsed)
         setParseError("")
 
-        // Update other formats when JSON changes
+        // Update markdown and HTML when JSON changes
         setMarkdownString(jsonToMarkdown(parsed))
         setHtmlString(jsonToHtml(parsed))
       } catch (error) {
@@ -104,7 +103,7 @@ export const useResumeEditor = () => {
         setParsedData(parsed)
         setParseError("")
 
-        // Update other formats when markdown changes
+        // Update JSON and HTML when markdown changes
         setJsonString(JSON.stringify(parsed, null, 2))
         setHtmlString(jsonToHtml(parsed))
       } catch (error) {
@@ -122,7 +121,7 @@ export const useResumeEditor = () => {
         setParsedData(parsed)
         setParseError("")
 
-        // Update other formats when HTML changes
+        // Update JSON and markdown when HTML changes
         setJsonString(JSON.stringify(parsed, null, 2))
         setMarkdownString(jsonToMarkdown(parsed))
       } catch (error) {
@@ -158,7 +157,6 @@ export const useResumeEditor = () => {
       const data = markdownToJson(markdownString)
       setParsedData(data)
       setJsonString(JSON.stringify(data, null, 2))
-      setHtmlString(jsonToHtml(data))
       setActiveTab("json")
       toast({
         description: "Converted to JSON successfully",
@@ -183,13 +181,12 @@ export const useResumeEditor = () => {
     }
   }
 
-  // Convert HTML to JSON
+  // Convert from HTML
   const convertFromHtml = () => {
     try {
       const data = htmlToJson(htmlString)
       setParsedData(data)
       setJsonString(JSON.stringify(data, null, 2))
-      setMarkdownString(jsonToMarkdown(data))
       setActiveTab("json")
       toast({
         description: "Converted from HTML successfully",
@@ -203,7 +200,6 @@ export const useResumeEditor = () => {
   }
 
   return {
-    // State
     jsonString,
     setJsonString,
     markdownString,
@@ -218,8 +214,6 @@ export const useResumeEditor = () => {
     setClipboard,
     editingField,
     setEditingField,
-
-    // Actions
     updateJsonFromData,
     convertToMarkdown,
     convertToJson,
