@@ -1,4 +1,8 @@
 import type { ResumeData } from "../types/resume"
+import * as pdfjsLib from "pdfjs-dist"
+
+// Set up the worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
 // Helper function to extract text from PDF using multiple methods
 export const extractTextFromPDF = async (file: File): Promise<string> => {
@@ -189,6 +193,66 @@ export const extractTextFromPDFAdvanced = async (file: File): Promise<string> =>
 
     reader.readAsArrayBuffer(file)
   })
+}
+
+// Function to parse PDF using pdfjs
+export async function parsePDF(file: File): Promise<string> {
+  try {
+    console.log("Starting PDF parsing for file:", file.name)
+
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+
+    console.log("PDF loaded, pages:", pdf.numPages)
+
+    let fullText = ""
+
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      try {
+        const page = await pdf.getPage(pageNum)
+        const textContent = await page.getTextContent()
+
+        // Combine text items with proper spacing
+        const pageText = textContent.items
+          .map((item: any) => {
+            if (item.str) {
+              return item.str
+            }
+            return ""
+          })
+          .join(" ")
+          .replace(/\s+/g, " ") // Normalize whitespace
+          .trim()
+
+        if (pageText) {
+          fullText += pageText + "\n\n"
+        }
+
+        console.log(`Page ${pageNum} extracted, length:`, pageText.length)
+      } catch (pageError) {
+        console.error(`Error extracting page ${pageNum}:`, pageError)
+        // Continue with other pages
+      }
+    }
+
+    // Clean up the extracted text
+    const cleanedText = fullText
+      .replace(/\n\s*\n\s*\n/g, "\n\n") // Remove excessive line breaks
+      .replace(/\s+/g, " ") // Normalize spaces
+      .trim()
+
+    console.log("PDF parsing completed, total length:", cleanedText.length)
+
+    if (!cleanedText) {
+      throw new Error("No text could be extracted from the PDF")
+    }
+
+    return cleanedText
+  } catch (error) {
+    console.error("PDF parsing error:", error)
+    throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
 }
 
 // Helper function to decode PDF text

@@ -51,7 +51,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { title, description, theme, resumeIds, mergedResumeData } = body
+    const { title, description, theme, resumeIds } = body
+
+    console.log("Creating portfolio with data:", { title, description, theme, resumeIds })
 
     if (!title || !theme) {
       return NextResponse.json(
@@ -63,47 +65,55 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate a unique URL slug
-    const urlSlug = `${title.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Date.now().toString(36)}`
+    const finalResumeData = {
+      title: title,
+      sections: [],
+    }
 
-    let finalResumeData = mergedResumeData
-
-    // If no merged data provided, merge the selected resumes
-    if (!finalResumeData && resumeIds && resumeIds.length > 0) {
+    // If resumeIds provided, merge the selected resumes
+    if (resumeIds && resumeIds.length > 0) {
       const resumes = await sql`
         SELECT resume_data FROM resumes 
         WHERE id = ANY(${resumeIds}) AND user_id = ${user.id}
       `
 
-      // Simple merge logic - combine all sections
-      finalResumeData = {
-        personalInfo: {},
-        experience: [],
-        education: [],
-        skills: [],
-        projects: [],
-        certifications: [],
+      console.log("Found resumes to merge:", resumes.length)
+
+      if (resumes.length > 0) {
+        // Merge resume data
+        const sectionMap = new Map()
+
+        resumes.forEach((resume: any) => {
+          const data = typeof resume.resume_data === "string" ? JSON.parse(resume.resume_data) : resume.resume_data
+
+          if (data.sections && Array.isArray(data.sections)) {
+            data.sections.forEach((section: any) => {
+              const sectionName = section["section name"] || section.name || "Untitled"
+
+              if (sectionMap.has(sectionName)) {
+                // Merge content if section already exists
+                const existingSection = sectionMap.get(sectionName)
+                existingSection.content = [...existingSection.content, ...section.content]
+              } else {
+                // Add new section
+                sectionMap.set(sectionName, {
+                  "section name": sectionName,
+                  content: [...section.content],
+                  id: section.id || `section-${Math.random().toString(36).substr(2, 9)}`,
+                })
+              }
+            })
+          }
+        })
+
+        finalResumeData.sections = Array.from(sectionMap.values())
       }
-
-      resumes.forEach((resume: any) => {
-        const data = typeof resume.resume_data === "string" ? JSON.parse(resume.resume_data) : resume.resume_data
-
-        // Merge personal info (last one wins for conflicts)
-        if (data.personalInfo) {
-          finalResumeData.personalInfo = { ...finalResumeData.personalInfo, ...data.personalInfo }
-        }
-
-        // Concatenate arrays
-        if (data.experience) finalResumeData.experience.push(...data.experience)
-        if (data.education) finalResumeData.education.push(...data.education)
-        if (data.skills) finalResumeData.skills.push(...data.skills)
-        if (data.projects) finalResumeData.projects.push(...data.projects)
-        if (data.certifications) finalResumeData.certifications.push(...data.certifications)
-      })
-
-      // Remove duplicates from skills
-      finalResumeData.skills = [...new Set(finalResumeData.skills)]
     }
+
+    // Generate a unique URL slug
+    const urlSlug = `${title.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now().toString(36)}`
+
+    console.log("Creating portfolio with final data:", finalResumeData)
 
     const result = await sql`
       INSERT INTO portfolios (
@@ -139,12 +149,20 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `
 
+    console.log("Portfolio created successfully:", result[0])
+
     return NextResponse.json({
       success: true,
       portfolio: result[0],
     })
   } catch (error) {
     console.error("Error creating portfolio:", error)
-    return NextResponse.json({ success: false, error: "Failed to create portfolio" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Failed to create portfolio: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+      { status: 500 },
+    )
   }
 }

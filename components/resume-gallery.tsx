@@ -88,6 +88,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   const [activeTab, setActiveTab] = useState("resumes")
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -98,19 +99,33 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
   // Auto-save functionality
   useEffect(() => {
-    if (!autoSaveEnabled || !currentResumeData || !user) return
+    // Clear existing timer
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer)
+    }
 
-    const autoSaveTimer = setTimeout(async () => {
-      if (currentResumeData && currentResumeData.title) {
-        try {
-          await handleAutoSave()
-        } catch (error) {
-          console.error("Auto-save failed:", error)
-        }
+    if (!autoSaveEnabled || !currentResumeData || !user || !currentResumeData.title) {
+      return
+    }
+
+    // Set new timer
+    const timer = setTimeout(async () => {
+      try {
+        console.log("Auto-saving resume:", currentResumeData.title)
+        await handleAutoSave()
+      } catch (error) {
+        console.error("Auto-save failed:", error)
       }
-    }, 30000) // Auto-save every 30 seconds
+    }, 30000) // 30 seconds
 
-    return () => clearTimeout(autoSaveTimer)
+    setAutoSaveTimer(timer)
+
+    // Cleanup function
+    return () => {
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
   }, [currentResumeData, autoSaveEnabled, user])
 
   const fetchResumes = async () => {
@@ -118,8 +133,9 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       const response = await fetch("/api/resumes")
       if (response.ok) {
         const data = await response.json()
-        setResumes(data.resumes)
+        setResumes(data.resumes || [])
       } else {
+        console.error("Failed to fetch resumes:", response.status)
         toast({
           title: "Error",
           description: "Failed to load resumes",
@@ -127,6 +143,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         })
       }
     } catch (error) {
+      console.error("Error fetching resumes:", error)
       toast({
         title: "Error",
         description: "Failed to load resumes",
@@ -142,8 +159,9 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       const response = await fetch("/api/portfolios")
       if (response.ok) {
         const data = await response.json()
-        setPortfolios(data.portfolios)
+        setPortfolios(data.portfolios || [])
       } else {
+        console.error("Failed to fetch portfolios:", response.status)
         toast({
           title: "Error",
           description: "Failed to load portfolios",
@@ -151,6 +169,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         })
       }
     } catch (error) {
+      console.error("Error fetching portfolios:", error)
       toast({
         title: "Error",
         description: "Failed to load portfolios",
@@ -162,21 +181,32 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   }
 
   const handleAutoSave = async () => {
-    if (!currentResumeData?.title) return
+    if (!currentResumeData?.title) {
+      console.log("Auto-save skipped: no title")
+      return
+    }
 
     try {
+      console.log("Auto-saving resume:", currentResumeData.title)
       await onSaveResume(currentResumeData.title)
       setLastSaved(new Date())
       toast({
         description: "Auto-saved successfully",
         duration: 2000,
       })
+      // Refresh the resumes list
+      fetchResumes()
     } catch (error) {
       console.error("Auto-save failed:", error)
+      toast({
+        description: "Auto-save failed",
+        variant: "destructive",
+        duration: 2000,
+      })
     }
   }
 
-  const saveCurrentResume = async () => {
+  const handleManualSave = async () => {
     if (!saveTitle.trim()) {
       toast({
         title: "Error",
@@ -196,6 +226,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         description: "Resume saved successfully!",
       })
     } catch (error) {
+      console.error("Manual save error:", error)
       toast({
         title: "Error",
         description: "Failed to save resume. Please try again.",
@@ -227,6 +258,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
           description: `Resume ${!currentFavorite ? "added to" : "removed from"} favorites`,
         })
       } else {
+        const errorData = await response.json()
+        console.error("Favorite toggle error:", errorData)
         toast({
           title: "Error",
           description: "Failed to update favorite status",
@@ -234,6 +267,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         })
       }
     } catch (error) {
+      console.error("Favorite toggle error:", error)
       toast({
         title: "Error",
         description: "Failed to update favorite status",
@@ -424,7 +458,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             )}
           </div>
 
-          {/* Save Current Resume */}
+          {/* Manual Save Current Resume */}
           <div className="flex gap-2">
             <Input
               placeholder="Enter resume title to save..."
@@ -432,12 +466,12 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
               onChange={(e) => setSaveTitle(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !saving) {
-                  saveCurrentResume()
+                  handleManualSave()
                 }
               }}
               className="flex-1"
             />
-            <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
+            <Button onClick={handleManualSave} disabled={saving || !saveTitle.trim()}>
               {saving ? "Saving..." : "Save Resume"}
             </Button>
           </div>
@@ -704,11 +738,11 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                     <div className="flex items-center gap-4 text-xs">
                       <div className="flex items-center gap-1">
                         <Eye className="h-3 w-3" />
-                        <span>{portfolio.total_views} views</span>
+                        <span>{portfolio.total_views || 0} views</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
-                        <span>{portfolio.unique_visitors} visitors</span>
+                        <span>{portfolio.unique_visitors || 0} visitors</span>
                       </div>
                     </div>
                     {/* Portfolio URL */}
