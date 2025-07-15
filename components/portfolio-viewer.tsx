@@ -47,8 +47,25 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
   const [isSharing, setIsSharing] = useState(false)
   const resumeData = portfolio.resume_data || {}
 
-  // Enhanced data extraction with fallbacks
+  // Enhanced data extraction with support for sections-based JSON structure
   const getPersonalInfo = () => {
+    // Handle sections-based structure
+    if (resumeData.sections) {
+      return {
+        name: resumeData.title || portfolio.title || "Professional",
+        title: resumeData.subtitle || "Professional",
+        summary: resumeData.description || portfolio.description,
+        email: resumeData.email,
+        phone: resumeData.phone,
+        location: resumeData.location,
+        website: resumeData.website,
+        linkedin: resumeData.linkedin,
+        github: resumeData.github,
+        photo: resumeData.photo,
+      }
+    }
+
+    // Handle standard resume structure
     const personalInfo = resumeData.personalInfo || resumeData.personal || resumeData.basics || {}
     return {
       name: personalInfo.name || resumeData.name || portfolio.title || "Professional",
@@ -65,14 +82,81 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
   }
 
   const getExperience = () => {
+    // Handle sections-based structure
+    if (resumeData.sections) {
+      const experienceSection = resumeData.sections.find(
+        (section: any) => section["section name"]?.toLowerCase() === "experience",
+      )
+      if (experienceSection && experienceSection.content) {
+        return experienceSection.content
+          .filter((item: any) => item["job title"] || item.position || item.title)
+          .map((item: any) => ({
+            position: item["job title"] || item.position || item.title,
+            company: item.Organization || item.company,
+            startDate: item.Duration ? item.Duration.split("–")[0]?.trim() || item.Duration.split("-")[0]?.trim() : "",
+            endDate: item.Duration
+              ? item.Duration.includes("–")
+                ? item.Duration.split("–")[1]?.trim()
+                : item.Duration.includes("-")
+                  ? item.Duration.split("-")[1]?.trim()
+                  : ""
+              : "",
+            description: item.Description || item.description,
+            location: item.location,
+          }))
+      }
+    }
+
+    // Handle standard resume structure
     return resumeData.experience || resumeData.work || resumeData.employment || []
   }
 
   const getEducation = () => {
+    // Handle sections-based structure
+    if (resumeData.sections) {
+      const educationSection = resumeData.sections.find(
+        (section: any) => section["section name"]?.toLowerCase() === "education",
+      )
+      if (educationSection && educationSection.content) {
+        return educationSection.content
+          .filter((item: any) => item.Degree || item.degree)
+          .map((item: any) => ({
+            degree: item.Degree || item.degree,
+            school: item.Organization || item.school || item.institution,
+            startDate: item.Duration ? item.Duration.split("-")[0]?.trim() : "",
+            endDate: item.Duration ? item.Duration.split("-")[1]?.trim() : "",
+            gpa: item.GPA || item.gpa,
+            location: item.location,
+          }))
+      }
+    }
+
+    // Handle standard resume structure
     return resumeData.education || resumeData.schools || []
   }
 
   const getSkills = () => {
+    // Handle sections-based structure
+    if (resumeData.sections) {
+      const skillsSection = resumeData.sections.find(
+        (section: any) => section["section name"]?.toLowerCase() === "skills",
+      )
+      if (skillsSection && skillsSection.content) {
+        const skills: string[] = []
+        skillsSection.content.forEach((item: any) => {
+          if (item.Skills) {
+            // Split skills by comma and add them to the array
+            const skillList = item.Skills.split(",")
+              .map((skill: string) => skill.trim())
+              .filter((skill: string) => skill)
+            skills.push(...skillList)
+          }
+        })
+        return skills
+      }
+    }
+
+    // Handle standard resume structure
     const skills = resumeData.skills || resumeData.technologies || []
     if (Array.isArray(skills)) {
       return skills
@@ -84,10 +168,49 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
   }
 
   const getProjects = () => {
+    // Handle sections-based structure
+    if (resumeData.sections) {
+      const projectsSection = resumeData.sections.find(
+        (section: any) => section["section name"]?.toLowerCase() === "projects",
+      )
+      if (projectsSection && projectsSection.content) {
+        return projectsSection.content
+          .filter((item: any) => item.name || item.title)
+          .map((item: any) => ({
+            name: item.name || item.title,
+            description: item.description || item.Description,
+            technologies: item.technologies || (item.tech ? item.tech.split(",").map((t: string) => t.trim()) : []),
+            url: item.url || item.link,
+            date: item.date || item.Duration,
+          }))
+      }
+    }
+
+    // Handle standard resume structure
     return resumeData.projects || resumeData.portfolio || []
   }
 
   const getCertifications = () => {
+    // Handle sections-based structure
+    if (resumeData.sections) {
+      const certificationsSection = resumeData.sections.find(
+        (section: any) =>
+          section["section name"]?.toLowerCase() === "certifications" ||
+          section["section name"]?.toLowerCase() === "certificates" ||
+          section["section name"]?.toLowerCase() === "awards",
+      )
+      if (certificationsSection && certificationsSection.content) {
+        return certificationsSection.content
+          .filter((item: any) => item.name || item.title)
+          .map((item: any) => ({
+            name: item.name || item.title,
+            issuer: item.issuer || item.organization || item.Organization,
+            date: item.date || item.Duration,
+          }))
+      }
+    }
+
+    // Handle standard resume structure
     return resumeData.certifications || resumeData.certificates || resumeData.awards || []
   }
 
@@ -345,14 +468,16 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
                 <div key={index} className={`${theme.section} pl-4`}>
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
                     <h3 className="font-semibold text-lg">{exp.position || exp.title || exp.role}</h3>
-                    <Badge variant="secondary" className="w-fit">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {exp.startDate || exp.start} - {exp.endDate || exp.end || "Present"}
-                    </Badge>
+                    {(exp.startDate || exp.endDate) && (
+                      <Badge variant="secondary" className="w-fit">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {exp.startDate || exp.start} - {exp.endDate || exp.end || "Present"}
+                      </Badge>
+                    )}
                   </div>
                   <p className={`font-medium mb-2 ${theme.accent}`}>{exp.company || exp.organization}</p>
                   {exp.location && <p className="text-sm text-muted-foreground mb-2">{exp.location}</p>}
-                  {exp.description && <p className="text-muted-foreground mb-2">{exp.description}</p>}
+                  {exp.description && <p className="text-muted-foreground mb-2 leading-relaxed">{exp.description}</p>}
                   {exp.achievements && exp.achievements.length > 0 && (
                     <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
                       {exp.achievements.map((achievement: string, achIndex: number) => (
@@ -451,10 +576,12 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
                 <div key={index} className={`${theme.section} pl-4`}>
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
                     <h3 className="font-semibold">{edu.degree || edu.studyType}</h3>
-                    <Badge variant="outline">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {edu.startDate || edu.start} - {edu.endDate || edu.end || "Present"}
-                    </Badge>
+                    {(edu.startDate || edu.endDate) && (
+                      <Badge variant="outline">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {edu.startDate || edu.start} - {edu.endDate || edu.end || "Present"}
+                      </Badge>
+                    )}
                   </div>
                   <p className={`font-medium ${theme.accent}`}>{edu.school || edu.institution}</p>
                   {edu.location && <p className="text-sm text-muted-foreground">{edu.location}</p>}
