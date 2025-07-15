@@ -113,41 +113,78 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
       const detectedFileType = getFileType(file)
       setFileType(detectedFileType)
 
-      setProgress(20)
-      setCurrentStep(
-        detectedFileType === "pdf" ? "Extracting text from PDF..." : "Extracting text from Word document...",
-      )
+      setProgress(15)
+      setCurrentStep("Reading file...")
+
+      // Show different messages based on file type
+      if (detectedFileType === "pdf") {
+        setCurrentStep("Analyzing PDF structure...")
+        setProgress(25)
+
+        // Add a small delay to show progress
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        setCurrentStep("Extracting text from PDF (this may take a moment)...")
+        setProgress(40)
+      } else {
+        setCurrentStep("Processing Word document...")
+        setProgress(30)
+      }
 
       // Extract text with improved error handling
       let text: string
       if (detectedFileType === "pdf") {
         try {
           text = await extractTextFromPDF(file)
+          setCurrentStep("PDF text extraction successful!")
         } catch (primaryError) {
-          setCurrentStep("Primary extraction failed, trying advanced method...")
-          setProgress(35)
-          text = await extractTextFromPDFAdvanced(file)
+          setCurrentStep("Trying alternative PDF extraction method...")
+          setProgress(55)
+
+          try {
+            text = await extractTextFromPDFAdvanced(file)
+            setCurrentStep("Advanced PDF extraction successful!")
+          } catch (advancedError) {
+            console.error("Both PDF extraction methods failed:", advancedError)
+            throw advancedError
+          }
         }
       } else {
         text = await extractFormattedTextFromWord(file)
+        setCurrentStep("Word document processed successfully!")
       }
 
-      setExtractedText(text)
-      setProgress(50)
+      // Show preview of extracted text
+      setExtractedText(text.substring(0, 500))
+      setProgress(65)
 
       // Validate extracted text
       if (!text || text.trim().length === 0) {
         throw new Error(
-          "No text could be extracted from the document. Please ensure the document contains readable text.",
+          "No text could be extracted from the document. Please ensure the document contains readable text and is not password-protected.",
         )
       }
 
       if (text.trim().length < 50) {
-        throw new Error("Very little text was extracted. Please ensure the document contains substantial content.")
+        throw new Error(
+          "Very little text was extracted from the document. Please ensure:\n\n" +
+            "• The document contains substantial text content\n" +
+            "• It's not a scanned image or photo\n" +
+            "• The document is not corrupted",
+        )
       }
 
-      setCurrentStep("Processing with AI...")
-      setProgress(70)
+      // Check for meaningful content
+      const words = text.split(/\s+/).filter((word) => word.length > 2)
+      if (words.length < 20) {
+        throw new Error(
+          "The extracted text doesn't appear to contain enough meaningful content for a resume. " +
+            "Please check that your document contains proper resume information.",
+        )
+      }
+
+      setCurrentStep("Sending to AI for processing...")
+      setProgress(75)
 
       // Process with AI
       let resumeData: ResumeData
@@ -156,6 +193,12 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
       } else {
         resumeData = await parseWordResumeWithAI(text)
       }
+
+      setProgress(95)
+      setCurrentStep("Finalizing...")
+
+      // Small delay to show completion
+      await new Promise((resolve) => setTimeout(resolve, 300))
 
       setProgress(100)
       setCurrentStep("Complete!")
@@ -173,13 +216,15 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
         errorMessage = err.message
       }
 
-      // Provide helpful error messages
+      // Provide more specific error messages
       if (errorMessage.includes("Network error") || errorMessage.includes("fetch")) {
         errorMessage = "Network error. Please check your internet connection and try again."
       } else if (errorMessage.includes("AI service")) {
         errorMessage = "AI service is temporarily unavailable. Please try again in a few moments."
       } else if (errorMessage.includes("Server returned")) {
         errorMessage = "Server error. Please try again or contact support if the problem persists."
+      } else if (errorMessage.includes("scanned") || errorMessage.includes("image-based")) {
+        errorMessage = errorMessage + "\n\n💡 Tip: Word documents (.docx) usually work better than PDFs."
       }
 
       setError(errorMessage)
@@ -265,12 +310,25 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
         </DialogDescription>
       </DialogHeader>
 
-      {/* PDF Information Alert */}
+      {/* Improved Information Alert */}
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>For best results:</strong> Use text-based PDFs or Word documents. Scanned PDFs or image-based
-          documents may not work well. Word documents (.docx) generally provide better text extraction.
+          <div className="space-y-2">
+            <p>
+              <strong>For best results:</strong>
+            </p>
+            <ul className="text-sm space-y-1 ml-4">
+              <li>
+                • <strong>Word documents (.docx)</strong> - Recommended, most reliable
+              </li>
+              <li>
+                • <strong>Text-based PDFs</strong> - Good, but avoid scanned PDFs
+              </li>
+              <li>• Ensure documents contain actual text, not just images</li>
+              <li>• Remove password protection before uploading</li>
+            </ul>
+          </div>
         </AlertDescription>
       </Alert>
 
