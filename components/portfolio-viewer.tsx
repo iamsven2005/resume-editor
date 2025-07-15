@@ -4,7 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Mail, Phone, MapPin, Globe, Linkedin, Github, Calendar, ExternalLink, Download, Share2 } from "lucide-react"
+import {
+  Mail,
+  Phone,
+  MapPin,
+  Globe,
+  Linkedin,
+  Github,
+  Calendar,
+  ExternalLink,
+  Download,
+  Share2,
+  User,
+  Award,
+  Code,
+  Briefcase,
+} from "lucide-react"
 import { useState } from "react"
 import { toast } from "@/hooks/use-toast"
 
@@ -30,15 +45,66 @@ interface PortfolioViewerProps {
 
 export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
   const [isSharing, setIsSharing] = useState(false)
-  const resumeData = portfolio.resume_data
+  const resumeData = portfolio.resume_data || {}
+
+  // Enhanced data extraction with fallbacks
+  const getPersonalInfo = () => {
+    const personalInfo = resumeData.personalInfo || resumeData.personal || resumeData.basics || {}
+    return {
+      name: personalInfo.name || resumeData.name || portfolio.title || "Professional",
+      title: personalInfo.title || personalInfo.label || resumeData.title || "Professional",
+      email: personalInfo.email || resumeData.email,
+      phone: personalInfo.phone || resumeData.phone,
+      location: personalInfo.location || personalInfo.address || resumeData.location,
+      website: personalInfo.website || personalInfo.url || resumeData.website,
+      linkedin: personalInfo.linkedin || resumeData.linkedin,
+      github: personalInfo.github || resumeData.github,
+      summary: personalInfo.summary || personalInfo.about || resumeData.summary || portfolio.description,
+      photo: personalInfo.photo || personalInfo.image || resumeData.photo,
+    }
+  }
+
+  const getExperience = () => {
+    return resumeData.experience || resumeData.work || resumeData.employment || []
+  }
+
+  const getEducation = () => {
+    return resumeData.education || resumeData.schools || []
+  }
+
+  const getSkills = () => {
+    const skills = resumeData.skills || resumeData.technologies || []
+    if (Array.isArray(skills)) {
+      return skills
+    }
+    if (typeof skills === "object" && skills.technical) {
+      return skills.technical
+    }
+    return []
+  }
+
+  const getProjects = () => {
+    return resumeData.projects || resumeData.portfolio || []
+  }
+
+  const getCertifications = () => {
+    return resumeData.certifications || resumeData.certificates || resumeData.awards || []
+  }
+
+  const personalInfo = getPersonalInfo()
+  const experience = getExperience()
+  const education = getEducation()
+  const skills = getSkills()
+  const projects = getProjects()
+  const certifications = getCertifications()
 
   const handleShare = async () => {
     setIsSharing(true)
     try {
       if (navigator.share) {
         await navigator.share({
-          title: `${portfolio.title} - Portfolio`,
-          text: portfolio.description || `Check out ${portfolio.title}'s professional portfolio`,
+          title: `${personalInfo.name} - Portfolio`,
+          text: personalInfo.summary || `Check out ${personalInfo.name}'s professional portfolio`,
           url: window.location.href,
         })
       } else {
@@ -66,7 +132,7 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
     const url = URL.createObjectURL(dataBlob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `${portfolio.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_portfolio.json`
+    link.download = `${personalInfo.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_portfolio.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -86,6 +152,7 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
           card: "bg-white/80 backdrop-blur-sm border-slate-200 dark:bg-slate-800/80 dark:border-slate-700",
           header: "bg-gradient-to-r from-blue-600 to-purple-600 text-white",
           accent: "text-blue-600 dark:text-blue-400",
+          section: "border-l-4 border-blue-500",
         }
       case "classic":
         return {
@@ -93,6 +160,7 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
           card: "bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700",
           header: "bg-gray-800 text-white dark:bg-gray-700",
           accent: "text-gray-700 dark:text-gray-300",
+          section: "border-l-4 border-gray-500",
         }
       case "minimal":
         return {
@@ -100,6 +168,7 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
           card: "bg-gray-50 border-gray-100 dark:bg-gray-900 dark:border-gray-800",
           header: "bg-black text-white dark:bg-white dark:text-black",
           accent: "text-black dark:text-white",
+          section: "border-l-4 border-black dark:border-white",
         }
       case "creative":
         return {
@@ -108,6 +177,7 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
           card: "bg-white/90 backdrop-blur-sm border-purple-200 dark:bg-slate-800/90 dark:border-purple-700",
           header: "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white",
           accent: "text-purple-600 dark:text-purple-400",
+          section: "border-l-4 border-purple-500",
         }
       default:
         return {
@@ -115,6 +185,7 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
           card: "bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700",
           header: "bg-gray-800 text-white dark:bg-gray-700",
           accent: "text-gray-700 dark:text-gray-300",
+          section: "border-l-4 border-gray-500",
         }
     }
   }
@@ -140,20 +211,22 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
         <Card className={theme.card}>
           <CardHeader className={`${theme.header} rounded-t-lg`}>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <CardTitle className="text-2xl md:text-3xl font-bold">
-                  {resumeData?.personalInfo?.name || resumeData?.name || "Professional Portfolio"}
-                </CardTitle>
-                <p className="text-lg opacity-90 mt-1">
-                  {resumeData?.personalInfo?.title || resumeData?.title || "Professional"}
-                </p>
+              <div className="flex-1">
+                <CardTitle className="text-2xl md:text-3xl font-bold mb-2">{personalInfo.name}</CardTitle>
+                <p className="text-lg opacity-90 mb-4">{personalInfo.title}</p>
+                {personalInfo.summary && (
+                  <p className="text-sm opacity-80 leading-relaxed max-w-2xl">{personalInfo.summary}</p>
+                )}
               </div>
-              {resumeData?.personalInfo?.photo && (
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-white/20">
+              {personalInfo.photo && (
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-white/20 flex-shrink-0">
                   <img
-                    src={resumeData.personalInfo.photo || "/placeholder.svg"}
+                    src={personalInfo.photo || "/placeholder.svg"}
                     alt="Profile"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none"
+                    }}
                   />
                 </div>
               )}
@@ -161,34 +234,36 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
           </CardHeader>
           <CardContent className="p-6">
             {/* Contact Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {resumeData?.personalInfo?.email && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {personalInfo.email && (
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-muted-foreground" />
-                  <a href={`mailto:${resumeData.personalInfo.email}`} className={`${theme.accent} hover:underline`}>
-                    {resumeData.personalInfo.email}
+                  <a href={`mailto:${personalInfo.email}`} className={`${theme.accent} hover:underline`}>
+                    {personalInfo.email}
                   </a>
                 </div>
               )}
-              {resumeData?.personalInfo?.phone && (
+              {personalInfo.phone && (
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  <a href={`tel:${resumeData.personalInfo.phone}`} className={`${theme.accent} hover:underline`}>
-                    {resumeData.personalInfo.phone}
+                  <a href={`tel:${personalInfo.phone}`} className={`${theme.accent} hover:underline`}>
+                    {personalInfo.phone}
                   </a>
                 </div>
               )}
-              {resumeData?.personalInfo?.location && (
+              {personalInfo.location && (
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{resumeData.personalInfo.location}</span>
+                  <span>{personalInfo.location}</span>
                 </div>
               )}
-              {resumeData?.personalInfo?.website && (
+              {personalInfo.website && (
                 <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-muted-foreground" />
                   <a
-                    href={resumeData.personalInfo.website}
+                    href={
+                      personalInfo.website.startsWith("http") ? personalInfo.website : `https://${personalInfo.website}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`${theme.accent} hover:underline flex items-center gap-1`}
@@ -197,11 +272,15 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
                   </a>
                 </div>
               )}
-              {resumeData?.personalInfo?.linkedin && (
+              {personalInfo.linkedin && (
                 <div className="flex items-center gap-2">
                   <Linkedin className="h-4 w-4 text-muted-foreground" />
                   <a
-                    href={resumeData.personalInfo.linkedin}
+                    href={
+                      personalInfo.linkedin.startsWith("http")
+                        ? personalInfo.linkedin
+                        : `https://linkedin.com/in/${personalInfo.linkedin}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`${theme.accent} hover:underline flex items-center gap-1`}
@@ -210,11 +289,15 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
                   </a>
                 </div>
               )}
-              {resumeData?.personalInfo?.github && (
+              {personalInfo.github && (
                 <div className="flex items-center gap-2">
                   <Github className="h-4 w-4 text-muted-foreground" />
                   <a
-                    href={resumeData.personalInfo.github}
+                    href={
+                      personalInfo.github.startsWith("http")
+                        ? personalInfo.github
+                        : `https://github.com/${personalInfo.github}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`${theme.accent} hover:underline flex items-center gap-1`}
@@ -224,86 +307,23 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
                 </div>
               )}
             </div>
-
-            {/* Summary */}
-            {resumeData?.personalInfo?.summary && (
-              <div>
-                <h3 className={`text-lg font-semibold mb-3 ${theme.accent}`}>Professional Summary</h3>
-                <p className="text-muted-foreground leading-relaxed">{resumeData.personalInfo.summary}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
-        {/* Experience Section */}
-        {resumeData?.experience && resumeData.experience.length > 0 && (
+        {/* Skills Section - Show early and prominently */}
+        {skills.length > 0 && (
           <Card className={theme.card}>
             <CardHeader>
-              <CardTitle className={theme.accent}>Professional Experience</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {resumeData.experience.map((exp: any, index: number) => (
-                <div key={index} className="border-l-2 border-muted pl-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
-                    <h3 className="font-semibold text-lg">{exp.position || exp.title}</h3>
-                    <Badge variant="secondary" className="w-fit">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {exp.startDate} - {exp.endDate || "Present"}
-                    </Badge>
-                  </div>
-                  <p className={`font-medium mb-2 ${theme.accent}`}>{exp.company}</p>
-                  {exp.location && <p className="text-sm text-muted-foreground mb-2">{exp.location}</p>}
-                  {exp.description && <p className="text-muted-foreground">{exp.description}</p>}
-                  {exp.achievements && exp.achievements.length > 0 && (
-                    <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
-                      {exp.achievements.map((achievement: string, achIndex: number) => (
-                        <li key={achIndex}>{achievement}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Education Section */}
-        {resumeData?.education && resumeData.education.length > 0 && (
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={theme.accent}>Education</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {resumeData.education.map((edu: any, index: number) => (
-                <div key={index} className="border-l-2 border-muted pl-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
-                    <h3 className="font-semibold">{edu.degree}</h3>
-                    <Badge variant="outline">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {edu.startDate} - {edu.endDate || "Present"}
-                    </Badge>
-                  </div>
-                  <p className={`font-medium ${theme.accent}`}>{edu.school || edu.institution}</p>
-                  {edu.location && <p className="text-sm text-muted-foreground">{edu.location}</p>}
-                  {edu.gpa && <p className="text-sm text-muted-foreground">GPA: {edu.gpa}</p>}
-                  {edu.description && <p className="text-muted-foreground mt-2">{edu.description}</p>}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Skills Section */}
-        {resumeData?.skills && resumeData.skills.length > 0 && (
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={theme.accent}>Skills</CardTitle>
+              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+                <Code className="h-5 w-5" />
+                Skills & Technologies
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {resumeData.skills.map((skill: any, index: number) => (
-                  <Badge key={index} variant="secondary" className="text-sm">
-                    {typeof skill === "string" ? skill : skill.name}
+                {skills.map((skill: any, index: number) => (
+                  <Badge key={index} variant="secondary" className="text-sm py-1 px-3">
+                    {typeof skill === "string" ? skill : skill.name || skill.skill}
                   </Badge>
                 ))}
               </div>
@@ -311,15 +331,77 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
           </Card>
         )}
 
-        {/* Projects Section */}
-        {resumeData?.projects && resumeData.projects.length > 0 && (
+        {/* Experience Section */}
+        {experience.length > 0 ? (
           <Card className={theme.card}>
             <CardHeader>
-              <CardTitle className={theme.accent}>Projects</CardTitle>
+              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+                <Briefcase className="h-5 w-5" />
+                Professional Experience
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {experience.map((exp: any, index: number) => (
+                <div key={index} className={`${theme.section} pl-4`}>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
+                    <h3 className="font-semibold text-lg">{exp.position || exp.title || exp.role}</h3>
+                    <Badge variant="secondary" className="w-fit">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {exp.startDate || exp.start} - {exp.endDate || exp.end || "Present"}
+                    </Badge>
+                  </div>
+                  <p className={`font-medium mb-2 ${theme.accent}`}>{exp.company || exp.organization}</p>
+                  {exp.location && <p className="text-sm text-muted-foreground mb-2">{exp.location}</p>}
+                  {exp.description && <p className="text-muted-foreground mb-2">{exp.description}</p>}
+                  {exp.achievements && exp.achievements.length > 0 && (
+                    <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
+                      {exp.achievements.map((achievement: string, achIndex: number) => (
+                        <li key={achIndex}>{achievement}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {exp.responsibilities && exp.responsibilities.length > 0 && (
+                    <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
+                      {exp.responsibilities.map((responsibility: string, respIndex: number) => (
+                        <li key={respIndex}>{responsibility}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : (
+          // Fallback experience section
+          <Card className={theme.card}>
+            <CardHeader>
+              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+                <Briefcase className="h-5 w-5" />
+                Professional Experience
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`${theme.section} pl-4`}>
+                <p className="text-muted-foreground">
+                  Professional experience details will be displayed here once added to the resume.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Projects Section */}
+        {projects.length > 0 && (
+          <Card className={theme.card}>
+            <CardHeader>
+              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+                <Code className="h-5 w-5" />
+                Projects & Portfolio
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {resumeData.projects.map((project: any, index: number) => (
-                <div key={index} className="border-l-2 border-muted pl-4">
+              {projects.map((project: any, index: number) => (
+                <div key={index} className={`${theme.section} pl-4`}>
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
                     <h3 className="font-semibold">{project.name || project.title}</h3>
                     {project.date && (
@@ -355,14 +437,46 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
           </Card>
         )}
 
-        {/* Certifications Section */}
-        {resumeData?.certifications && resumeData.certifications.length > 0 && (
+        {/* Education Section */}
+        {education.length > 0 && (
           <Card className={theme.card}>
             <CardHeader>
-              <CardTitle className={theme.accent}>Certifications</CardTitle>
+              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+                <Award className="h-5 w-5" />
+                Education
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {education.map((edu: any, index: number) => (
+                <div key={index} className={`${theme.section} pl-4`}>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
+                    <h3 className="font-semibold">{edu.degree || edu.studyType}</h3>
+                    <Badge variant="outline">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {edu.startDate || edu.start} - {edu.endDate || edu.end || "Present"}
+                    </Badge>
+                  </div>
+                  <p className={`font-medium ${theme.accent}`}>{edu.school || edu.institution}</p>
+                  {edu.location && <p className="text-sm text-muted-foreground">{edu.location}</p>}
+                  {edu.gpa && <p className="text-sm text-muted-foreground">GPA: {edu.gpa}</p>}
+                  {edu.description && <p className="text-muted-foreground mt-2">{edu.description}</p>}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Certifications Section */}
+        {certifications.length > 0 && (
+          <Card className={theme.card}>
+            <CardHeader>
+              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+                <Award className="h-5 w-5" />
+                Certifications & Awards
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {resumeData.certifications.map((cert: any, index: number) => (
+              {certifications.map((cert: any, index: number) => (
                 <div key={index} className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
                     <h3 className="font-semibold">{cert.name || cert.title}</h3>
@@ -376,6 +490,30 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
                   )}
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Default content when no specific sections are available */}
+        {experience.length === 0 && projects.length === 0 && education.length === 0 && skills.length === 0 && (
+          <Card className={theme.card}>
+            <CardHeader>
+              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+                <User className="h-5 w-5" />
+                About This Portfolio
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">
+                  This portfolio is currently being built. More content will be added soon including professional
+                  experience, projects, education, and skills.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Portfolio created with Resume Builder • Last updated{" "}
+                  {new Date(portfolio.updated_at).toLocaleDateString()}
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
