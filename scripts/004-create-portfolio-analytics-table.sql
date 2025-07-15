@@ -1,4 +1,3 @@
--- Create portfolio analytics table
 CREATE TABLE IF NOT EXISTS portfolio_analytics (
   id SERIAL PRIMARY KEY,
   portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
@@ -15,7 +14,6 @@ CREATE TABLE IF NOT EXISTS portfolio_analytics (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for analytics queries
 CREATE INDEX IF NOT EXISTS idx_analytics_portfolio_id ON portfolio_analytics(portfolio_id);
 CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON portfolio_analytics(created_at);
 CREATE INDEX IF NOT EXISTS idx_analytics_visitor_ip ON portfolio_analytics(visitor_ip);

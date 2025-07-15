@@ -64,29 +64,32 @@ export const FormEditorPanel = ({
   const hasCollapsedSections = collapsedSections.size > 0
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Form Editor</CardTitle>
+    <Card className="h-full">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Form Editor</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6 max-h-[600px] overflow-y-auto">
+      <CardContent className="p-4 space-y-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
         {parsedData ? (
           <>
             {/* Title */}
-            <div>
-              <Label htmlFor="title">Title</Label>
+            <div className="space-y-2">
+              <Label htmlFor="title" className="text-sm font-medium">
+                Title
+              </Label>
               <Textarea
                 id="title"
                 value={parsedData.title}
                 onChange={(e) => onTitleChange(e.target.value)}
-                className="mt-1"
+                className="min-h-[2.5rem] resize-none bg-background border-input"
                 rows={1}
+                placeholder="Enter resume title"
               />
             </div>
 
             {/* Sections */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-lg font-semibold">Sections ({parsedData.sections.length})</Label>
+                <Label className="text-sm font-semibold">Sections ({parsedData.sections.length})</Label>
                 <div className="flex gap-2">
                   {parsedData.sections.length > 1 && (
                     <Button
@@ -109,7 +112,7 @@ export const FormEditorPanel = ({
                       }}
                       size="sm"
                       variant="outline"
-                      className="flex items-center gap-1 text-xs"
+                      className="flex items-center gap-1 text-xs h-7 px-2"
                     >
                       {allCollapsed ? (
                         <>
@@ -124,8 +127,8 @@ export const FormEditorPanel = ({
                       )}
                     </Button>
                   )}
-                  <Button onClick={onAddSection} size="sm" className="flex items-center gap-1">
-                    <Plus className="h-4 w-4" />
+                  <Button onClick={onAddSection} size="sm" className="flex items-center gap-1 h-7 px-2 text-xs">
+                    <Plus className="h-3 w-3" />
                     Add Section
                   </Button>
                 </div>
@@ -137,7 +140,7 @@ export const FormEditorPanel = ({
                     <div
                       {...provided.droppableProps}
                       ref={provided.innerRef}
-                      className={`space-y-6 transition-colors duration-200 ${
+                      className={`space-y-3 transition-colors duration-200 ${
                         snapshot.isDraggingOver ? "bg-accent/20 rounded-lg p-2" : ""
                       }`}
                     >
@@ -179,9 +182,9 @@ export const FormEditorPanel = ({
             </div>
           </>
         ) : (
-          <div className="text-center text-muted-foreground py-8">
+          <div className="text-center text-muted-foreground py-12">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Enter valid data to see the form view</p>
+            <p className="text-sm">Enter valid data to see the form view</p>
           </div>
         )}
       </CardContent>

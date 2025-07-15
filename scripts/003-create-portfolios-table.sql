@@ -1,4 +1,3 @@
--- Create portfolios table
 CREATE TABLE IF NOT EXISTS portfolios (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -12,7 +11,6 @@ CREATE TABLE IF NOT EXISTS portfolios (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id);
 CREATE INDEX IF NOT EXISTS idx_portfolios_published ON portfolios(is_published);
 CREATE INDEX IF NOT EXISTS idx_portfolios_updated_at ON portfolios(updated_at);

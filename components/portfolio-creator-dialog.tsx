@@ -1,72 +1,52 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/hooks/use-toast"
-import { Briefcase } from "lucide-react"
+import { Plus, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
-interface SavedResume {
-  id: string
+interface Resume {
+  id: number
   title: string
-  resume_data: any
   created_at: string
-  updated_at: string
 }
 
 interface PortfolioCreatorDialogProps {
-  resumes: SavedResume[]
+  resumes: Resume[]
   onPortfolioCreated: () => void
-  children: React.ReactNode
 }
 
-export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }: PortfolioCreatorDialogProps) {
+export function PortfolioCreatorDialog({ resumes, onPortfolioCreated }: PortfolioCreatorDialogProps) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [theme, setTheme] = useState("modern")
-  const [selectedResumes, setSelectedResumes] = useState<string[]>([])
-  const [creating, setCreating] = useState(false)
+  const [selectedResumes, setSelectedResumes] = useState<number[]>([])
+  const [isCreating, setIsCreating] = useState(false)
 
-  const handleResumeToggle = (resumeId: string) => {
+  const handleResumeToggle = (resumeId: number) => {
     setSelectedResumes((prev) => (prev.includes(resumeId) ? prev.filter((id) => id !== resumeId) : [...prev, resumeId]))
   }
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a portfolio title",
-        variant: "destructive",
-      })
+      toast.error("Please enter a portfolio title")
       return
     }
 
     if (selectedResumes.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one resume",
-        variant: "destructive",
-      })
+      toast.error("Please select at least one resume")
       return
     }
 
-    setCreating(true)
+    setIsCreating(true)
+
     try {
       const response = await fetch("/api/portfolios", {
         method: "POST",
@@ -75,17 +55,16 @@ export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }
         },
         body: JSON.stringify({
           title: title.trim(),
-          description: description.trim() || undefined,
+          description: description.trim() || null,
           theme,
           resumeIds: selectedResumes,
         }),
       })
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Portfolio created successfully!",
-        })
+      const data = await response.json()
+
+      if (data.success) {
+        toast.success("Portfolio created successfully!")
         setOpen(false)
         setTitle("")
         setDescription("")
@@ -93,67 +72,58 @@ export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }
         setSelectedResumes([])
         onPortfolioCreated()
       } else {
-        const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to create portfolio",
-          variant: "destructive",
-        })
+        toast.error(data.error || "Failed to create portfolio")
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create portfolio",
-        variant: "destructive",
-      })
+      console.error("Error creating portfolio:", error)
+      toast.error("Failed to create portfolio")
     } finally {
-      setCreating(false)
+      setIsCreating(false)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogTrigger asChild>
+        <Button className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Create Portfolio
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Briefcase className="h-5 w-5" />
-            Create Portfolio
-          </DialogTitle>
-          <DialogDescription>
-            Merge multiple resumes into a comprehensive portfolio. Select the resumes you want to combine.
-          </DialogDescription>
+          <DialogTitle>Create Portfolio</DialogTitle>
         </DialogHeader>
-
         <div className="space-y-6">
-          {/* Portfolio Details */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="title">Portfolio Title</Label>
+              <Label htmlFor="portfolio-title">Portfolio Title</Label>
               <Input
-                id="title"
-                placeholder="My Professional Portfolio"
+                id="portfolio-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter portfolio title"
+                className="mt-1"
               />
             </div>
 
             <div>
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="portfolio-description">Description (Optional)</Label>
               <Textarea
-                id="description"
-                placeholder="A comprehensive showcase of my professional experience and skills..."
+                id="portfolio-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter portfolio description"
+                className="mt-1"
                 rows={3}
               />
             </div>
 
             <div>
-              <Label htmlFor="theme">Theme</Label>
+              <Label htmlFor="portfolio-theme">Theme</Label>
               <Select value={theme} onValueChange={setTheme}>
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select theme" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="modern">Modern</SelectItem>
@@ -165,53 +135,53 @@ export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }
             </div>
           </div>
 
-          {/* Resume Selection */}
           <div>
             <Label className="text-base font-semibold">Select Resumes to Merge</Label>
             <p className="text-sm text-muted-foreground mb-3">
-              Choose the resumes you want to combine into this portfolio. Sections with the same name will be merged.
+              Choose the resumes you want to combine into this portfolio
             </p>
-
-            {resumes.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">
-                No resumes available. Create some resumes first to build a portfolio.
-              </p>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-3">
-                {resumes.map((resume) => (
+            <div className="space-y-2 max-h-60 overflow-y-auto border rounded-md p-3">
+              {resumes.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No resumes available. Create some resumes first.
+                </p>
+              ) : (
+                resumes.map((resume) => (
                   <div key={resume.id} className="flex items-center space-x-2">
                     <Checkbox
-                      id={resume.id}
+                      id={`resume-${resume.id}`}
                       checked={selectedResumes.includes(resume.id)}
                       onCheckedChange={() => handleResumeToggle(resume.id)}
                     />
-                    <Label htmlFor={resume.id} className="flex-1 cursor-pointer text-sm">
-                      <div className="font-medium">{resume.title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Updated {new Date(resume.updated_at).toLocaleDateString()}
+                    <Label htmlFor={`resume-${resume.id}`} className="flex-1 cursor-pointer">
+                      <div>
+                        <div className="font-medium">{resume.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Created {new Date(resume.created_at).toLocaleDateString()}
+                        </div>
                       </div>
                     </Label>
                   </div>
-                ))}
-              </div>
+                ))
+              )}
+            </div>
+            {selectedResumes.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-2">
+                {selectedResumes.length} resume{selectedResumes.length !== 1 ? "s" : ""} selected
+              </p>
             )}
           </div>
 
-          {selectedResumes.length > 0 && (
-            <div className="text-sm text-muted-foreground">
-              Selected {selectedResumes.length} resume{selectedResumes.length !== 1 ? "s" : ""} for merging
-            </div>
-          )}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={isCreating}>
+              {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Portfolio
+            </Button>
+          </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleCreate} disabled={creating || !title.trim() || selectedResumes.length === 0}>
-            {creating ? "Creating..." : "Create Portfolio"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
