@@ -24,12 +24,14 @@ import {
   Globe,
   Users,
   Eye,
+  Edit2,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "@/hooks/use-toast"
 import { PortfolioCreatorDialog } from "./portfolio-creator-dialog"
 import { PortfolioAnalyticsDialog } from "./portfolio-analytics-dialog"
 import { PortfolioEditorDialog } from "./portfolio-editor-dialog"
+import { ResumeNameEditorDialog } from "./resume-name-editor-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -240,6 +242,10 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     }
   }
 
+  const handleTitleUpdate = (resumeId: string, newTitle: string) => {
+    setResumes((prev) => prev.map((resume) => (resume.id === resumeId ? { ...resume, title: newTitle } : resume)))
+  }
+
   const deleteResume = async (resumeId: string) => {
     try {
       const response = await fetch(`/api/resumes/${resumeId}`, {
@@ -338,6 +344,22 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
   const getPortfolioUrl = (portfolioUrl: string) => {
     return `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/portfolio/${portfolioUrl}`
+  }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast({
+        description: "URL copied to clipboard",
+        duration: 2000,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy URL",
+        variant: "destructive",
+      })
+    }
   }
 
   // Filter and sort resumes
@@ -522,10 +544,25 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredAndSortedResumes.map((resume) => (
-                <Card key={resume.id} className="hover:shadow-md transition-shadow">
+                <Card key={resume.id} className="hover:shadow-md transition-shadow group">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <CardTitle className="text-base line-clamp-2 flex-1 mr-2">{resume.title}</CardTitle>
+                      <div className="flex items-center gap-2 flex-1 mr-2">
+                        <CardTitle className="text-base line-clamp-2 flex-1">{resume.title}</CardTitle>
+                        <ResumeNameEditorDialog
+                          resumeId={resume.id}
+                          currentTitle={resume.title}
+                          onTitleUpdated={(newTitle) => handleTitleUpdate(resume.id, newTitle)}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        </ResumeNameEditorDialog>
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -680,6 +717,14 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                         <div className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
                           <Globe className="h-3 w-3" />
                           <span className="flex-1 truncate">{getPortfolioUrl(portfolio.portfolio_url)}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(getPortfolioUrl(portfolio.portfolio_url))}
+                            className="h-5 w-5 p-0"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
