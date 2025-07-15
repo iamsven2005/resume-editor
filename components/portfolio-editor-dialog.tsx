@@ -16,9 +16,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { toast } from "@/hooks/use-toast"
+import { Globe, Copy, ExternalLink } from "lucide-react"
 
 interface Portfolio {
   id: string
@@ -48,7 +49,7 @@ export function PortfolioEditorDialog({ portfolio, onPortfolioUpdated, children 
   const [description, setDescription] = useState(portfolio.description || "")
   const [theme, setTheme] = useState(portfolio.theme)
   const [isPublished, setIsPublished] = useState(portfolio.is_published)
-  const [saving, setSaving] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -60,7 +61,7 @@ export function PortfolioEditorDialog({ portfolio, onPortfolioUpdated, children 
       return
     }
 
-    setSaving(true)
+    setIsUpdating(true)
     try {
       const response = await fetch(`/api/portfolios/${portfolio.id}`, {
         method: "PUT",
@@ -75,40 +76,67 @@ export function PortfolioEditorDialog({ portfolio, onPortfolioUpdated, children 
         }),
       })
 
-      if (response.ok) {
-        onPortfolioUpdated()
-        setOpen(false)
+      const data = await response.json()
+
+      if (data.success) {
         toast({
           title: "Success",
           description: "Portfolio updated successfully",
         })
+        setOpen(false)
+        onPortfolioUpdated()
       } else {
         toast({
           title: "Error",
-          description: "Failed to update portfolio",
+          description: data.error || "Failed to update portfolio",
           variant: "destructive",
         })
       }
     } catch (error) {
+      console.error("Error updating portfolio:", error)
       toast({
         title: "Error",
-        description: "Failed to update portfolio",
+        description: "Failed to update portfolio. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setSaving(false)
+      setIsUpdating(false)
     }
   }
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      // Reset form if dialog is closed without saving
+      // Reset form when closing
       setTitle(portfolio.title)
       setDescription(portfolio.description || "")
       setTheme(portfolio.theme)
       setIsPublished(portfolio.is_published)
     }
     setOpen(newOpen)
+  }
+
+  const getPortfolioUrl = () => {
+    return `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/portfolio/${portfolio.portfolio_url}`
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(getPortfolioUrl())
+      toast({
+        description: "Portfolio URL copied to clipboard",
+        duration: 2000,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy URL",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const openPortfolio = () => {
+    window.open(getPortfolioUrl(), "_blank")
   }
 
   return (
@@ -119,41 +147,42 @@ export function PortfolioEditorDialog({ portfolio, onPortfolioUpdated, children 
           <DialogTitle>Edit Portfolio</DialogTitle>
           <DialogDescription>Update your portfolio settings, theme, and publishing status.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+
+        <div className="grid gap-6 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="portfolio-title" className="text-right">
+            <Label htmlFor="edit-title" className="text-right">
               Title
             </Label>
             <Input
-              id="portfolio-title"
+              id="edit-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="col-span-3"
-              placeholder="Enter portfolio title..."
+              disabled={isUpdating}
             />
           </div>
 
           <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="portfolio-description" className="text-right pt-2">
+            <Label htmlFor="edit-description" className="text-right pt-2">
               Description
             </Label>
             <Textarea
-              id="portfolio-description"
+              id="edit-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="col-span-3"
-              placeholder="Enter portfolio description (optional)..."
               rows={3}
+              disabled={isUpdating}
             />
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="portfolio-theme" className="text-right">
+            <Label htmlFor="edit-theme" className="text-right">
               Theme
             </Label>
-            <Select value={theme} onValueChange={setTheme}>
+            <Select value={theme} onValueChange={setTheme} disabled={isUpdating}>
               <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select a theme" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="modern">Modern</SelectItem>
@@ -165,30 +194,51 @@ export function PortfolioEditorDialog({ portfolio, onPortfolioUpdated, children 
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="portfolio-published" className="text-right">
+            <Label htmlFor="edit-published" className="text-right">
               Published
             </Label>
             <div className="col-span-3 flex items-center space-x-2">
-              <Switch id="portfolio-published" checked={isPublished} onCheckedChange={setIsPublished} />
-              <Label htmlFor="portfolio-published" className="text-sm text-muted-foreground">
+              <Switch
+                id="edit-published"
+                checked={isPublished}
+                onCheckedChange={setIsPublished}
+                disabled={isUpdating}
+              />
+              <span className="text-sm text-muted-foreground">
                 {isPublished ? "Portfolio is public" : "Portfolio is private"}
-              </Label>
+              </span>
             </div>
           </div>
 
-          {isPublished && (
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right text-sm text-muted-foreground">URL</Label>
-              <div className="col-span-3 text-sm text-muted-foreground">/portfolio/{portfolio.portfolio_url}</div>
+          {/* Portfolio URL */}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">URL</Label>
+            <div className="col-span-3 space-y-2">
+              <div className="flex items-center gap-2 p-2 bg-muted rounded text-sm">
+                <Globe className="h-4 w-4" />
+                <span className="flex-1 truncate">/portfolio/{portfolio.portfolio_url}</span>
+                <Button variant="ghost" size="sm" onClick={copyToClipboard} className="h-6 w-6 p-0">
+                  <Copy className="h-3 w-3" />
+                </Button>
+                {isPublished && (
+                  <Button variant="ghost" size="sm" onClick={openPortfolio} className="h-6 w-6 p-0">
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              {!isPublished && (
+                <p className="text-xs text-muted-foreground">Enable publishing to make this URL accessible</p>
+              )}
             </div>
-          )}
+          </div>
         </div>
+
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isUpdating}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || !title.trim()}>
-            {saving ? "Saving..." : "Save Changes"}
+          <Button onClick={handleSave} disabled={isUpdating}>
+            {isUpdating ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

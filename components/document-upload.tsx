@@ -36,6 +36,7 @@ const processDocumentFile = async (
     try {
       console.log("Attempting primary PDF extraction...")
       extractedText = await extractTextFromPDF(file)
+      console.log("PDF extraction successful, text length:", extractedText.length)
       setCurrentStep("PDF text extraction successful!")
       setProgress(60)
     } catch (primaryError) {
@@ -45,11 +46,12 @@ const processDocumentFile = async (
 
       try {
         extractedText = await extractTextFromPDFAdvanced(file)
+        console.log("Advanced PDF extraction successful, text length:", extractedText.length)
         setCurrentStep("Advanced PDF extraction successful!")
         setProgress(60)
       } catch (advancedError) {
         console.error("Both PDF extraction methods failed:", advancedError)
-        throw advancedError
+        throw new Error("Failed to extract text from PDF. This might be a scanned document or image-based PDF.")
       }
     }
 
@@ -60,13 +62,19 @@ const processDocumentFile = async (
     setCurrentStep("Processing Word document...")
     setProgress(40)
 
-    extractedText = await extractFormattedTextFromWord(file)
-    setCurrentStep("Word document processed successfully!")
-    setProgress(60)
+    try {
+      extractedText = await extractFormattedTextFromWord(file)
+      console.log("Word extraction successful, text length:", extractedText.length)
+      setCurrentStep("Word document processed successfully!")
+      setProgress(60)
 
-    setCurrentStep("Processing extracted text with AI...")
-    setProgress(75)
-    return parseWordResumeWithAI(extractedText)
+      setCurrentStep("Processing extracted text with AI...")
+      setProgress(75)
+      return parseWordResumeWithAI(extractedText)
+    } catch (error) {
+      console.error("Word processing failed:", error)
+      throw new Error("Failed to process Word document. Please ensure it's a valid .docx file.")
+    }
   } else {
     throw new Error("Unsupported file type. Please upload a PDF or Word document (.docx).")
   }
@@ -131,6 +139,7 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
     setProgress(0)
     setCurrentStep("Validating file...")
     setExtractedText("")
+    setSuccess(false)
 
     try {
       // Validate file
@@ -151,9 +160,11 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
       // Process the document
       const resumeData = await processDocumentFile(file, setProgress, setCurrentStep)
 
-      // Show preview of extracted text if available
+      console.log("Resume data processed:", resumeData)
+
+      // Show preview of extracted data
       if (resumeData) {
-        const previewText = JSON.stringify(resumeData).substring(0, 500)
+        const previewText = `Title: ${resumeData.title}\nSections: ${resumeData.sections.length}`
         setExtractedText(previewText)
       }
 
@@ -167,11 +178,12 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
       setCurrentStep("Complete!")
       setSuccess(true)
 
-      console.log("File processing completed successfully")
+      console.log("File processing completed successfully, calling onResumeExtracted")
 
       // Wait a moment to show success, then callback
       setTimeout(() => {
         onResumeExtracted(resumeData)
+        onClose() // Close the dialog after successful upload
       }, 1000)
     } catch (err) {
       console.error("Error processing document:", err)
@@ -329,7 +341,7 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
       )}
 
       {/* Information Alert */}
-      {user && (
+      {user && !isProcessing && !success && !error && (
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
@@ -415,7 +427,7 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
           {extractedText && (
             <div className="mt-4 p-3 bg-muted rounded-md">
               <p className="text-xs text-muted-foreground mb-2">Processing preview:</p>
-              <p className="text-xs font-mono max-h-20 overflow-y-auto">{extractedText.substring(0, 200)}...</p>
+              <p className="text-xs font-mono max-h-20 overflow-y-auto">{extractedText}</p>
             </div>
           )}
         </div>
@@ -432,6 +444,12 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
               Your resume data has been extracted and will be loaded into the editor.
             </p>
           </div>
+          {extractedText && (
+            <div className="mt-4 p-3 bg-green-50 rounded-md">
+              <p className="text-xs text-green-600 mb-2">Extracted data preview:</p>
+              <p className="text-xs font-mono">{extractedText}</p>
+            </div>
+          )}
         </div>
       )}
 

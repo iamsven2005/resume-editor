@@ -16,15 +16,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, FileText, Calendar } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { Calendar, FileText } from "lucide-react"
 
-interface Resume {
+interface SavedResume {
   id: string
   title: string
   resume_data: any
@@ -34,45 +33,39 @@ interface Resume {
 }
 
 interface PortfolioCreatorDialogProps {
-  resumes: Resume[]
+  resumes: SavedResume[]
   onPortfolioCreated: () => void
-  children?: React.ReactNode
+  children: React.ReactNode
 }
-
-const themes = [
-  { value: "modern", label: "Modern" },
-  { value: "classic", label: "Classic" },
-  { value: "minimal", label: "Minimal" },
-  { value: "creative", label: "Creative" },
-]
 
 export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }: PortfolioCreatorDialogProps) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [theme, setTheme] = useState("modern")
-  const [selectedResumes, setSelectedResumes] = useState<string[]>([])
-  const [isPublished, setIsPublished] = useState(false)
+  const [selectedResumeIds, setSelectedResumeIds] = useState<string[]>([])
   const [isCreating, setIsCreating] = useState(false)
 
   const handleResumeToggle = (resumeId: string) => {
-    setSelectedResumes((prev) => (prev.includes(resumeId) ? prev.filter((id) => id !== resumeId) : [...prev, resumeId]))
+    setSelectedResumeIds((prev) =>
+      prev.includes(resumeId) ? prev.filter((id) => id !== resumeId) : [...prev, resumeId],
+    )
   }
 
   const handleCreate = async () => {
     if (!title.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a portfolio title",
+        description: "Portfolio title is required",
         variant: "destructive",
       })
       return
     }
 
-    if (selectedResumes.length === 0) {
+    if (selectedResumeIds.length === 0) {
       toast({
         title: "Error",
-        description: "Please select at least one resume",
+        description: "Please select at least one resume to include in the portfolio",
         variant: "destructive",
       })
       return
@@ -87,10 +80,9 @@ export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }
         },
         body: JSON.stringify({
           title: title.trim(),
-          description: description.trim() || undefined,
+          description: description.trim() || null,
           theme,
-          resumeIds: selectedResumes,
-          isPublished,
+          resumeIds: selectedResumeIds,
         }),
       })
 
@@ -101,16 +93,18 @@ export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }
           title: "Success",
           description: "Portfolio created successfully!",
         })
-        onPortfolioCreated()
         setOpen(false)
-        // Reset form
         setTitle("")
         setDescription("")
         setTheme("modern")
-        setSelectedResumes([])
-        setIsPublished(false)
+        setSelectedResumeIds([])
+        onPortfolioCreated()
       } else {
-        throw new Error(data.error || "Failed to create portfolio")
+        toast({
+          title: "Error",
+          description: data.error || "Failed to create portfolio",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error creating portfolio:", error)
@@ -124,6 +118,16 @@ export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }
     }
   }
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setTitle("")
+      setDescription("")
+      setTheme("modern")
+      setSelectedResumeIds([])
+    }
+    setOpen(newOpen)
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -133,156 +137,121 @@ export function PortfolioCreatorDialog({ resumes, onPortfolioCreated, children }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children || (
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Create Portfolio
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Portfolio</DialogTitle>
           <DialogDescription>
-            Merge multiple resumes into a comprehensive portfolio. Select the resumes you want to combine.
+            Merge multiple resumes into a comprehensive portfolio. Select the resumes you want to include and customize
+            the appearance.
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh] pr-4">
-          <div className="space-y-6">
-            {/* Basic Information */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Portfolio Title *</Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter portfolio title"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description of your portfolio"
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="theme">Theme</Label>
-                <Select value={theme} onValueChange={setTheme}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {themes.map((themeOption) => (
-                      <SelectItem key={themeOption.value} value={themeOption.value}>
-                        {themeOption.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox id="published" checked={isPublished} onCheckedChange={setIsPublished} />
-                <Label htmlFor="published">Publish immediately</Label>
-              </div>
+        <div className="grid gap-6 py-4">
+          {/* Portfolio Details */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="portfolio-title" className="text-right">
+                Title
+              </Label>
+              <Input
+                id="portfolio-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="col-span-3"
+                placeholder="My Professional Portfolio"
+                disabled={isCreating}
+              />
             </div>
 
-            {/* Resume Selection */}
-            <div className="space-y-4">
-              <div>
-                <Label className="text-base font-medium">Select Resumes to Merge *</Label>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Choose the resumes you want to combine into this portfolio. Sections with the same name will be merged
-                  automatically.
-                </p>
-              </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="portfolio-description" className="text-right pt-2">
+                Description
+              </Label>
+              <Textarea
+                id="portfolio-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="col-span-3"
+                placeholder="A brief description of your portfolio (optional)"
+                rows={3}
+                disabled={isCreating}
+              />
+            </div>
 
-              {resumes.length === 0 ? (
-                <Card>
-                  <CardContent className="text-center py-8">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-muted-foreground">No resumes available. Create some resumes first!</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-3">
-                  {resumes.map((resume) => (
-                    <Card
-                      key={resume.id}
-                      className={`cursor-pointer transition-colors ${
-                        selectedResumes.includes(resume.id) ? "ring-2 ring-primary bg-primary/5" : "hover:bg-muted/50"
-                      }`}
-                      onClick={() => handleResumeToggle(resume.id)}
-                    >
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              checked={selectedResumes.includes(resume.id)}
-                              onChange={() => handleResumeToggle(resume.id)}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <CardTitle className="text-base truncate">{resume.title}</CardTitle>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  <span>Updated {formatDate(resume.updated_at)}</span>
-                                </div>
-                                {resume.is_favorite && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Favorite
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="text-sm text-muted-foreground">
-                          {resume.resume_data?.sections?.length || 0} section
-                          {(resume.resume_data?.sections?.length || 0) !== 1 ? "s" : ""}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-
-              {selectedResumes.length > 0 && (
-                <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-sm font-medium mb-2">Selected Resumes ({selectedResumes.length}):</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedResumes.map((resumeId) => {
-                      const resume = resumes.find((r) => r.id === resumeId)
-                      return (
-                        <Badge key={resumeId} variant="secondary">
-                          {resume?.title}
-                        </Badge>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="portfolio-theme" className="text-right">
+                Theme
+              </Label>
+              <Select value={theme} onValueChange={setTheme} disabled={isCreating}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a theme" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="modern">Modern</SelectItem>
+                  <SelectItem value="classic">Classic</SelectItem>
+                  <SelectItem value="minimal">Minimal</SelectItem>
+                  <SelectItem value="creative">Creative</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </ScrollArea>
+
+          {/* Resume Selection */}
+          <div className="space-y-4">
+            <Label className="text-sm font-medium">Select Resumes to Include</Label>
+            {resumes.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No saved resumes found. Create a resume first to build a portfolio.</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 max-h-60 overflow-y-auto">
+                {resumes.map((resume) => (
+                  <Card key={resume.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <Checkbox
+                          id={`resume-${resume.id}`}
+                          checked={selectedResumeIds.includes(resume.id)}
+                          onCheckedChange={() => handleResumeToggle(resume.id)}
+                          disabled={isCreating}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-medium truncate">{resume.title}</h4>
+                            {resume.is_favorite && (
+                              <Badge variant="secondary" className="text-xs ml-2">
+                                Favorite
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>Updated {formatDate(resume.updated_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {selectedResumeIds.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                {selectedResumeIds.length} resume{selectedResumeIds.length !== 1 ? "s" : ""} selected
+              </div>
+            )}
+          </div>
+        </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isCreating}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={isCreating || !title.trim() || selectedResumes.length === 0}>
+          <Button onClick={handleCreate} disabled={isCreating || !title.trim() || selectedResumeIds.length === 0}>
             {isCreating ? "Creating..." : "Create Portfolio"}
           </Button>
         </DialogFooter>

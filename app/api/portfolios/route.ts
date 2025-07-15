@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
-import { nanoid } from "nanoid"
 
 const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
@@ -13,30 +12,29 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const result = await sql`
+    const portfolios = await sql`
       SELECT 
-        p.id,
-        p.title,
-        p.description,
-        p.theme,
-        p.resume_data,
-        p.is_published,
-        p.portfolio_url,
-        p.created_at,
-        p.updated_at,
-        COALESCE(pas.total_views, 0) as total_views,
-        COALESCE(pas.unique_visitors, 0) as unique_visitors,
-        COALESCE(pas.views_last_7_days, 0) as views_last_7_days,
-        COALESCE(pas.views_last_30_days, 0) as views_last_30_days
-      FROM portfolios p
-      LEFT JOIN portfolio_analytics_summary pas ON p.id = pas.portfolio_id
-      WHERE p.user_id = ${user.id}
-      ORDER BY p.updated_at DESC
+        id, 
+        title, 
+        description, 
+        theme, 
+        resume_data, 
+        is_published, 
+        portfolio_url,
+        total_views,
+        unique_visitors,
+        views_last_7_days,
+        views_last_30_days,
+        created_at, 
+        updated_at
+      FROM portfolios 
+      WHERE user_id = ${user.id}
+      ORDER BY updated_at DESC
     `
 
     return NextResponse.json({
       success: true,
-      portfolios: result,
+      portfolios: portfolios,
     })
   } catch (error) {
     console.error("Error fetching portfolios:", error)
@@ -52,65 +50,93 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const { title, description, theme = "modern", resumeIds, isPublished = false } = await request.json()
+    const body = await request.json()
+    const { title, description, theme, resumeIds, mergedResumeData } = body
 
-    if (!title?.trim()) {
-      return NextResponse.json({ success: false, error: "Title is required" }, { status: 400 })
+    if (!title || !theme) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Title and theme are required",
+        },
+        { status: 400 },
+      )
     }
 
-    if (!resumeIds || !Array.isArray(resumeIds) || resumeIds.length === 0) {
-      return NextResponse.json({ success: false, error: "At least one resume must be selected" }, { status: 400 })
-    }
+    // Generate a unique URL slug
+    const urlSlug = `${title.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Date.now().toString(36)}`
 
-    // Fetch the selected resumes
-    const resumes = await sql`
-      SELECT resume_data FROM resumes 
-      WHERE id = ANY(${resumeIds}) AND user_id = ${user.id}
-    `
+    let finalResumeData = mergedResumeData
 
-    if (resumes.length !== resumeIds.length) {
-      return NextResponse.json({ success: false, error: "Some resumes not found" }, { status: 404 })
-    }
+    // If no merged data provided, merge the selected resumes
+    if (!finalResumeData && resumeIds && resumeIds.length > 0) {
+      const resumes = await sql`
+        SELECT resume_data FROM resumes 
+        WHERE id = ANY(${resumeIds}) AND user_id = ${user.id}
+      `
 
-    // Merge resume data
-    const mergedData = {
-      title: title.trim(),
-      sections: [],
-    }
-
-    const sectionMap = new Map()
-
-    // Process each resume
-    resumes.forEach((resume) => {
-      const resumeData = resume.resume_data
-      if (resumeData?.sections) {
-        resumeData.sections.forEach((section) => {
-          const sectionName = section["section name"] || section.name
-          if (sectionMap.has(sectionName)) {
-            // Merge content if section already exists
-            const existingSection = sectionMap.get(sectionName)
-            existingSection.content = [...existingSection.content, ...section.content]
-          } else {
-            // Add new section
-            sectionMap.set(sectionName, {
-              id: nanoid(),
-              "section name": sectionName,
-              content: [...section.content],
-            })
-          }
-        })
+      // Simple merge logic - combine all sections
+      finalResumeData = {
+        personalInfo: {},
+        experience: [],
+        education: [],
+        skills: [],
+        projects: [],
+        certifications: [],
       }
-    })
 
-    mergedData.sections = Array.from(sectionMap.values())
+      resumes.forEach((resume: any) => {
+        const data = typeof resume.resume_data === "string" ? JSON.parse(resume.resume_data) : resume.resume_data
 
-    // Generate unique portfolio URL
-    const portfolioUrl = nanoid(10)
+        // Merge personal info (last one wins for conflicts)
+        if (data.personalInfo) {
+          finalResumeData.personalInfo = { ...finalResumeData.personalInfo, ...data.personalInfo }
+        }
+
+        // Concatenate arrays
+        if (data.experience) finalResumeData.experience.push(...data.experience)
+        if (data.education) finalResumeData.education.push(...data.education)
+        if (data.skills) finalResumeData.skills.push(...data.skills)
+        if (data.projects) finalResumeData.projects.push(...data.projects)
+        if (data.certifications) finalResumeData.certifications.push(...data.certifications)
+      })
+
+      // Remove duplicates from skills
+      finalResumeData.skills = [...new Set(finalResumeData.skills)]
+    }
 
     const result = await sql`
-      INSERT INTO portfolios (user_id, title, description, theme, resume_data, is_published, portfolio_url)
-      VALUES (${user.id}, ${title.trim()}, ${description?.trim() || null}, ${theme}, ${JSON.stringify(mergedData)}, ${isPublished}, ${portfolioUrl})
-      RETURNING id, title, description, theme, resume_data, is_published, portfolio_url, created_at, updated_at
+      INSERT INTO portfolios (
+        user_id, 
+        title, 
+        description, 
+        theme, 
+        resume_data, 
+        portfolio_url,
+        is_published,
+        total_views,
+        unique_visitors,
+        views_last_7_days,
+        views_last_30_days,
+        created_at, 
+        updated_at
+      )
+      VALUES (
+        ${user.id}, 
+        ${title}, 
+        ${description || null}, 
+        ${theme}, 
+        ${JSON.stringify(finalResumeData)}, 
+        ${urlSlug},
+        false,
+        0,
+        0,
+        0,
+        0,
+        CURRENT_TIMESTAMP, 
+        CURRENT_TIMESTAMP
+      )
+      RETURNING *
     `
 
     return NextResponse.json({

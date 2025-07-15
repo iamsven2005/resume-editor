@@ -32,7 +32,7 @@ export function ResumeNameEditorDialog({
 }: ResumeNameEditorDialogProps) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState(currentTitle)
-  const [saving, setSaving] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -49,7 +49,7 @@ export function ResumeNameEditorDialog({
       return
     }
 
-    setSaving(true)
+    setIsUpdating(true)
     try {
       const response = await fetch(`/api/resumes/${resumeId}`, {
         method: "PUT",
@@ -61,28 +61,31 @@ export function ResumeNameEditorDialog({
         }),
       })
 
-      if (response.ok) {
+      const data = await response.json()
+
+      if (data.success) {
         onTitleUpdated(title.trim())
         setOpen(false)
         toast({
           title: "Success",
-          description: "Resume title updated successfully",
+          description: "Resume name updated successfully",
         })
       } else {
         toast({
           title: "Error",
-          description: "Failed to update resume title",
+          description: data.error || "Failed to update resume name",
           variant: "destructive",
         })
       }
     } catch (error) {
+      console.error("Error updating resume name:", error)
       toast({
         title: "Error",
-        description: "Failed to update resume title",
+        description: "Failed to update resume name. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setSaving(false)
+      setIsUpdating(false)
     }
   }
 
@@ -98,37 +101,37 @@ export function ResumeNameEditorDialog({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Resume Title</DialogTitle>
+          <DialogTitle>Edit Resume Name</DialogTitle>
           <DialogDescription>
-            Change the title of your resume. This will help you organize and identify your resumes.
+            Change the name of your resume. This will help you organize your resumes better.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="title" className="text-right">
-              Title
+              Name
             </Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !saving) {
+                if (e.key === "Enter" && !isUpdating) {
                   handleSave()
                 }
               }}
               className="col-span-3"
-              placeholder="Enter resume title..."
-              autoFocus
+              placeholder="Enter resume name..."
+              disabled={isUpdating}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isUpdating}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || !title.trim()}>
-            {saving ? "Saving..." : "Save Changes"}
+          <Button onClick={handleSave} disabled={isUpdating || !title.trim()}>
+            {isUpdating ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

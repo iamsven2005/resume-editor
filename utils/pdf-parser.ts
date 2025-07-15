@@ -137,7 +137,7 @@ export const extractTextFromPDFAdvanced = async (file: File): Promise<string> =>
           // Text showing operators
           /BT\s*(.*?)\s*ET/gs,
           // Direct text content
-          /$$((?:[^()\\]|\\.|\\[0-7]{1,3})*)$$/g,
+          /$$(?:[^()\\]|\\.|\\[0-7]{1,3})*$$/g,
           // Hex strings
           /<([0-9A-Fa-f\s]+)>/g,
           // Text in content streams
@@ -305,6 +305,8 @@ export const parseResumeWithAI = async (text: string): Promise<ResumeData> => {
     })
 
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error("AI parsing API error:", response.status, errorText)
       throw new Error(`AI parsing failed: ${response.status} ${response.statusText}`)
     }
 

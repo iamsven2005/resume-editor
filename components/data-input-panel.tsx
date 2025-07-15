@@ -1,15 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { AlertCircle, Code, FileCode, Globe, Download, Upload, Target } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { DocumentUpload } from "./document-upload"
 import type { TabType, ResumeData } from "../types/resume"
+import { FileText, Download, Upload, RefreshCw, Code, Eye, AlertCircle, Target } from "lucide-react"
 
 interface DataInputPanelProps {
   jsonString: string
@@ -56,227 +57,227 @@ export const DataInputPanel = ({
   onAnalyzeResume,
   isAnalyzing,
 }: DataInputPanelProps) => {
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+
+  const handleResumeUploaded = (data: ResumeData) => {
+    console.log("Resume uploaded in DataInputPanel:", data)
+    onResumeUploaded(data)
+    setUploadDialogOpen(false)
+  }
+
+  const getTabIcon = (tab: TabType) => {
+    switch (tab) {
+      case "json":
+        return <Code className="h-4 w-4" />
+      case "markdown":
+        return <FileText className="h-4 w-4" />
+      case "html":
+        return <Eye className="h-4 w-4" />
+      default:
+        return <FileText className="h-4 w-4" />
+    }
+  }
 
   const getConversionButtons = () => {
     switch (activeTab) {
       case "json":
         return (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onConvertToMarkdown}
-              className="flex items-center gap-1 bg-transparent"
-            >
-              <FileCode className="h-4 w-4" />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onConvertToMarkdown}>
+              <FileText className="h-4 w-4 mr-2" />
               To Markdown
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onConvertToHtml}
-              className="flex items-center gap-1 bg-transparent"
-            >
-              <Globe className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={onConvertToHtml}>
+              <Eye className="h-4 w-4 mr-2" />
               To HTML
             </Button>
-          </>
+          </div>
         )
       case "markdown":
         return (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onConvertToJson}
-              className="flex items-center gap-1 bg-transparent"
-            >
-              <Code className="h-4 w-4" />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onConvertToJson}>
+              <Code className="h-4 w-4 mr-2" />
               To JSON
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onConvertToHtml}
-              className="flex items-center gap-1 bg-transparent"
-            >
-              <Globe className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={onConvertToHtml}>
+              <Eye className="h-4 w-4 mr-2" />
               To HTML
             </Button>
-          </>
+          </div>
         )
       case "html":
         return (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onConvertFromHtml}
-              className="flex items-center gap-1 bg-transparent"
-            >
-              <Code className="h-4 w-4" />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onConvertFromHtml}>
+              <Code className="h-4 w-4 mr-2" />
               To JSON
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onConvertToMarkdown}
-              className="flex items-center gap-1 bg-transparent"
-            >
-              <FileCode className="h-4 w-4" />
-              To Markdown
-            </Button>
-          </>
+          </div>
         )
       default:
         return null
     }
   }
 
-  const getDownloadButtonText = () => {
+  const getCurrentValue = () => {
     switch (activeTab) {
       case "json":
-        return "Download JSON"
+        return jsonString
       case "markdown":
-        return "Download Markdown"
+        return markdownString
       case "html":
-        return "Download HTML"
+        return htmlString
       default:
-        return "Download"
+        return ""
     }
   }
 
-  const getFileIcon = () => {
+  const handleValueChange = (value: string) => {
     switch (activeTab) {
       case "json":
-        return <Code className="h-4 w-4" />
+        onJsonChange(value)
+        break
       case "markdown":
-        return <FileCode className="h-4 w-4" />
+        onMarkdownChange(value)
+        break
       case "html":
-        return <Globe className="h-4 w-4" />
-      default:
-        return <Download className="h-4 w-4" />
+        onHtmlChange(value)
+        break
     }
-  }
-
-  const handleResumeUploaded = (data: ResumeData) => {
-    onResumeUploaded(data)
-    setIsUploadDialogOpen(false)
-  }
-
-  const handleUploadClick = () => {
-    setIsUploadDialogOpen(true)
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="space-y-4">
+      {/* Upload Section */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium">Document Upload</h3>
+          <Badge variant="secondary" className="text-xs">
+            AI Powered
+          </Badge>
+        </div>
+        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Resume
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DocumentUpload onResumeExtracted={handleResumeUploaded} onClose={() => setUploadDialogOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Separator />
+
+      {/* Data Editor */}
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <CardTitle>Data Input</CardTitle>
-          <div className="flex space-x-2 flex-wrap">
-            <Button variant="secondary" size="sm" onClick={handleUploadClick} className="flex items-center gap-1">
-              <Upload className="h-4 w-4" />
-              Upload Document
-            </Button>
+          <h3 className="text-sm font-medium">Data Editor</h3>
+          <div className="flex items-center gap-2">
             {getConversionButtons()}
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => onDownloadFile(activeTab)}
-              className="flex items-center gap-1"
-              title={`Download current content as ${activeTab.toUpperCase()} file`}
-            >
-              {getFileIcon()}
-              {getDownloadButtonText()}
+            <Button variant="outline" size="sm" onClick={() => onDownloadFile(activeTab)}>
+              <Download className="h-4 w-4 mr-2" />
+              Download {activeTab.toUpperCase()}
             </Button>
           </div>
         </div>
-        {/* Job Requirements Section */}
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="job-requirements" className="text-sm font-medium">
-              Job Requirements (Optional)
-            </label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onAnalyzeResume}
-              disabled={!jobRequirements.trim() || isAnalyzing}
-              className="flex items-center gap-1 bg-transparent"
-            >
-              <Target className="h-4 w-4" />
-              {isAnalyzing ? "Analyzing..." : "Analyze Resume"}
-            </Button>
-          </div>
-          <Textarea
-            id="job-requirements"
-            value={jobRequirements}
-            onChange={(e) => onJobRequirementsChange(e.target.value)}
-            className="text-sm min-h-[100px]"
-            placeholder="Paste the job description or requirements here to get AI-powered analysis of how well your resume matches..."
-          />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={onTabChange}>
+
+        <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as TabType)}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="json" className="flex items-center gap-2">
-              <Code className="h-4 w-4" />
+              {getTabIcon("json")}
               JSON
             </TabsTrigger>
             <TabsTrigger value="markdown" className="flex items-center gap-2">
-              <FileCode className="h-4 w-4" />
+              {getTabIcon("markdown")}
               Markdown
             </TabsTrigger>
             <TabsTrigger value="html" className="flex items-center gap-2">
-              <Globe className="h-4 w-4" />
+              {getTabIcon("html")}
               HTML
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="json" className="mt-4">
+          <TabsContent value="json" className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Edit your resume data in JSON format</p>
+              <Badge variant={parseError ? "destructive" : "secondary"} className="text-xs">
+                {parseError ? "Invalid JSON" : "Valid JSON"}
+              </Badge>
+            </div>
             <Textarea
               value={jsonString}
-              onChange={(e) => onJsonChange(e.target.value)}
-              className="font-mono text-sm min-h-[500px]"
-              placeholder="Enter your JSON here..."
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder="Enter JSON data here..."
+              className="min-h-[300px] font-mono text-sm"
             />
           </TabsContent>
 
-          <TabsContent value="markdown" className="mt-4">
+          <TabsContent value="markdown" className="space-y-2">
+            <p className="text-sm text-muted-foreground">Edit your resume in Markdown format</p>
             <Textarea
               value={markdownString}
-              onChange={(e) => onMarkdownChange(e.target.value)}
-              className="font-mono text-sm min-h-[500px]"
-              placeholder="Enter your Markdown here..."
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder="Enter Markdown data here..."
+              className="min-h-[300px] font-mono text-sm"
             />
           </TabsContent>
 
-          <TabsContent value="html" className="mt-4">
+          <TabsContent value="html" className="space-y-2">
+            <p className="text-sm text-muted-foreground">Edit your resume in HTML format</p>
             <Textarea
               value={htmlString}
-              onChange={(e) => onHtmlChange(e.target.value)}
-              className="font-mono text-sm min-h-[500px]"
-              placeholder="Enter your HTML here..."
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder="Enter HTML data here..."
+              className="min-h-[300px] font-mono text-sm"
             />
           </TabsContent>
         </Tabs>
 
         {parseError && (
-          <Alert className="mt-4" variant="destructive">
+          <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{parseError}</AlertDescription>
           </Alert>
         )}
+      </div>
 
-        {/* Document Upload Dialog */}
-        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DocumentUpload onResumeExtracted={handleResumeUploaded} onClose={() => setIsUploadDialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+      <Separator />
+
+      {/* Job Requirements Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium">Job Requirements</h3>
+            <Badge variant="outline" className="text-xs">
+              For Analysis
+            </Badge>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAnalyzeResume}
+            disabled={isAnalyzing || !jobRequirements.trim()}
+          >
+            {isAnalyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Target className="h-4 w-4 mr-2" />}
+            {isAnalyzing ? "Analyzing..." : "Analyze Resume"}
+          </Button>
+        </div>
+
+        <Textarea
+          value={jobRequirements}
+          onChange={(e) => onJobRequirementsChange(e.target.value)}
+          placeholder="Paste the job description or requirements here to analyze how well your resume matches..."
+          className="min-h-[120px] text-sm"
+        />
+
+        <p className="text-xs text-muted-foreground">
+          💡 Tip: Paste a job description to get AI-powered analysis of how well your resume matches the requirements.
+        </p>
+      </div>
+    </div>
   )
 }

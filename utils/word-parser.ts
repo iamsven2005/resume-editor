@@ -89,7 +89,9 @@ export const extractFormattedTextFromWord = async (file: File): Promise<string> 
       }
     })
 
-    return formattedText.trim()
+    const finalText = formattedText.trim()
+    console.log("Word extraction successful, formatted text length:", finalText.length)
+    return finalText
   } catch (error) {
     console.error("Error extracting formatted text from Word document:", error)
     // Fallback to raw text extraction
@@ -100,12 +102,14 @@ export const extractFormattedTextFromWord = async (file: File): Promise<string> 
 // Parse resume text using AI with improved error handling
 export const parseWordResumeWithAI = async (text: string): Promise<ResumeData> => {
   try {
+    console.log("Parsing Word resume with AI, text length:", text.length)
+
     const response = await fetch("/api/parse-resume", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, type: "docx" }),
     })
 
     // Check if response is ok
@@ -129,6 +133,7 @@ export const parseWordResumeWithAI = async (text: string): Promise<ResumeData> =
       throw new Error(result.error || "Failed to parse resume")
     }
 
+    console.log("Word resume parsing successful")
     return result.data
   } catch (error) {
     console.error("Error parsing Word resume with AI:", error)

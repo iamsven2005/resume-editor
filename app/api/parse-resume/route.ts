@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid request body. Expected JSON." }, { status: 400 })
     }
 
-    const { text } = body
+    const { text, type } = body
 
     if (!text || typeof text !== "string") {
       return NextResponse.json(
@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log(`Processing ${type || "unknown"} resume text, length:`, text.length)
+    console.log("Text preview:", text.substring(0, 200) + "...")
+
     const prompt = `
 You are an AI assistant that extracts structured information from resume text. 
 Parse the following resume text and convert it into a structured JSON format.
@@ -57,7 +60,7 @@ The output should follow this exact structure:
           "Description": "Job description and achievements"
         }
       ],
-      "id": "unique-id"
+      "id": "exp-123"
     },
     {
       "section name": "Education", 
@@ -69,7 +72,7 @@ The output should follow this exact structure:
           "GPA": "GPA if mentioned"
         }
       ],
-      "id": "unique-id"
+      "id": "edu-456"
     },
     {
       "section name": "Skills",
@@ -79,7 +82,7 @@ The output should follow this exact structure:
           "Skills": "List of skills"
         }
       ],
-      "id": "unique-id"
+      "id": "skills-789"
     }
   ]
 }
@@ -94,6 +97,8 @@ Instructions:
 7. Preserve all important information from the original text
 8. If dates are unclear, make reasonable assumptions or use "Present" for current positions
 9. Clean up formatting and make descriptions concise but informative
+10. If you can't find a clear name, use "Resume" as the title
+11. Always include at least Experience, Education, and Skills sections even if empty
 
 Resume text to parse:
 ${text}
@@ -104,13 +109,12 @@ Return ONLY the JSON object with no additional formatting or text.
     let result
     try {
       const aiResponse = await generateText({
-        model: openai("gpt-4o", {
-          apiKey: "sk-proj-sDtKKyK65CABt9mRtL5wT3BlbkFJpg1ODkGHlhS0wqV1ma4T",
-        }),
+        model: openai("gpt-4o"),
         prompt,
         temperature: 0.1, // Low temperature for consistent parsing
       })
       result = aiResponse.text
+      console.log("AI response received, length:", result.length)
     } catch (aiError) {
       console.error("AI generation error:", aiError)
       return NextResponse.json(
@@ -133,12 +137,13 @@ Return ONLY the JSON object with no additional formatting or text.
     cleanedResult = cleanedResult.trim()
 
     // Log the cleaned result for debugging
-    console.log("Cleaned AI response:", cleanedResult.substring(0, 200) + "...")
+    console.log("Cleaned AI response preview:", cleanedResult.substring(0, 200) + "...")
 
     // Parse the AI response
     let parsedData
     try {
       parsedData = JSON.parse(cleanedResult)
+      console.log("Successfully parsed AI response")
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError)
       console.error("Original AI response:", result)
@@ -171,19 +176,26 @@ Return ONLY the JSON object with no additional formatting or text.
     }
 
     if (!parsedData.title || typeof parsedData.title !== "string") {
-      return NextResponse.json({ success: false, error: "AI failed to extract resume title." }, { status: 500 })
+      parsedData.title = "Resume" // Fallback title
     }
 
     if (!Array.isArray(parsedData.sections)) {
       return NextResponse.json({ success: false, error: "AI failed to extract resume sections." }, { status: 500 })
     }
 
-    // Ensure all sections have required fields
+    // Ensure all sections have required fields and generate IDs
     parsedData.sections = parsedData.sections.map((section: any, index: number) => ({
       "section name": section["section name"] || `Section ${index + 1}`,
       content: Array.isArray(section.content) ? section.content : [],
       id: section.id || `section-${Math.random().toString(36).substring(2, 9)}`,
     }))
+
+    console.log("Resume parsing completed successfully")
+    console.log("Parsed data preview:", {
+      title: parsedData.title,
+      sectionsCount: parsedData.sections.length,
+      sections: parsedData.sections.map((s: any) => s["section name"]),
+    })
 
     return NextResponse.json({
       success: true,
