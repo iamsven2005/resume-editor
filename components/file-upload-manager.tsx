@@ -26,7 +26,6 @@ import {
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
-import { put, list, del } from "@vercel/blob"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,7 +51,7 @@ interface FileUploadManagerProps {
 }
 
 export function FileUploadManager({ searchQuery }: FileUploadManagerProps) {
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const [files, setFiles] = useState<BlobFile[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -60,16 +59,26 @@ export function FileUploadManager({ searchQuery }: FileUploadManagerProps) {
   const [dragActive, setDragActive] = useState(false)
 
   useEffect(() => {
-    if (user) {
+    if (user && token) {
       fetchFiles()
     }
-  }, [user])
+  }, [user, token])
 
   const fetchFiles = async () => {
     try {
       setLoading(true)
-      const { blobs } = await list()
-      setFiles(blobs)
+      const response = await fetch("/api/files", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch files")
+      }
+
+      const data = await response.json()
+      setFiles(data.files)
     } catch (error) {
       console.error("Error fetching files:", error)
       toast({
@@ -89,20 +98,32 @@ export function FileUploadManager({ searchQuery }: FileUploadManagerProps) {
     setUploadProgress(0)
 
     try {
-      const uploadPromises = Array.from(selectedFiles).map(async (file, index) => {
-        const filename = `${Date.now()}-${file.name}`
-
-        const blob = await put(filename, file, {
-          access: "public",
-          onUploadProgress: ({ percentage }) => {
-            setUploadProgress((prev) => Math.max(prev, percentage))
-          },
-        })
-
-        return blob
+      const formData = new FormData()
+      Array.from(selectedFiles).forEach((file) => {
+        formData.append("files", file)
       })
 
-      await Promise.all(uploadPromises)
+      // Simulate progress for better UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 10, 90))
+      }, 200)
+
+      const response = await fetch("/api/files/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+
+      if (!response.ok) {
+        throw new Error("Failed to upload files")
+      }
+
+      const data = await response.json()
 
       toast({
         title: "Success",
@@ -125,7 +146,17 @@ export function FileUploadManager({ searchQuery }: FileUploadManagerProps) {
 
   const handleDeleteFile = async (pathname: string) => {
     try {
-      await del(pathname)
+      const response = await fetch(`/api/files/${encodeURIComponent(pathname)}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete file")
+      }
+
       toast({
         title: "Success",
         description: "File deleted successfully",
@@ -202,7 +233,7 @@ export function FileUploadManager({ searchQuery }: FileUploadManagerProps) {
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
   }
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -331,7 +362,7 @@ export function FileUploadManager({ searchQuery }: FileUploadManagerProps) {
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           {getFileIcon(file.pathname)}
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{file.pathname}</p>
+                            <p className="font-medium truncate">{file.pathname.split("/").pop()}</p>
                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
                               <span>{formatFileSize(file.size)}</span>
                               <div className="flex items-center gap-1">
@@ -366,8 +397,8 @@ export function FileUploadManager({ searchQuery }: FileUploadManagerProps) {
                             size="sm"
                             onClick={() => {
                               const a = document.createElement("a")
-                              a.href = file.downloadUrl
-                              a.download = file.pathname
+                              a.href = file.url
+                              a.download = file.pathname.split("/").pop() || "download"
                               document.body.appendChild(a)
                               a.click()
                               document.body.removeChild(a)
@@ -392,7 +423,8 @@ export function FileUploadManager({ searchQuery }: FileUploadManagerProps) {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete File</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{file.pathname}"? This action cannot be undone.
+                                  Are you sure you want to delete "{file.pathname.split("/").pop()}"? This action cannot
+                                  be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
