@@ -6,11 +6,11 @@ CREATE TABLE IF NOT EXISTS portfolios (
   theme VARCHAR(50) DEFAULT 'modern',
   resume_data JSONB NOT NULL,
   is_published BOOLEAN DEFAULT FALSE,
-  portfolio_url VARCHAR(500),
+  portfolio_url VARCHAR(50) UNIQUE NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON portfolios(user_id);
-CREATE INDEX IF NOT EXISTS idx_portfolios_published ON portfolios(is_published);
-CREATE INDEX IF NOT EXISTS idx_portfolios_updated_at ON portfolios(updated_at);
+CREATE INDEX IF NOT EXISTS idx_portfolios_portfolio_url ON portfolios(portfolio_url);
+CREATE INDEX IF NOT EXISTS idx_portfolios_is_published ON portfolios(is_published);

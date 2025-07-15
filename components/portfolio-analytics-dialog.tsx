@@ -3,33 +3,14 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  BarChart3,
-  Eye,
-  Users,
-  Clock,
-  Globe,
-  MapPin,
-  Monitor,
-  Smartphone,
-  Tablet,
-  Calendar,
-  TrendingUp,
-} from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { BarChart3, Globe, Monitor, Calendar, Users, Eye, Clock, MousePointer } from "lucide-react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
 import type { PortfolioAnalytics } from "@/types/portfolio"
 
 interface PortfolioAnalyticsDialogProps {
@@ -43,6 +24,12 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
   const [analytics, setAnalytics] = useState<PortfolioAnalytics | null>(null)
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    if (open && !analytics) {
+      fetchAnalytics()
+    }
+  }, [open])
+
   const fetchAnalytics = async () => {
     setLoading(true)
     try {
@@ -51,32 +38,12 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
 
       if (data.success) {
         setAnalytics(data.analytics)
-      } else {
-        throw new Error(data.error || "Failed to fetch analytics")
       }
     } catch (error) {
       console.error("Error fetching analytics:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load analytics data",
-        variant: "destructive",
-      })
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    if (open) {
-      fetchAnalytics()
-    }
-  }, [open, portfolioId])
-
-  const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${Math.round(seconds)}s`
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = Math.round(seconds % 60)
-    return `${minutes}m ${remainingSeconds}s`
   }
 
   const formatDate = (dateString: string) => {
@@ -86,62 +53,46 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
     })
   }
 
-  const getDeviceIcon = (deviceType: string) => {
-    switch (deviceType?.toLowerCase()) {
-      case "mobile":
-        return <Smartphone className="h-4 w-4" />
-      case "tablet":
-        return <Tablet className="h-4 w-4" />
-      default:
-        return <Monitor className="h-4 w-4" />
-    }
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes}m ${remainingSeconds}s`
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children || (
-          <Button variant="outline" size="sm">
-            <BarChart3 className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" className="flex items-center gap-1 bg-transparent">
+            <BarChart3 className="h-3 w-3" />
             Analytics
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
             Analytics - {portfolioTitle}
           </DialogTitle>
-          <DialogDescription>Detailed analytics and insights for your portfolio performance.</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[75vh]">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <BarChart3 className="h-8 w-8 mx-auto mb-4 animate-pulse" />
-                <p className="text-muted-foreground">Loading analytics...</p>
-              </div>
-            </div>
-          ) : !analytics ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <BarChart3 className="h-8 w-8 mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground">No analytics data available</p>
-              </div>
-            </div>
-          ) : (
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <p className="text-muted-foreground">Loading analytics...</p>
+          </div>
+        ) : analytics ? (
+          <ScrollArea className="max-h-[70vh]">
             <div className="space-y-6">
-              {/* Overview Cards */}
+              {/* Summary Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2">
                       <Eye className="h-4 w-4 text-blue-500" />
                       <div>
-                        <p className="text-2xl font-bold">{analytics.summary.total_views || 0}</p>
-                        <p className="text-xs text-muted-foreground">Total Views</p>
+                        <div className="text-2xl font-bold">{analytics.summary.total_views}</div>
+                        <div className="text-xs text-muted-foreground">Total Views</div>
                       </div>
                     </div>
                   </CardContent>
@@ -152,8 +103,8 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-green-500" />
                       <div>
-                        <p className="text-2xl font-bold">{analytics.summary.unique_visitors || 0}</p>
-                        <p className="text-xs text-muted-foreground">Unique Visitors</p>
+                        <div className="text-2xl font-bold">{analytics.summary.unique_visitors}</div>
+                        <div className="text-xs text-muted-foreground">Unique Visitors</div>
                       </div>
                     </div>
                   </CardContent>
@@ -164,10 +115,8 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-orange-500" />
                       <div>
-                        <p className="text-2xl font-bold">
-                          {formatDuration(analytics.summary.avg_session_duration || 0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Avg. Session</p>
+                        <div className="text-2xl font-bold">{Math.round(analytics.summary.avg_session_duration)}s</div>
+                        <div className="text-xs text-muted-foreground">Avg. Session</div>
                       </div>
                     </div>
                   </CardContent>
@@ -176,10 +125,10 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-purple-500" />
+                      <MousePointer className="h-4 w-4 text-purple-500" />
                       <div>
-                        <p className="text-2xl font-bold">{analytics.summary.views_last_7_days || 0}</p>
-                        <p className="text-xs text-muted-foreground">Last 7 Days</p>
+                        <div className="text-2xl font-bold">{Math.round(analytics.summary.avg_pages_viewed)}</div>
+                        <div className="text-xs text-muted-foreground">Pages/Session</div>
                       </div>
                     </div>
                   </CardContent>
@@ -190,257 +139,203 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="geography">Geography</TabsTrigger>
-                  <TabsTrigger value="devices">Devices</TabsTrigger>
-                  <TabsTrigger value="activity">Activity</TabsTrigger>
+                  <TabsTrigger value="technology">Technology</TabsTrigger>
+                  <TabsTrigger value="recent">Recent Activity</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Time Period Stats */}
+                  <div className="grid grid-cols-3 gap-4">
                     <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Time Period Breakdown</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Last 7 days</span>
-                          <Badge variant="outline">{analytics.summary.views_last_7_days || 0} views</Badge>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Last 30 days</span>
-                          <Badge variant="outline">{analytics.summary.views_last_30_days || 0} views</Badge>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Last 90 days</span>
-                          <Badge variant="outline">{analytics.summary.views_last_90_days || 0} views</Badge>
-                        </div>
+                      <CardContent className="p-4 text-center">
+                        <div className="text-xl font-bold text-green-600">{analytics.summary.views_last_7_days}</div>
+                        <div className="text-sm text-muted-foreground">Last 7 Days</div>
                       </CardContent>
                     </Card>
-
                     <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Engagement Metrics</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Avg. Pages Viewed</span>
-                          <Badge variant="outline">{(analytics.summary.avg_pages_viewed || 0).toFixed(1)}</Badge>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Avg. Session Duration</span>
-                          <Badge variant="outline">{formatDuration(analytics.summary.avg_session_duration || 0)}</Badge>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Return Visitor Rate</span>
-                          <Badge variant="outline">
-                            {analytics.summary.total_views && analytics.summary.unique_visitors
-                              ? (
-                                  ((analytics.summary.total_views - analytics.summary.unique_visitors) /
-                                    analytics.summary.total_views) *
-                                  100
-                                ).toFixed(1)
-                              : 0}
-                            %
-                          </Badge>
-                        </div>
+                      <CardContent className="p-4 text-center">
+                        <div className="text-xl font-bold text-blue-600">{analytics.summary.views_last_30_days}</div>
+                        <div className="text-sm text-muted-foreground">Last 30 Days</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 text-center">
+                        <div className="text-xl font-bold text-purple-600">{analytics.summary.views_last_90_days}</div>
+                        <div className="text-sm text-muted-foreground">Last 90 Days</div>
                       </CardContent>
                     </Card>
                   </div>
+
+                  {/* Daily Views Chart */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Daily Views (Last 30 Days)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart data={analytics.dailyViews}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" tickFormatter={formatDate} />
+                          <YAxis />
+                          <Tooltip labelFormatter={(value) => new Date(value).toLocaleDateString()} />
+                          <Line type="monotone" dataKey="views" stroke="#3b82f6" strokeWidth={2} name="Views" />
+                          <Line
+                            type="monotone"
+                            dataKey="unique_visitors"
+                            stroke="#10b981"
+                            strokeWidth={2}
+                            name="Unique Visitors"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="geography" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Top Countries */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-base flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2">
                           <Globe className="h-4 w-4" />
                           Top Countries
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-2">
-                          {analytics.topCountries.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">No geographic data available</p>
-                          ) : (
-                            analytics.topCountries.slice(0, 5).map((country, index) => (
-                              <div key={country.country} className="flex justify-between items-center">
+                          {analytics.topCountries.slice(0, 10).map((country, index) => (
+                            <div key={country.country} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="w-6 h-6 p-0 text-xs">
+                                  {index + 1}
+                                </Badge>
                                 <span className="text-sm">{country.country}</span>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {country.views} views
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {country.unique_visitors} visitors
-                                  </Badge>
-                                </div>
                               </div>
-                            ))
-                          )}
+                              <div className="text-sm text-muted-foreground">
+                                {country.views} views ({country.unique_visitors} unique)
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </CardContent>
                     </Card>
 
+                    {/* Top Cities */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          Top Cities
-                        </CardTitle>
+                        <CardTitle>Top Cities</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-2">
-                          {analytics.topCities.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">No city data available</p>
-                          ) : (
-                            analytics.topCities.slice(0, 5).map((city, index) => (
-                              <div key={`${city.city}-${city.country}`} className="flex justify-between items-center">
+                          {analytics.topCities.slice(0, 10).map((city, index) => (
+                            <div key={`${city.city}-${city.country}`} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="w-6 h-6 p-0 text-xs">
+                                  {index + 1}
+                                </Badge>
                                 <span className="text-sm">
                                   {city.city}, {city.country}
                                 </span>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {city.views} views
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {city.unique_visitors} visitors
-                                  </Badge>
-                                </div>
                               </div>
-                            ))
-                          )}
+                              <div className="text-sm text-muted-foreground">{city.views} views</div>
+                            </div>
+                          ))}
                         </div>
                       </CardContent>
                     </Card>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="devices" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <TabsContent value="technology" className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Device Breakdown */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-base">Device Types</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                          <Monitor className="h-4 w-4" />
+                          Device Types
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-2">
-                          {analytics.deviceBreakdown.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">No device data available</p>
-                          ) : (
-                            analytics.deviceBreakdown.map((device) => (
-                              <div key={device.device_type} className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                  {getDeviceIcon(device.device_type)}
-                                  <span className="text-sm capitalize">{device.device_type}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {device.views} views
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {device.unique_visitors} visitors
-                                  </Badge>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <BarChart data={analytics.deviceBreakdown}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="device_type" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="views" fill="#3b82f6" />
+                          </BarChart>
+                        </ResponsiveContainer>
                       </CardContent>
                     </Card>
 
+                    {/* Browser Breakdown */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-base">Top Browsers</CardTitle>
+                        <CardTitle>Top Browsers</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-2">
-                          {analytics.browserBreakdown.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">No browser data available</p>
-                          ) : (
-                            analytics.browserBreakdown.slice(0, 5).map((browser) => (
-                              <div key={browser.browser} className="flex justify-between items-center">
+                          {analytics.browserBreakdown.map((browser, index) => (
+                            <div key={browser.browser} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="w-6 h-6 p-0 text-xs">
+                                  {index + 1}
+                                </Badge>
                                 <span className="text-sm">{browser.browser}</span>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {browser.views} views
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {browser.unique_visitors} visitors
-                                  </Badge>
-                                </div>
                               </div>
-                            ))
-                          )}
+                              <div className="text-sm text-muted-foreground">{browser.views} views</div>
+                            </div>
+                          ))}
                         </div>
                       </CardContent>
                     </Card>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="activity" className="space-y-4">
+                <TabsContent value="recent" className="space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Daily Views (Last 30 Days)
-                      </CardTitle>
+                      <CardTitle>Recent Visitors</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {analytics.dailyViews.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No daily activity data available</p>
-                        ) : (
-                          analytics.dailyViews.map((day) => (
-                            <div key={day.date} className="flex justify-between items-center">
-                              <span className="text-sm">{formatDate(day.date)}</span>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {day.views} views
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                  {day.unique_visitors} visitors
-                                </Badge>
+                      <ScrollArea className="h-64">
+                        <div className="space-y-2">
+                          {analytics.recentViews.map((view, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 border rounded">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Badge variant="outline" className="text-xs">
+                                    {view.country || "Unknown"}
+                                  </Badge>
+                                  {view.city && <span className="text-muted-foreground">{view.city}</span>}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {view.device_type} • {view.browser} • {formatDuration(view.session_duration)}
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(view.created_at).toLocaleString()}
                               </div>
                             </div>
-                          ))
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Recent Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {analytics.recentViews.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No recent activity</p>
-                        ) : (
-                          analytics.recentViews.slice(0, 10).map((view, index) => (
-                            <div key={index} className="flex justify-between items-center text-xs">
-                              <div className="flex items-center gap-2">
-                                {getDeviceIcon(view.device_type)}
-                                <span>
-                                  {view.city && view.country ? `${view.city}, ${view.country}` : "Unknown location"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  {view.browser}
-                                </Badge>
-                                <span className="text-muted-foreground">
-                                  {new Date(view.created_at).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     </CardContent>
                   </Card>
                 </TabsContent>
               </Tabs>
             </div>
-          )}
-        </ScrollArea>
+          </ScrollArea>
+        ) : (
+          <div className="flex items-center justify-center h-64">
+            <p className="text-muted-foreground">No analytics data available</p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -13,46 +13,26 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Verify portfolio ownership
-    const portfolio = await sql`
-      SELECT id FROM portfolios
+    const portfolioCheck = await sql`
+      SELECT id FROM portfolios 
       WHERE id = ${params.id} AND user_id = ${user.id}
     `
 
-    if (portfolio.length === 0) {
+    if (portfolioCheck.length === 0) {
       return NextResponse.json({ success: false, error: "Portfolio not found" }, { status: 404 })
     }
 
-    // Get detailed analytics
-    const analytics = await sql`
-      SELECT 
-        visitor_ip,
-        user_agent,
-        referrer,
-        country,
-        city,
-        device_type,
-        browser,
-        os,
-        session_duration,
-        pages_viewed,
-        created_at
-      FROM portfolio_analytics
-      WHERE portfolio_id = ${params.id}
-      ORDER BY created_at DESC
-      LIMIT 1000
-    `
-
-    // Get summary statistics
+    // Get analytics summary
     const summary = await sql`
       SELECT 
-        COUNT(*) as total_views,
-        COUNT(DISTINCT visitor_ip) as unique_visitors,
-        AVG(session_duration) as avg_session_duration,
-        AVG(pages_viewed) as avg_pages_viewed,
-        COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as views_last_7_days,
-        COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as views_last_30_days,
-        COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '90 days' THEN 1 END) as views_last_90_days
-      FROM portfolio_analytics
+        total_views,
+        unique_visitors,
+        avg_session_duration,
+        avg_pages_viewed,
+        views_last_7_days,
+        views_last_30_days,
+        views_last_90_days
+      FROM portfolio_analytics_summary 
       WHERE portfolio_id = ${params.id}
     `
 
@@ -62,7 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         country,
         COUNT(*) as views,
         COUNT(DISTINCT visitor_ip) as unique_visitors
-      FROM portfolio_analytics
+      FROM portfolio_analytics 
       WHERE portfolio_id = ${params.id} AND country IS NOT NULL
       GROUP BY country
       ORDER BY views DESC
@@ -76,7 +56,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         country,
         COUNT(*) as views,
         COUNT(DISTINCT visitor_ip) as unique_visitors
-      FROM portfolio_analytics
+      FROM portfolio_analytics 
       WHERE portfolio_id = ${params.id} AND city IS NOT NULL
       GROUP BY city, country
       ORDER BY views DESC
@@ -89,7 +69,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         device_type,
         COUNT(*) as views,
         COUNT(DISTINCT visitor_ip) as unique_visitors
-      FROM portfolio_analytics
+      FROM portfolio_analytics 
       WHERE portfolio_id = ${params.id} AND device_type IS NOT NULL
       GROUP BY device_type
       ORDER BY views DESC
@@ -101,7 +81,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         browser,
         COUNT(*) as views,
         COUNT(DISTINCT visitor_ip) as unique_visitors
-      FROM portfolio_analytics
+      FROM portfolio_analytics 
       WHERE portfolio_id = ${params.id} AND browser IS NOT NULL
       GROUP BY browser
       ORDER BY views DESC
@@ -114,63 +94,55 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         DATE(created_at) as date,
         COUNT(*) as views,
         COUNT(DISTINCT visitor_ip) as unique_visitors
-      FROM portfolio_analytics
+      FROM portfolio_analytics 
       WHERE portfolio_id = ${params.id} 
         AND created_at >= CURRENT_DATE - INTERVAL '30 days'
       GROUP BY DATE(created_at)
       ORDER BY date DESC
     `
 
+    // Get recent views
+    const recentViews = await sql`
+      SELECT 
+        visitor_ip,
+        user_agent,
+        referrer,
+        country,
+        city,
+        device_type,
+        browser,
+        os,
+        session_duration,
+        pages_viewed,
+        created_at
+      FROM portfolio_analytics 
+      WHERE portfolio_id = ${params.id}
+      ORDER BY created_at DESC
+      LIMIT 50
+    `
+
     return NextResponse.json({
       success: true,
       analytics: {
-        summary: summary[0] || {},
+        summary: summary[0] || {
+          total_views: 0,
+          unique_visitors: 0,
+          avg_session_duration: 0,
+          avg_pages_viewed: 0,
+          views_last_7_days: 0,
+          views_last_30_days: 0,
+          views_last_90_days: 0,
+        },
         topCountries,
         topCities,
         deviceBreakdown,
         browserBreakdown,
         dailyViews,
-        recentViews: analytics.slice(0, 50), // Last 50 views
+        recentViews,
       },
     })
   } catch (error) {
     console.error("Error fetching portfolio analytics:", error)
     return NextResponse.json({ success: false, error: "Failed to fetch analytics" }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const { visitorIp, userAgent, referrer, country, city, deviceType, browser, os } = await request.json()
-
-    // Check if portfolio exists and is published
-    const portfolio = await sql`
-      SELECT id FROM portfolios
-      WHERE id = ${params.id} AND is_published = true
-    `
-
-    if (portfolio.length === 0) {
-      return NextResponse.json({ success: false, error: "Portfolio not found or not published" }, { status: 404 })
-    }
-
-    // Record the analytics event
-    await sql`
-      INSERT INTO portfolio_analytics (
-        portfolio_id, visitor_ip, user_agent, referrer, country, city, 
-        device_type, browser, os
-      )
-      VALUES (
-        ${params.id}, ${visitorIp}, ${userAgent}, ${referrer}, ${country}, ${city},
-        ${deviceType}, ${browser}, ${os}
-      )
-    `
-
-    return NextResponse.json({
-      success: true,
-      message: "Analytics recorded successfully",
-    })
-  } catch (error) {
-    console.error("Error recording analytics:", error)
-    return NextResponse.json({ success: false, error: "Failed to record analytics" }, { status: 500 })
   }
 }

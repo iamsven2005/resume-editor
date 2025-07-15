@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS portfolio_analytics (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_analytics_portfolio_id ON portfolio_analytics(portfolio_id);
-CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON portfolio_analytics(created_at);
-CREATE INDEX IF NOT EXISTS idx_analytics_visitor_ip ON portfolio_analytics(visitor_ip);
+CREATE INDEX IF NOT EXISTS idx_portfolio_analytics_portfolio_id ON portfolio_analytics(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_portfolio_analytics_created_at ON portfolio_analytics(created_at);
+CREATE INDEX IF NOT EXISTS idx_portfolio_analytics_visitor_ip ON portfolio_analytics(visitor_ip);
 
 -- Create a view for analytics summary
 CREATE OR REPLACE VIEW portfolio_analytics_summary AS
@@ -28,6 +28,6 @@ SELECT
   AVG(pages_viewed) as avg_pages_viewed,
   COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as views_last_7_days,
   COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as views_last_30_days,
-  MAX(created_at) as last_viewed
+  COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '90 days' THEN 1 END) as views_last_90_days
 FROM portfolio_analytics
 GROUP BY portfolio_id;

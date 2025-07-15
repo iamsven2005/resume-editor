@@ -1,12 +1,12 @@
 export interface Portfolio {
-  id: number
+  id: string
   user_id: number
   title: string
   description?: string
   theme: string
   resume_data: any
   is_published: boolean
-  portfolio_url?: string
+  portfolio_url: string
   total_views: number
   unique_visitors: number
   views_last_7_days: number
@@ -70,6 +70,6 @@ export interface CreatePortfolioRequest {
   title: string
   description?: string
   theme?: string
-  resumeIds: number[]
+  resumeIds: string[]
   isPublished?: boolean
 }

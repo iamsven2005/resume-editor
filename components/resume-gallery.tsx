@@ -20,11 +20,16 @@ import {
   Edit,
   Save,
   Download,
+  ExternalLink,
+  Globe,
+  Users,
+  Eye,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "@/hooks/use-toast"
 import { PortfolioCreatorDialog } from "./portfolio-creator-dialog"
 import { PortfolioAnalyticsDialog } from "./portfolio-analytics-dialog"
+import { PortfolioEditorDialog } from "./portfolio-editor-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,7 +58,7 @@ interface Portfolio {
   theme: string
   resume_data: any
   is_published: boolean
-  portfolio_url?: string
+  portfolio_url: string
   total_views: number
   unique_visitors: number
   views_last_7_days: number
@@ -331,6 +336,10 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     })
   }
 
+  const getPortfolioUrl = (portfolioUrl: string) => {
+    return `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/portfolio/${portfolioUrl}`
+  }
+
   // Filter and sort resumes
   const filteredAndSortedResumes = useMemo(() => {
     const filtered = resumes.filter((resume) => resume.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -420,6 +429,12 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             <TabsTrigger value="resumes" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Resumes ({resumes.length})
+              {favoriteCount > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  <Star className="h-3 w-3 mr-1 fill-current" />
+                  {favoriteCount}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="portfolios" className="flex items-center gap-2">
               <Briefcase className="h-4 w-4" />
@@ -529,6 +544,12 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                         <Calendar className="h-3 w-3" />
                         <span>Updated {formatDate(resume.updated_at)}</span>
                       </div>
+                      {resume.is_favorite && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Star className="h-3 w-3 mr-1 fill-current" />
+                          Favorite
+                        </Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -644,13 +665,32 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                     </div>
                     {/* Analytics Summary */}
                     <div className="flex items-center gap-4 text-xs">
-                      <Badge variant="outline" className="text-xs">
-                        {portfolio.total_views} views
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {portfolio.unique_visitors} visitors
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Eye className="h-3 w-3" />
+                        <span>{portfolio.total_views} views</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        <span>{portfolio.unique_visitors} visitors</span>
+                      </div>
                     </div>
+                    {/* Portfolio URL */}
+                    {portfolio.is_published && (
+                      <div className="mt-2">
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
+                          <Globe className="h-3 w-3" />
+                          <span className="flex-1 truncate">{getPortfolioUrl(portfolio.portfolio_url)}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(getPortfolioUrl(portfolio.portfolio_url), "_blank")}
+                            className="h-5 w-5 p-0"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="flex gap-2 flex-wrap">
@@ -663,6 +703,11 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                         <Edit className="h-3 w-3 mr-1" />
                         Load
                       </Button>
+                      <PortfolioEditorDialog portfolio={portfolio} onPortfolioUpdated={fetchPortfolios}>
+                        <Button variant="outline" size="sm" className="px-3 bg-transparent">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </PortfolioEditorDialog>
                       <PortfolioAnalyticsDialog portfolioId={portfolio.id} portfolioTitle={portfolio.title}>
                         <Button variant="outline" size="sm" className="px-3 bg-transparent">
                           <BarChart3 className="h-4 w-4" />
