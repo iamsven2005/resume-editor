@@ -31,7 +31,7 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
 
   // Close all panels by default
   const [collapsedPanels, setCollapsedPanels] = useState<Set<string>>(
-    new Set(panels.map((p) => p.id)), // All panels collapsed by default
+    new Set(panels.filter((p) => p.defaultCollapsed !== false).map((p) => p.id)),
   )
 
   // Determine if we should use vertical layout based on screen size
@@ -55,7 +55,17 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
 
   // Update collapsed panels when panels change (keep all collapsed by default)
   useEffect(() => {
-    setCollapsedPanels(new Set(panels.map((p) => p.id)))
+    // Only add new panels as collapsed, don't reset existing panel states
+    setCollapsedPanels((prev) => {
+      const newSet = new Set(prev)
+      panels.forEach((panel) => {
+        // Only add new panels that aren't already tracked
+        if (!prev.has(panel.id) && panel.defaultCollapsed !== false) {
+          newSet.add(panel.id)
+        }
+      })
+      return newSet
+    })
   }, [panels])
 
   const handleDragEnd = (result: any) => {

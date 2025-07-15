@@ -673,7 +673,7 @@ export default function JsonTextareaEditor() {
           </Button>
         </div>
       ),
-      defaultCollapsed: false,
+      defaultCollapsed: false, // Keep this panel open
     },
     {
       id: "data-input",
@@ -708,6 +708,7 @@ export default function JsonTextareaEditor() {
           <Upload className="h-3 w-3" />
         </Button>
       ),
+      defaultCollapsed: false, // Keep this panel open
     },
     {
       id: "form-editor",
@@ -740,6 +741,7 @@ export default function JsonTextareaEditor() {
           onDragEnd={handleDragEnd}
         />
       ),
+      defaultCollapsed: false, // Keep this panel open
     },
     {
       id: "resume-analysis",
@@ -751,7 +753,7 @@ export default function JsonTextareaEditor() {
           <Target className="h-3 w-3" />
         </Button>
       ),
-      defaultCollapsed: !resumeAnalysis,
+      defaultCollapsed: !resumeAnalysis, // Only open when there's analysis
     },
     {
       id: "resume-improvement",
@@ -770,7 +772,7 @@ export default function JsonTextareaEditor() {
           }}
         />
       ),
-      defaultCollapsed: !resumeAnalysis,
+      defaultCollapsed: !resumeAnalysis, // Only open when there's analysis
     },
     {
       id: "pdf-preview",
@@ -796,6 +798,7 @@ export default function JsonTextareaEditor() {
           <Download className="h-3 w-3" />
         </Button>
       ),
+      defaultCollapsed: false, // Keep this panel open
     },
   ]
 
