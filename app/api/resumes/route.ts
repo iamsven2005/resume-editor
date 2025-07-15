@@ -1,0 +1,58 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { neon } from "@neondatabase/serverless"
+import { getCurrentUser } from "@/lib/auth"
+
+const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+
+export async function GET() {
+  try {
+    const user = await getCurrentUser()
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
+    }
+
+    const resumes = await sql`
+      SELECT id, title, resume_data, is_favorite, created_at, updated_at
+      FROM resumes
+      WHERE user_id = ${user.id}
+      ORDER BY updated_at DESC
+    `
+
+    return NextResponse.json({
+      success: true,
+      resumes,
+    })
+  } catch (error) {
+    return NextResponse.json({ success: false, error: "Failed to fetch resumes" }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
+    }
+
+    const { title, resumeData } = await request.json()
+
+    if (!title || !resumeData) {
+      return NextResponse.json({ success: false, error: "Title and resume data are required" }, { status: 400 })
+    }
+
+    const result = await sql`
+      INSERT INTO resumes (user_id, title, resume_data)
+      VALUES (${user.id}, ${title}, ${JSON.stringify(resumeData)})
+      RETURNING id, title, resume_data, is_favorite, created_at, updated_at
+    `
+
+    return NextResponse.json({
+      success: true,
+      resume: result[0],
+    })
+  } catch (error) {
+    return NextResponse.json({ success: false, error: "Failed to save resume" }, { status: 500 })
+  }
+}

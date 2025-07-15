@@ -63,11 +63,21 @@ export const DataInputPanel = ({
       case "json":
         return (
           <>
-            <Button variant="outline" size="sm" onClick={onConvertToMarkdown} className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onConvertToMarkdown}
+              className="flex items-center gap-1 bg-transparent"
+            >
               <FileCode className="h-4 w-4" />
               To Markdown
             </Button>
-            <Button variant="outline" size="sm" onClick={onConvertToHtml} className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onConvertToHtml}
+              className="flex items-center gap-1 bg-transparent"
+            >
               <Globe className="h-4 w-4" />
               To HTML
             </Button>
@@ -76,11 +86,21 @@ export const DataInputPanel = ({
       case "markdown":
         return (
           <>
-            <Button variant="outline" size="sm" onClick={onConvertToJson} className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onConvertToJson}
+              className="flex items-center gap-1 bg-transparent"
+            >
               <Code className="h-4 w-4" />
               To JSON
             </Button>
-            <Button variant="outline" size="sm" onClick={onConvertToHtml} className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onConvertToHtml}
+              className="flex items-center gap-1 bg-transparent"
+            >
               <Globe className="h-4 w-4" />
               To HTML
             </Button>
@@ -89,11 +109,21 @@ export const DataInputPanel = ({
       case "html":
         return (
           <>
-            <Button variant="outline" size="sm" onClick={onConvertFromHtml} className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onConvertFromHtml}
+              className="flex items-center gap-1 bg-transparent"
+            >
               <Code className="h-4 w-4" />
               To JSON
             </Button>
-            <Button variant="outline" size="sm" onClick={onConvertToMarkdown} className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onConvertToMarkdown}
+              className="flex items-center gap-1 bg-transparent"
+            >
               <FileCode className="h-4 w-4" />
               To Markdown
             </Button>
@@ -173,7 +203,7 @@ export const DataInputPanel = ({
               size="sm"
               onClick={onAnalyzeResume}
               disabled={!jobRequirements.trim() || isAnalyzing}
-              className="flex items-center gap-1"
+              className="flex items-center gap-1 bg-transparent"
             >
               <Target className="h-4 w-4" />
               {isAnalyzing ? "Analyzing..." : "Analyze Resume"}

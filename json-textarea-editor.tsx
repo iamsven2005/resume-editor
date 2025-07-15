@@ -11,10 +11,25 @@ import { FormEditorPanel } from "./components/form-editor-panel"
 import { PDFPreviewPanel } from "./components/pdf-preview-panel"
 import { ResumeAnalysisPanel } from "./components/resume-analysis-panel"
 import { ResumeImprovementPanel } from "./components/resume-improvement-panel"
+import { ResumeGallery } from "./components/resume-gallery"
+import { AuthDialog } from "./components/auth-dialog"
 import { PanelLayoutManager, type PanelConfig } from "./components/panel-layout-manager"
+import { useAuth } from "./contexts/auth-context"
 import type { Section, ContentItem, TabType, ResumeData } from "./types/resume"
 import type { ResumeAnalysis } from "./types/analysis"
-import { FileText, Edit3, BarChart3, Eye, Upload, Download, Target, Sparkles } from "lucide-react"
+import {
+  FileText,
+  Edit3,
+  BarChart3,
+  Eye,
+  Upload,
+  Download,
+  Target,
+  Sparkles,
+  FolderOpen,
+  User,
+  LogOut,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function JsonTextareaEditor() {
@@ -45,6 +60,7 @@ export default function JsonTextareaEditor() {
   const [resumeAnalysis, setResumeAnalysis] = useState<ResumeAnalysis | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const { user, logout } = useAuth()
 
   // Handle resume upload from PDF
   const handleResumeUploaded = (data: ResumeData) => {
@@ -53,6 +69,92 @@ export default function JsonTextareaEditor() {
     toast({
       description: "Resume uploaded and processed successfully!",
     })
+  }
+
+  // Handle creating a new resume
+  const handleCreateNewResume = () => {
+    const newResumeData: ResumeData = {
+      title: "New Resume",
+      sections: [
+        {
+          "section name": "Experience",
+          content: [
+            {
+              "job title": "",
+              Organization: "",
+              Duration: "",
+              Description: "",
+            },
+          ],
+          id: generateId(),
+        },
+        {
+          "section name": "Education",
+          content: [
+            {
+              Degree: "",
+              Organization: "",
+              Duration: "",
+              GPA: "",
+            },
+          ],
+          id: generateId(),
+        },
+        {
+          "section name": "Skills",
+          content: [
+            {
+              Category: "",
+              Skills: "",
+            },
+          ],
+          id: generateId(),
+        },
+      ],
+    }
+
+    updateJsonFromData(newResumeData)
+    setActiveTab("json")
+    toast({
+      description: "New resume created!",
+    })
+  }
+
+  // Handle saving current resume
+  const handleSaveResume = async (title: string) => {
+    if (!parsedData) {
+      throw new Error("No resume data to save")
+    }
+
+    try {
+      const response = await fetch("/api/resumes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title,
+          resumeData: parsedData,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          description: "Resume saved successfully!",
+        })
+      } else {
+        throw new Error(data.error || "Failed to save resume")
+      }
+    } catch (error) {
+      console.error("Error saving resume:", error)
+      toast({
+        variant: "destructive",
+        description: "Failed to save resume. Please try again.",
+      })
+      throw error
+    }
   }
 
   // Handle file downloads
@@ -552,6 +654,28 @@ export default function JsonTextareaEditor() {
   // Define panels configuration
   const panels: PanelConfig[] = [
     {
+      id: "resume-gallery",
+      title: "Resume Gallery",
+      icon: <FolderOpen className="h-4 w-4" />,
+      component: (
+        <ResumeGallery
+          onLoadResume={handleResumeUploaded}
+          onCreateNew={handleCreateNewResume}
+          currentResumeData={parsedData}
+          onSaveResume={handleSaveResume}
+        />
+      ),
+      headerActions: user && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{user.email}</span>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={logout} title="Logout">
+            <LogOut className="h-3 w-3" />
+          </Button>
+        </div>
+      ),
+      defaultCollapsed: false,
+    },
+    {
       id: "data-input",
       title: "Data Input",
       icon: <FileText className="h-4 w-4" />,
@@ -678,11 +802,31 @@ export default function JsonTextareaEditor() {
   return (
     <div className="min-h-screen w-full overflow-x-hidden">
       <div className="container mx-auto p-6 max-w-full">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">JSON Resume Editor with PDF Preview</h1>
-          <p className="text-muted-foreground">
-            Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
-          </p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">JSON Resume Editor with PDF Preview</h1>
+            <p className="text-muted-foreground">
+              Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Welcome, {user.name || user.email}</span>
+                <Button variant="outline" size="sm" onClick={logout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <AuthDialog>
+                <Button variant="outline" size="sm">
+                  <User className="h-4 w-4 mr-2" />
+                  Login / Sign Up
+                </Button>
+              </AuthDialog>
+            )}
+          </div>
         </div>
 
         <PanelLayoutManager panels={panels} />

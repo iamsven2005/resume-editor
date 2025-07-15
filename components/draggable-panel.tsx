@@ -65,57 +65,79 @@ export const DraggablePanel = ({
           <CardHeader
             className={cn(
               "flex flex-row items-center justify-between space-y-0 pb-2",
-              "group cursor-pointer transition-colors hover:bg-accent/50",
+              "group transition-colors hover:bg-accent/50",
               // Horizontal collapse header (desktop)
-              isHorizontalCollapse && "writing-mode-vertical text-center p-2 h-full justify-center",
+              isHorizontalCollapse && "writing-mode-vertical text-center p-2 h-full justify-center flex-col",
               // Vertical collapse header (mobile/small screens)
               isVerticalCollapse && "py-2",
             )}
           >
-            <div className={cn("flex items-center gap-2", isHorizontalCollapse && "flex-col writing-mode-vertical")}>
-              {/* Drag Handle */}
-              <div
-                {...provided.dragHandleProps}
-                className={cn(
-                  "opacity-30 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing",
-                  "hover:text-primary",
-                  isHorizontalCollapse && "mb-2",
-                )}
-                title="Drag to reorder panels"
-              >
-                <GripVertical className="h-4 w-4" />
+            {/* Content for horizontal collapse (desktop) */}
+            {isHorizontalCollapse ? (
+              <div className="flex flex-col items-center h-full justify-center space-y-2">
+                {/* Drag Handle */}
+                <div
+                  {...provided.dragHandleProps}
+                  className="opacity-50 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing hover:text-primary"
+                  title="Drag to reorder panels"
+                >
+                  <GripVertical className="h-4 w-4" />
+                </div>
+
+                {/* Icon */}
+                {icon && <div className="flex-shrink-0">{icon}</div>}
+
+                {/* Vertical Title */}
+                <h3 className="writing-mode-vertical whitespace-nowrap font-semibold text-sm transform rotate-180 flex-1 flex items-center justify-center">
+                  {title}
+                </h3>
+
+                {/* Collapse Toggle */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleCollapse}
+                  className="h-6 w-6 p-0 opacity-60 hover:opacity-100 mt-auto"
+                  title={`Expand ${title}`}
+                >
+                  <CollapseIcon className="h-3 w-3" />
+                </Button>
               </div>
+            ) : (
+              /* Content for expanded or vertical collapse */
+              <>
+                <div className={cn("flex items-center gap-2")}>
+                  {/* Drag Handle */}
+                  <div
+                    {...provided.dragHandleProps}
+                    className="opacity-30 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing hover:text-primary"
+                    title="Drag to reorder panels"
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </div>
 
-              {/* Icon and Title */}
-              {icon && <div className={cn("flex-shrink-0", isHorizontalCollapse && "mb-2")}>{icon}</div>}
-              <h3
-                className={cn(
-                  "font-semibold text-sm",
-                  isHorizontalCollapse && "writing-mode-vertical whitespace-nowrap",
-                  isVerticalCollapse && "truncate",
-                )}
-              >
-                {title}
-              </h3>
-            </div>
+                  {/* Icon and Title */}
+                  {icon && <div className="flex-shrink-0">{icon}</div>}
+                  <h3 className={cn("font-semibold text-sm", isVerticalCollapse && "truncate")}>{title}</h3>
+                </div>
 
-            <div className={cn("flex items-center gap-1", isHorizontalCollapse && "flex-col mt-auto")}>
-              {/* Header Actions */}
-              {!isCollapsed && headerActions && (
-                <div className={cn("flex items-center gap-1", isHorizontalCollapse && "flex-col")}>{headerActions}</div>
-              )}
+                <div className="flex items-center gap-1">
+                  {/* Header Actions */}
+                  {!isCollapsed && headerActions && <div className="flex items-center gap-1">{headerActions}</div>}
 
-              {/* Collapse Toggle */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleCollapse}
-                className={cn("h-6 w-6 p-0 opacity-60 hover:opacity-100", isHorizontalCollapse && "mt-2")}
-                title={isCollapsed ? `Expand ${title}` : `Collapse ${title}`}
-              >
-                <CollapseIcon className="h-3 w-3" />
-              </Button>
-            </div>
+                  {/* Collapse Toggle */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onToggleCollapse}
+                    className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
+                    title={isCollapsed ? `Expand ${title}` : `Collapse ${title}`}
+                  >
+                    <CollapseIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+              </>
+            )}
           </CardHeader>
 
           {!isCollapsed && <CardContent className="pt-0">{children}</CardContent>}

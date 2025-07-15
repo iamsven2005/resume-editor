@@ -1,97 +1,110 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { generateObject } from "ai"
+import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
-import { z } from "zod"
-
-// Define the schema for resume optimization
-const resumeOptimizationSchema = z.object({
-  title: z.string(),
-  sections: z.array(
-    z.object({
-      "section name": z.string(),
-      content: z.array(z.record(z.any())),
-      id: z.string(),
-    }),
-  ),
-  optimizations: z.object({
-    changes_made: z.array(z.string()),
-    keywords_added: z.array(z.string()),
-    sections_modified: z.array(z.string()),
-    improvement_summary: z.string(),
-    match_score_improvement: z.number(),
-  }),
-})
 
 export async function POST(request: NextRequest) {
   try {
     const { resume, jobDescription } = await request.json()
 
     if (!resume || !jobDescription) {
-      return NextResponse.json({ error: "Resume and job description are required" }, { status: 400 })
+      return NextResponse.json({ error: "Resume data and job description are required" }, { status: 400 })
     }
 
     // Validate resume structure
-    if (!resume.title || !resume.sections || !Array.isArray(resume.sections)) {
-      return NextResponse.json({ error: "Invalid resume format. Must have title and sections array." }, { status: 400 })
+    if (!resume.sections || !Array.isArray(resume.sections)) {
+      return NextResponse.json({ error: "Invalid resume format - sections array is required" }, { status: 400 })
     }
 
-    const result = await generateObject({
-      model: openai("gpt-4o"),
-      schema: resumeOptimizationSchema,
-      prompt: `You are an expert resume optimization specialist. Your task is to take the provided resume and job description, then return an optimized version of the resume that better matches the job requirements.
+    const prompt = `You are an expert resume optimization specialist. Your task is to optimize a resume to better match a specific job description while maintaining authenticity and truthfulness.
 
-ORIGINAL RESUME:
+IMPORTANT RULES:
+1. NEVER invent false information, experiences, or qualifications
+2. Only enhance, rephrase, and reorganize existing content
+3. Maintain the exact JSON structure provided
+4. Keep all existing section IDs and structure intact
+5. Focus on keyword optimization and better alignment with job requirements
+
+RESUME TO OPTIMIZE:
 ${JSON.stringify(resume, null, 2)}
 
 JOB DESCRIPTION:
 ${jobDescription}
 
-OPTIMIZATION INSTRUCTIONS:
-1. **Maintain Structure**: Keep the exact same JSON structure with "section name", "content", and "id" fields
-2. **Enhance Content**: Rephrase bullet points and descriptions to better match job requirements
-3. **Add Keywords**: Naturally incorporate relevant keywords from the job description
-4. **Quantify Achievements**: Add or enhance metrics and numbers where possible
-5. **Prioritize Relevance**: Reorder content items to put most relevant experience first
-6. **Technical Skills**: Emphasize technologies and skills mentioned in the job description
-7. **Action Verbs**: Use strong action verbs that align with the job requirements
-8. **Industry Language**: Use terminology and phrases common in the target industry
+OPTIMIZATION TASKS:
+1. Analyze the job description for key requirements, skills, and keywords
+2. Enhance existing resume content to better align with job requirements
+3. Rephrase descriptions to include relevant keywords naturally
+4. Quantify achievements where possible (but don't invent numbers)
+5. Reorder content within sections to prioritize job-relevant items
+6. Improve action verbs and impact statements
 
-SPECIFIC OPTIMIZATIONS TO MAKE:
-- Analyze the job description for key requirements, skills, and qualifications
-- Identify gaps between the current resume and job requirements
-- Rephrase existing content to better highlight relevant experience
-- Add missing keywords naturally into existing content
-- Enhance achievement descriptions with metrics when possible
-- Reorder sections and content items by relevance to the job
-- Ensure the resume tells a compelling story for this specific role
+RESPONSE FORMAT:
+Return a JSON object with this exact structure:
+{
+  "optimized_resume": {
+    // The enhanced resume with the same structure as input
+  },
+  "optimizations": {
+    "changes_made": [
+      // Array of specific changes made (e.g., "Enhanced software engineering experience description to include React and Node.js keywords")
+    ],
+    "keywords_added": [
+      // Array of new keywords naturally integrated
+    ],
+    "sections_modified": [
+      // Array of section names that were modified
+    ],
+    "improvement_summary": "Brief summary of overall improvements made",
+    "match_score_improvement": 15 // Estimated percentage improvement in job match score
+  }
+}
 
-IMPORTANT RULES:
-- Do NOT invent false information or experiences
-- Only enhance and rephrase existing content
-- Keep all section IDs exactly the same
-- Maintain the same number of sections and general structure
-- Focus on making existing content more relevant and impactful
-- Ensure all changes feel natural and authentic
+Ensure the optimized resume maintains authenticity while being more competitive for the specific job.`
 
-Return the optimized resume with detailed information about what changes were made and why.`,
+    const { text } = await generateText({
+      model: openai("gpt-4o"),
+      prompt,
+      temperature: 0.3,
     })
 
-    return NextResponse.json({
-      optimized_resume: {
-        title: result.object.title,
-        sections: result.object.sections,
-      },
-      optimizations: result.object.optimizations,
-      success: true,
-    })
+    // Clean and parse the response
+    let cleanedResponse = text.trim()
+
+    // Remove markdown code blocks if present
+    if (cleanedResponse.startsWith("```json")) {
+      cleanedResponse = cleanedResponse.replace(/^```json\s*/, "").replace(/\s*```$/, "")
+    } else if (cleanedResponse.startsWith("```")) {
+      cleanedResponse = cleanedResponse.replace(/^```\s*/, "").replace(/\s*```$/, "")
+    }
+
+    // Try to extract JSON if it's wrapped in other text
+    const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      cleanedResponse = jsonMatch[0]
+    }
+
+    let result
+    try {
+      result = JSON.parse(cleanedResponse)
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", parseError)
+      console.error("Raw response:", text)
+      return NextResponse.json({ error: "Failed to parse optimization results. Please try again." }, { status: 500 })
+    }
+
+    // Validate the response structure
+    if (!result.optimized_resume || !result.optimizations) {
+      return NextResponse.json({ error: "Invalid optimization response format" }, { status: 500 })
+    }
+
+    // Ensure the optimized resume maintains the required structure
+    if (!result.optimized_resume.sections || !Array.isArray(result.optimized_resume.sections)) {
+      return NextResponse.json({ error: "Optimized resume missing required sections array" }, { status: 500 })
+    }
+
+    return NextResponse.json(result)
   } catch (error) {
-    console.error("Resume optimization error:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to optimize resume",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
-    )
+    console.error("Error in resume optimization:", error)
+    return NextResponse.json({ error: "Internal server error during resume optimization" }, { status: 500 })
   }
 }
