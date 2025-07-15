@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Trash2,
   Star,
@@ -25,6 +26,8 @@ import {
   Users,
   Eye,
   Edit2,
+  ImageIcon,
+  Copy,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "@/hooks/use-toast"
@@ -32,6 +35,7 @@ import { PortfolioCreatorDialog } from "./portfolio-creator-dialog"
 import { PortfolioAnalyticsDialog } from "./portfolio-analytics-dialog"
 import { PortfolioEditorDialog } from "./portfolio-editor-dialog"
 import { ResumeNameEditorDialog } from "./resume-name-editor-dialog"
+import { FileUploadManager } from "./file-upload-manager"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -486,7 +490,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         </CardContent>
       </Card>
 
-      {/* Tabs for Resumes and Portfolios */}
+      {/* Tabs for Resumes, Portfolios, and Files */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex items-center justify-between">
           <TabsList>
@@ -503,6 +507,10 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             <TabsTrigger value="portfolios" className="flex items-center gap-2">
               <Briefcase className="h-4 w-4" />
               Portfolios ({portfolios.length})
+            </TabsTrigger>
+            <TabsTrigger value="files" className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Files
             </TabsTrigger>
           </TabsList>
 
@@ -562,127 +570,126 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             </div>
           </div>
 
-          {/* Resume Flex Layout */}
-          {filteredAndSortedResumes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-              {searchQuery ? (
-                <>
-                  <p className="text-muted-foreground mb-2">No resumes found for "{searchQuery}"</p>
-                  <Button variant="outline" onClick={() => setSearchQuery("")}>
-                    Clear search
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <p className="text-muted-foreground mb-4">No saved resumes yet. Create your first resume!</p>
-                  <Button onClick={onCreateNew}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New Resume
-                  </Button>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-4">
-              {filteredAndSortedResumes.map((resume) => (
-                <Card
-                  key={resume.id}
-                  className="hover:shadow-md transition-shadow group flex-1 min-w-[300px] max-w-[400px]"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2 flex-1 mr-2">
-                        <CardTitle className="text-base line-clamp-2 flex-1">{resume.title}</CardTitle>
-                        <ResumeNameEditorDialog
-                          resumeId={resume.id}
-                          currentTitle={resume.title}
-                          onTitleUpdated={(newTitle) => handleTitleUpdate(resume.id, newTitle)}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          {/* Resume Scroll Area */}
+          <ScrollArea className="h-[600px] w-full">
+            {filteredAndSortedResumes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                {searchQuery ? (
+                  <>
+                    <p className="text-muted-foreground mb-2">No resumes found for "{searchQuery}"</p>
+                    <Button variant="outline" onClick={() => setSearchQuery("")}>
+                      Clear search
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground mb-4">No saved resumes yet. Create your first resume!</p>
+                    <Button onClick={onCreateNew}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create New Resume
+                    </Button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+                {filteredAndSortedResumes.map((resume) => (
+                  <Card key={resume.id} className="hover:shadow-md transition-shadow group">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2 flex-1 mr-2">
+                          <CardTitle className="text-base line-clamp-2 flex-1">{resume.title}</CardTitle>
+                          <ResumeNameEditorDialog
+                            resumeId={resume.id}
+                            currentTitle={resume.title}
+                            onTitleUpdated={(newTitle) => handleTitleUpdate(resume.id, newTitle)}
                           >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                        </ResumeNameEditorDialog>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleFavorite(resume.id, resume.is_favorite)}
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                      >
-                        {resume.is_favorite ? (
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        ) : (
-                          <StarOff className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>Updated {formatDate(resume.updated_at)}</span>
-                      </div>
-                      {resume.is_favorite && (
-                        <Badge variant="secondary" className="text-xs">
-                          <Star className="h-3 w-3 mr-1 fill-current" />
-                          Favorite
-                        </Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onLoadResume(resume.resume_data)}
-                        className="flex-1 min-w-0"
-                      >
-                        <Edit className="h-3 w-3 mr-1" />
-                        Load
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadResume(resume.id, resume.title)}
-                        className="px-3"
-                      >
-                        <Download className="h-3 w-3" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="px-3 bg-transparent">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Resume</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{resume.title}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteResume(resume.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                             >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          </ResumeNameEditorDialog>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleFavorite(resume.id, resume.is_favorite)}
+                          className="h-8 w-8 p-0 flex-shrink-0"
+                        >
+                          {resume.is_favorite ? (
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          ) : (
+                            <StarOff className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>Updated {formatDate(resume.updated_at)}</span>
+                        </div>
+                        {resume.is_favorite && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Star className="h-3 w-3 mr-1 fill-current" />
+                            Favorite
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex gap-2 flex-wrap">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onLoadResume(resume.resume_data)}
+                          className="flex-1 min-w-0"
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Load
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadResume(resume.id, resume.title)}
+                          className="px-3"
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="px-3 bg-transparent">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Resume</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{resume.title}"? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteResume(resume.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
         </TabsContent>
 
         <TabsContent value="portfolios" className="space-y-4">
@@ -694,149 +701,152 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             </span>
           </div>
 
-          {/* Portfolio Flex Layout */}
-          {filteredAndSortedPortfolios.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center">
-              <Briefcase className="h-12 w-12 text-muted-foreground mb-4" />
-              {searchQuery ? (
-                <>
-                  <p className="text-muted-foreground mb-2">No portfolios found for "{searchQuery}"</p>
-                  <Button variant="outline" onClick={() => setSearchQuery("")}>
-                    Clear search
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <p className="text-muted-foreground mb-4">
-                    No portfolios yet. Create your first portfolio by merging resumes!
-                  </p>
-                  <PortfolioCreatorDialog
-                    resumes={resumes}
-                    onPortfolioCreated={() => {
-                      fetchPortfolios()
-                      setActiveTab("portfolios")
-                    }}
-                  >
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Portfolio
+          {/* Portfolio Scroll Area */}
+          <ScrollArea className="h-[600px] w-full">
+            {filteredAndSortedPortfolios.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
+                <Briefcase className="h-12 w-12 text-muted-foreground mb-4" />
+                {searchQuery ? (
+                  <>
+                    <p className="text-muted-foreground mb-2">No portfolios found for "{searchQuery}"</p>
+                    <Button variant="outline" onClick={() => setSearchQuery("")}>
+                      Clear search
                     </Button>
-                  </PortfolioCreatorDialog>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-4">
-              {filteredAndSortedPortfolios.map((portfolio) => (
-                <Card
-                  key={portfolio.id}
-                  className="hover:shadow-md transition-shadow flex-1 min-w-[300px] max-w-[400px]"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-base line-clamp-2 flex-1 mr-2">{portfolio.title}</CardTitle>
-                      <Badge variant={portfolio.is_published ? "default" : "secondary"} className="text-xs">
-                        {portfolio.is_published ? "Published" : "Draft"}
-                      </Badge>
-                    </div>
-                    {portfolio.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{portfolio.description}</p>
-                    )}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>Updated {formatDate(portfolio.updated_at)}</span>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground mb-4">
+                      No portfolios yet. Create your first portfolio by merging resumes!
+                    </p>
+                    <PortfolioCreatorDialog
+                      resumes={resumes}
+                      onPortfolioCreated={() => {
+                        fetchPortfolios()
+                        setActiveTab("portfolios")
+                      }}
+                    >
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Portfolio
+                      </Button>
+                    </PortfolioCreatorDialog>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+                {filteredAndSortedPortfolios.map((portfolio) => (
+                  <Card key={portfolio.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-base line-clamp-2 flex-1 mr-2">{portfolio.title}</CardTitle>
+                        <Badge variant={portfolio.is_published ? "default" : "secondary"} className="text-xs">
+                          {portfolio.is_published ? "Published" : "Draft"}
+                        </Badge>
                       </div>
-                    </div>
-                    {/* Analytics Summary */}
-                    <div className="flex items-center gap-4 text-xs">
-                      <div className="flex items-center gap-1">
-                        <Eye className="h-3 w-3" />
-                        <span>{portfolio.total_views} views</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        <span>{portfolio.unique_visitors} visitors</span>
-                      </div>
-                    </div>
-                    {/* Portfolio URL */}
-                    {portfolio.is_published && (
-                      <div className="mt-2">
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
-                          <Globe className="h-3 w-3" />
-                          <span className="flex-1 truncate">{getPortfolioUrl(portfolio.portfolio_url)}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(getPortfolioUrl(portfolio.portfolio_url))}
-                            className="h-5 w-5 p-0"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(getPortfolioUrl(portfolio.portfolio_url), "_blank")}
-                            className="h-5 w-5 p-0"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </Button>
+                      {portfolio.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">{portfolio.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>Updated {formatDate(portfolio.updated_at)}</span>
                         </div>
                       </div>
-                    )}
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onLoadResume(portfolio.resume_data)}
-                        className="flex-1 min-w-0"
-                      >
-                        <Edit className="h-3 w-3 mr-1" />
-                        Load
-                      </Button>
-                      <PortfolioEditorDialog portfolio={portfolio} onPortfolioUpdated={fetchPortfolios}>
-                        <Button variant="outline" size="sm" className="px-3 bg-transparent">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </PortfolioEditorDialog>
-                      <PortfolioAnalyticsDialog portfolioId={portfolio.id} portfolioTitle={portfolio.title}>
-                        <Button variant="outline" size="sm" className="px-3 bg-transparent">
-                          <BarChart3 className="h-4 w-4" />
-                        </Button>
-                      </PortfolioAnalyticsDialog>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="px-3 bg-transparent">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{portfolio.title}"? This action cannot be undone and will
-                              also delete all associated analytics.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deletePortfolio(portfolio.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      {/* Analytics Summary */}
+                      <div className="flex items-center gap-4 text-xs">
+                        <div className="flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          <span>{portfolio.total_views} views</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          <span>{portfolio.unique_visitors} visitors</span>
+                        </div>
+                      </div>
+                      {/* Portfolio URL */}
+                      {portfolio.is_published && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-2 p-2 bg-muted rounded text-xs">
+                            <Globe className="h-3 w-3" />
+                            <span className="flex-1 truncate">{getPortfolioUrl(portfolio.portfolio_url)}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(getPortfolioUrl(portfolio.portfolio_url))}
+                              className="h-5 w-5 p-0"
                             >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(getPortfolioUrl(portfolio.portfolio_url), "_blank")}
+                              className="h-5 w-5 p-0"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex gap-2 flex-wrap">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onLoadResume(portfolio.resume_data)}
+                          className="flex-1 min-w-0"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Load
+                        </Button>
+                        <PortfolioEditorDialog portfolio={portfolio} onPortfolioUpdated={fetchPortfolios}>
+                          <Button variant="outline" size="sm" className="px-3 bg-transparent">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </PortfolioEditorDialog>
+                        <PortfolioAnalyticsDialog portfolioId={portfolio.id} portfolioTitle={portfolio.title}>
+                          <Button variant="outline" size="sm" className="px-3 bg-transparent">
+                            <BarChart3 className="h-4 w-4" />
+                          </Button>
+                        </PortfolioAnalyticsDialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="px-3 bg-transparent">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{portfolio.title}"? This action cannot be undone and
+                                will also delete all associated analytics.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deletePortfolio(portfolio.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="files" className="space-y-4">
+          <FileUploadManager searchQuery={searchQuery} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,10 +1,14 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useState } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import {
+  Share,
+  Download,
   Mail,
   Phone,
   MapPin,
@@ -12,250 +16,234 @@ import {
   Linkedin,
   Github,
   Calendar,
-  ExternalLink,
-  Download,
-  Share2,
-  User,
-  Award,
+  Building,
+  GraduationCap,
   Code,
   Briefcase,
+  User,
+  Star,
+  ExternalLink,
 } from "lucide-react"
-import { useState } from "react"
 import { toast } from "@/hooks/use-toast"
 
-interface Portfolio {
-  id: string
-  title: string
-  description?: string
-  theme: string
-  resume_data: any
-  is_published: boolean
-  portfolio_url: string
-  total_views: number
-  unique_visitors: number
-  views_last_7_days: number
-  views_last_30_days: number
-  created_at: string
-  updated_at: string
-}
-
 interface PortfolioViewerProps {
-  portfolio: Portfolio
+  portfolio: {
+    id: string
+    title: string
+    description?: string
+    theme: string
+    resume_data: any
+    is_published: boolean
+    portfolio_url: string
+    created_at: string
+    updated_at: string
+  }
 }
 
 export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
-  const [isSharing, setIsSharing] = useState(false)
-  const resumeData = portfolio.resume_data || {}
+  const [imageError, setImageError] = useState(false)
 
-  // Enhanced data extraction with support for sections-based JSON structure
-  const getPersonalInfo = () => {
+  // Enhanced data extraction with better fallbacks
+  const extractPersonalInfo = (data: any) => {
     // Handle sections-based structure
-    if (resumeData.sections) {
-      return {
-        name: resumeData.title || portfolio.title || "Professional",
-        title: resumeData.subtitle || "Professional",
-        summary: resumeData.description || portfolio.description,
-        email: resumeData.email,
-        phone: resumeData.phone,
-        location: resumeData.location,
-        website: resumeData.website,
-        linkedin: resumeData.linkedin,
-        github: resumeData.github,
-        photo: resumeData.photo,
+    if (data?.sections) {
+      const personalSection = data.sections.find(
+        (section: any) =>
+          section["section name"]?.toLowerCase().includes("personal") ||
+          section["section name"]?.toLowerCase().includes("contact") ||
+          section["section name"]?.toLowerCase().includes("info"),
+      )
+
+      if (personalSection?.content?.[0]) {
+        const info = personalSection.content[0]
+        return {
+          name: info.Name || info.name || info["Full Name"] || data.title || portfolio.title,
+          title: info.Title || info.title || info.Position || info.position || portfolio.description || "Professional",
+          email: info.Email || info.email,
+          phone: info.Phone || info.phone || info["Phone Number"],
+          location: info.Location || info.location || info.Address || info.address,
+          website: info.Website || info.website || info.Portfolio,
+          linkedin: info.LinkedIn || info.linkedin,
+          github: info.GitHub || info.github,
+          summary: info.Summary || info.summary || info.About || info.about,
+        }
       }
     }
 
-    // Handle standard resume structure
-    const personalInfo = resumeData.personalInfo || resumeData.personal || resumeData.basics || {}
+    // Handle direct structure
+    const personalInfo = data?.personalInfo || data?.personal || data?.contact || {}
     return {
-      name: personalInfo.name || resumeData.name || portfolio.title || "Professional",
-      title: personalInfo.title || personalInfo.label || resumeData.title || "Professional",
-      email: personalInfo.email || resumeData.email,
-      phone: personalInfo.phone || resumeData.phone,
-      location: personalInfo.location || personalInfo.address || resumeData.location,
-      website: personalInfo.website || personalInfo.url || resumeData.website,
-      linkedin: personalInfo.linkedin || resumeData.linkedin,
-      github: personalInfo.github || resumeData.github,
-      summary: personalInfo.summary || personalInfo.about || resumeData.summary || portfolio.description,
-      photo: personalInfo.photo || personalInfo.image || resumeData.photo,
+      name: personalInfo.name || personalInfo.fullName || data?.name || data?.title || portfolio.title,
+      title:
+        personalInfo.title || personalInfo.position || personalInfo.jobTitle || portfolio.description || "Professional",
+      email: personalInfo.email,
+      phone: personalInfo.phone || personalInfo.phoneNumber,
+      location: personalInfo.location || personalInfo.address || personalInfo.city,
+      website: personalInfo.website || personalInfo.portfolio,
+      linkedin: personalInfo.linkedin,
+      github: personalInfo.github,
+      summary: personalInfo.summary || personalInfo.about || personalInfo.bio,
     }
   }
 
-  const getExperience = () => {
+  // Enhanced experience extraction
+  const extractExperience = (data: any) => {
     // Handle sections-based structure
-    if (resumeData.sections) {
-      const experienceSection = resumeData.sections.find(
-        (section: any) => section["section name"]?.toLowerCase() === "experience",
+    if (data?.sections) {
+      const experienceSection = data.sections.find(
+        (section: any) =>
+          section["section name"]?.toLowerCase().includes("experience") ||
+          section["section name"]?.toLowerCase().includes("work") ||
+          section["section name"]?.toLowerCase().includes("employment"),
       )
-      if (experienceSection && experienceSection.content) {
+
+      if (experienceSection?.content) {
         return experienceSection.content
           .filter((item: any) => item["job title"] || item.position || item.title)
           .map((item: any) => ({
-            position: item["job title"] || item.position || item.title,
-            company: item.Organization || item.company,
-            startDate: item.Duration ? item.Duration.split("–")[0]?.trim() || item.Duration.split("-")[0]?.trim() : "",
-            endDate: item.Duration
-              ? item.Duration.includes("–")
-                ? item.Duration.split("–")[1]?.trim()
-                : item.Duration.includes("-")
-                  ? item.Duration.split("-")[1]?.trim()
-                  : ""
-              : "",
-            description: item.Description || item.description,
-            location: item.location,
+            position: item["job title"] || item.position || item.title || item.role,
+            company: item.Organization || item.organization || item.company || item.employer,
+            duration: item.Duration || item.duration || item.period || item.dates,
+            description: item.Description || item.description || item.responsibilities || item.summary,
+            location: item.Location || item.location,
           }))
       }
     }
 
-    // Handle standard resume structure
-    return resumeData.experience || resumeData.work || resumeData.employment || []
+    // Handle direct structure
+    const experience = data?.experience || data?.work || data?.employment || []
+    return Array.isArray(experience) ? experience : []
   }
 
-  const getEducation = () => {
+  // Enhanced education extraction
+  const extractEducation = (data: any) => {
     // Handle sections-based structure
-    if (resumeData.sections) {
-      const educationSection = resumeData.sections.find(
-        (section: any) => section["section name"]?.toLowerCase() === "education",
+    if (data?.sections) {
+      const educationSection = data.sections.find(
+        (section: any) =>
+          section["section name"]?.toLowerCase().includes("education") ||
+          section["section name"]?.toLowerCase().includes("academic") ||
+          section["section name"]?.toLowerCase().includes("qualification"),
       )
-      if (educationSection && educationSection.content) {
+
+      if (educationSection?.content) {
         return educationSection.content
-          .filter((item: any) => item.Degree || item.degree)
+          .filter((item: any) => item.Degree || item.degree || item.qualification)
           .map((item: any) => ({
-            degree: item.Degree || item.degree,
-            school: item.Organization || item.school || item.institution,
-            startDate: item.Duration ? item.Duration.split("-")[0]?.trim() : "",
-            endDate: item.Duration ? item.Duration.split("-")[1]?.trim() : "",
-            gpa: item.GPA || item.gpa,
-            location: item.location,
+            degree: item.Degree || item.degree || item.qualification || item.program,
+            institution: item.Organization || item.organization || item.institution || item.school || item.university,
+            duration: item.Duration || item.duration || item.period || item.dates || item.year,
+            gpa: item.GPA || item.gpa || item.grade,
+            description: item.Description || item.description || item.details,
           }))
       }
     }
 
-    // Handle standard resume structure
-    return resumeData.education || resumeData.schools || []
+    // Handle direct structure
+    const education = data?.education || data?.academic || []
+    return Array.isArray(education) ? education : []
   }
 
-  const getSkills = () => {
+  // Enhanced skills extraction
+  const extractSkills = (data: any) => {
     // Handle sections-based structure
-    if (resumeData.sections) {
-      const skillsSection = resumeData.sections.find(
-        (section: any) => section["section name"]?.toLowerCase() === "skills",
+    if (data?.sections) {
+      const skillsSection = data.sections.find(
+        (section: any) =>
+          section["section name"]?.toLowerCase().includes("skill") ||
+          section["section name"]?.toLowerCase().includes("competenc") ||
+          section["section name"]?.toLowerCase().includes("technolog"),
       )
-      if (skillsSection && skillsSection.content) {
-        const skills: string[] = []
+
+      if (skillsSection?.content) {
+        const allSkills: string[] = []
         skillsSection.content.forEach((item: any) => {
-          if (item.Skills) {
-            // Split skills by comma and add them to the array
-            const skillList = item.Skills.split(",")
+          const skillsText = item.Skills || item.skills || item.technologies || item.competencies
+          if (skillsText) {
+            // Split comma-separated skills and clean them
+            const skills = skillsText
+              .split(",")
               .map((skill: string) => skill.trim())
-              .filter((skill: string) => skill)
-            skills.push(...skillList)
+              .filter(Boolean)
+            allSkills.push(...skills)
           }
         })
-        return skills
+        return allSkills
       }
     }
 
-    // Handle standard resume structure
-    const skills = resumeData.skills || resumeData.technologies || []
+    // Handle direct structure
+    const skills = data?.skills || data?.technologies || []
     if (Array.isArray(skills)) {
-      return skills
-    }
-    if (typeof skills === "object" && skills.technical) {
-      return skills.technical
+      return skills.flatMap((skill: any) => {
+        if (typeof skill === "string") return [skill]
+        if (skill.name) return [skill.name]
+        if (skill.skill) return [skill.skill]
+        return []
+      })
     }
     return []
   }
 
-  const getProjects = () => {
+  // Enhanced projects extraction
+  const extractProjects = (data: any) => {
     // Handle sections-based structure
-    if (resumeData.sections) {
-      const projectsSection = resumeData.sections.find(
-        (section: any) => section["section name"]?.toLowerCase() === "projects",
-      )
-      if (projectsSection && projectsSection.content) {
-        return projectsSection.content
-          .filter((item: any) => item.name || item.title)
-          .map((item: any) => ({
-            name: item.name || item.title,
-            description: item.description || item.Description,
-            technologies: item.technologies || (item.tech ? item.tech.split(",").map((t: string) => t.trim()) : []),
-            url: item.url || item.link,
-            date: item.date || item.Duration,
-          }))
-      }
-    }
-
-    // Handle standard resume structure
-    return resumeData.projects || resumeData.portfolio || []
-  }
-
-  const getCertifications = () => {
-    // Handle sections-based structure
-    if (resumeData.sections) {
-      const certificationsSection = resumeData.sections.find(
+    if (data?.sections) {
+      const projectsSection = data.sections.find(
         (section: any) =>
-          section["section name"]?.toLowerCase() === "certifications" ||
-          section["section name"]?.toLowerCase() === "certificates" ||
-          section["section name"]?.toLowerCase() === "awards",
+          section["section name"]?.toLowerCase().includes("project") ||
+          section["section name"]?.toLowerCase().includes("portfolio") ||
+          section["section name"]?.toLowerCase().includes("work"),
       )
-      if (certificationsSection && certificationsSection.content) {
-        return certificationsSection.content
-          .filter((item: any) => item.name || item.title)
+
+      if (projectsSection?.content) {
+        return projectsSection.content
+          .filter((item: any) => item.Name || item.name || item.title || item.project)
           .map((item: any) => ({
-            name: item.name || item.title,
-            issuer: item.issuer || item.organization || item.Organization,
-            date: item.date || item.Duration,
+            name: item.Name || item.name || item.title || item.project,
+            description: item.Description || item.description || item.summary,
+            technologies: item.Technologies || item.technologies || item.tech || item.stack,
+            url: item.URL || item.url || item.link || item.demo,
+            github: item.GitHub || item.github || item.repository,
           }))
       }
     }
 
-    // Handle standard resume structure
-    return resumeData.certifications || resumeData.certificates || resumeData.awards || []
+    // Handle direct structure
+    const projects = data?.projects || data?.portfolio || []
+    return Array.isArray(projects) ? projects : []
   }
 
-  const personalInfo = getPersonalInfo()
-  const experience = getExperience()
-  const education = getEducation()
-  const skills = getSkills()
-  const projects = getProjects()
-  const certifications = getCertifications()
+  const personalInfo = extractPersonalInfo(portfolio.resume_data)
+  const experience = extractExperience(portfolio.resume_data)
+  const education = extractEducation(portfolio.resume_data)
+  const skills = extractSkills(portfolio.resume_data)
+  const projects = extractProjects(portfolio.resume_data)
 
   const handleShare = async () => {
-    setIsSharing(true)
+    const url = `${window.location.origin}/portfolio/${portfolio.portfolio_url}`
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `${personalInfo.name} - Portfolio`,
-          text: personalInfo.summary || `Check out ${personalInfo.name}'s professional portfolio`,
-          url: window.location.href,
-        })
-      } else {
-        await navigator.clipboard.writeText(window.location.href)
-        toast({
-          description: "Portfolio URL copied to clipboard",
-          duration: 2000,
-        })
-      }
+      await navigator.clipboard.writeText(url)
+      toast({
+        description: "Portfolio URL copied to clipboard",
+        duration: 2000,
+      })
     } catch (error) {
-      console.error("Error sharing:", error)
       toast({
         title: "Error",
-        description: "Failed to share portfolio",
+        description: "Failed to copy URL",
         variant: "destructive",
       })
-    } finally {
-      setIsSharing(false)
     }
   }
 
   const handleDownload = () => {
-    const dataStr = JSON.stringify(resumeData, null, 2)
+    const dataStr = JSON.stringify(portfolio.resume_data, null, 2)
     const dataBlob = new Blob([dataStr], { type: "application/json" })
     const url = URL.createObjectURL(dataBlob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `${personalInfo.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_portfolio.json`
+    link.download = `${portfolio.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_portfolio.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -267,48 +255,46 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
     })
   }
 
+  const formatUrl = (url: string) => {
+    if (!url) return ""
+    if (url.startsWith("http://") || url.startsWith("https://")) return url
+    return `https://${url}`
+  }
+
   const getThemeClasses = () => {
     switch (portfolio.theme) {
+      case "creative":
+        return {
+          background: "bg-gradient-to-br from-purple-600 via-purple-500 to-orange-400",
+          card: "bg-white/95 backdrop-blur-sm border-white/20",
+          header: "bg-gradient-to-r from-purple-600 to-orange-400 text-white",
+          accent: "border-l-purple-500",
+          button: "bg-purple-600 hover:bg-purple-700 text-white",
+        }
       case "modern":
         return {
-          container: "bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900",
-          card: "bg-white/80 backdrop-blur-sm border-slate-200 dark:bg-slate-800/80 dark:border-slate-700",
-          header: "bg-gradient-to-r from-blue-600 to-purple-600 text-white",
-          accent: "text-blue-600 dark:text-blue-400",
-          section: "border-l-4 border-blue-500",
+          background: "bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400",
+          card: "bg-white/90 backdrop-blur-md border-white/30",
+          header: "bg-gradient-to-r from-blue-600 to-cyan-400 text-white",
+          accent: "border-l-blue-500",
+          button: "bg-blue-600 hover:bg-blue-700 text-white",
         }
       case "classic":
         return {
-          container: "bg-gray-50 dark:bg-gray-900",
-          card: "bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700",
-          header: "bg-gray-800 text-white dark:bg-gray-700",
-          accent: "text-gray-700 dark:text-gray-300",
-          section: "border-l-4 border-gray-500",
+          background: "bg-gray-100",
+          card: "bg-white border-gray-200",
+          header: "bg-gray-800 text-white",
+          accent: "border-l-gray-600",
+          button: "bg-gray-800 hover:bg-gray-900 text-white",
         }
       case "minimal":
-        return {
-          container: "bg-white dark:bg-black",
-          card: "bg-gray-50 border-gray-100 dark:bg-gray-900 dark:border-gray-800",
-          header: "bg-black text-white dark:bg-white dark:text-black",
-          accent: "text-black dark:text-white",
-          section: "border-l-4 border-black dark:border-white",
-        }
-      case "creative":
-        return {
-          container:
-            "bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 dark:from-purple-900 dark:via-pink-900 dark:to-orange-900",
-          card: "bg-white/90 backdrop-blur-sm border-purple-200 dark:bg-slate-800/90 dark:border-purple-700",
-          header: "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white",
-          accent: "text-purple-600 dark:text-purple-400",
-          section: "border-l-4 border-purple-500",
-        }
       default:
         return {
-          container: "bg-gray-50 dark:bg-gray-900",
-          card: "bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700",
-          header: "bg-gray-800 text-white dark:bg-gray-700",
-          accent: "text-gray-700 dark:text-gray-300",
-          section: "border-l-4 border-gray-500",
+          background: "bg-white",
+          card: "bg-white border-gray-200",
+          header: "bg-black text-white",
+          accent: "border-l-black",
+          button: "bg-black hover:bg-gray-800 text-white",
         }
     }
   }
@@ -316,137 +302,156 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
   const theme = getThemeClasses()
 
   return (
-    <div className={`min-h-screen p-4 md:p-8 ${theme.container}`}>
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header Actions */}
-        <div className="flex justify-end gap-2 print:hidden">
-          <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
-            <Share2 className="h-4 w-4 mr-2" />
-            {isSharing ? "Sharing..." : "Share"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleDownload}>
-            <Download className="h-4 w-4 mr-2" />
-            Download
-          </Button>
+    <div className={`min-h-screen ${theme.background}`}>
+      {/* Header with actions */}
+      <div className="sticky top-0 z-50 bg-black/20 backdrop-blur-sm border-b border-white/10">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleShare}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+            >
+              <Share className="h-4 w-4 mr-2" />
+              Share
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownload}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+          </div>
         </div>
+      </div>
 
-        {/* Header Section */}
-        <Card className={theme.card}>
-          <CardHeader className={`${theme.header} rounded-t-lg`}>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="container mx-auto px-6 py-8 max-w-4xl">
+        {/* Hero Section */}
+        <Card className={`mb-8 ${theme.card} shadow-xl`}>
+          <div className={`${theme.header} p-8 rounded-t-lg`}>
+            <div className="flex items-center gap-6">
+              <Avatar className="h-24 w-24 border-4 border-white/20">
+                <AvatarImage
+                  src={
+                    !imageError
+                      ? `/placeholder.svg?height=96&width=96&query=${encodeURIComponent(personalInfo.name || "Professional Avatar")}`
+                      : undefined
+                  }
+                  alt={personalInfo.name}
+                  onError={() => setImageError(true)}
+                />
+                <AvatarFallback className="text-2xl font-bold bg-white/20 text-white">
+                  {personalInfo.name
+                    ?.split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase() || "P"}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1">
-                <CardTitle className="text-2xl md:text-3xl font-bold mb-2">{personalInfo.name}</CardTitle>
-                <p className="text-lg opacity-90 mb-4">{personalInfo.title}</p>
-                {personalInfo.summary && (
-                  <p className="text-sm opacity-80 leading-relaxed max-w-2xl">{personalInfo.summary}</p>
-                )}
+                <h1 className="text-4xl font-bold mb-2">{personalInfo.name}</h1>
+                <p className="text-xl opacity-90 mb-4">{personalInfo.title}</p>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  {personalInfo.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      <a href={`mailto:${personalInfo.email}`} className="hover:underline">
+                        {personalInfo.email}
+                      </a>
+                    </div>
+                  )}
+                  {personalInfo.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      <a href={`tel:${personalInfo.phone}`} className="hover:underline">
+                        {personalInfo.phone}
+                      </a>
+                    </div>
+                  )}
+                  {personalInfo.location && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>{personalInfo.location}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              {personalInfo.photo && (
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-white/20 flex-shrink-0">
-                  <img
-                    src={personalInfo.photo || "/placeholder.svg"}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none"
-                    }}
-                  />
-                </div>
-              )}
             </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            {/* Contact Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {personalInfo.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <a href={`mailto:${personalInfo.email}`} className={`${theme.accent} hover:underline`}>
-                    {personalInfo.email}
-                  </a>
-                </div>
-              )}
-              {personalInfo.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <a href={`tel:${personalInfo.phone}`} className={`${theme.accent} hover:underline`}>
-                    {personalInfo.phone}
-                  </a>
-                </div>
-              )}
-              {personalInfo.location && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{personalInfo.location}</span>
-                </div>
-              )}
-              {personalInfo.website && (
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                  <a
-                    href={
-                      personalInfo.website.startsWith("http") ? personalInfo.website : `https://${personalInfo.website}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${theme.accent} hover:underline flex items-center gap-1`}
-                  >
-                    Website <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-              {personalInfo.linkedin && (
-                <div className="flex items-center gap-2">
-                  <Linkedin className="h-4 w-4 text-muted-foreground" />
-                  <a
-                    href={
-                      personalInfo.linkedin.startsWith("http")
-                        ? personalInfo.linkedin
-                        : `https://linkedin.com/in/${personalInfo.linkedin}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${theme.accent} hover:underline flex items-center gap-1`}
-                  >
-                    LinkedIn <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-              {personalInfo.github && (
-                <div className="flex items-center gap-2">
-                  <Github className="h-4 w-4 text-muted-foreground" />
-                  <a
-                    href={
-                      personalInfo.github.startsWith("http")
-                        ? personalInfo.github
-                        : `https://github.com/${personalInfo.github}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${theme.accent} hover:underline flex items-center gap-1`}
-                  >
-                    GitHub <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-            </div>
-          </CardContent>
+          </div>
+
+          {personalInfo.summary && (
+            <CardContent className="p-8">
+              <p className="text-lg leading-relaxed text-muted-foreground">{personalInfo.summary}</p>
+            </CardContent>
+          )}
         </Card>
 
-        {/* Skills Section - Show early and prominently */}
+        {/* Contact Links */}
+        {(personalInfo.website || personalInfo.linkedin || personalInfo.github) && (
+          <Card className={`mb-8 ${theme.card} shadow-lg`}>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Links
+              </h2>
+              <div className="flex flex-wrap gap-4">
+                {personalInfo.website && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(formatUrl(personalInfo.website), "_blank")}
+                    className="flex items-center gap-2"
+                  >
+                    <Globe className="h-4 w-4" />
+                    Website
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                )}
+                {personalInfo.linkedin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(formatUrl(personalInfo.linkedin), "_blank")}
+                    className="flex items-center gap-2"
+                  >
+                    <Linkedin className="h-4 w-4" />
+                    LinkedIn
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                )}
+                {personalInfo.github && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(formatUrl(personalInfo.github), "_blank")}
+                    className="flex items-center gap-2"
+                  >
+                    <Github className="h-4 w-4" />
+                    GitHub
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Skills Section */}
         {skills.length > 0 && (
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+          <Card className={`mb-8 ${theme.card} shadow-lg`}>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 <Code className="h-5 w-5" />
                 Skills & Technologies
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h2>
               <div className="flex flex-wrap gap-2">
-                {skills.map((skill: any, index: number) => (
+                {skills.map((skill, index) => (
                   <Badge key={index} variant="secondary" className="text-sm py-1 px-3">
-                    {typeof skill === "string" ? skill : skill.name || skill.skill}
+                    {skill}
                   </Badge>
                 ))}
               </div>
@@ -456,58 +461,51 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
 
         {/* Experience Section */}
         {experience.length > 0 ? (
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+          <Card className={`mb-8 ${theme.card} shadow-lg`}>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                 <Briefcase className="h-5 w-5" />
                 Professional Experience
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {experience.map((exp: any, index: number) => (
-                <div key={index} className={`${theme.section} pl-4`}>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
-                    <h3 className="font-semibold text-lg">{exp.position || exp.title || exp.role}</h3>
-                    {(exp.startDate || exp.endDate) && (
-                      <Badge variant="secondary" className="w-fit">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {exp.startDate || exp.start} - {exp.endDate || exp.end || "Present"}
-                      </Badge>
+              </h2>
+              <div className="space-y-6">
+                {experience.map((exp, index) => (
+                  <div key={index} className={`border-l-4 ${theme.accent} pl-6 pb-6 last:pb-0`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+                      <h3 className="text-xl font-semibold">{exp.position}</h3>
+                      {exp.duration && (
+                        <Badge variant="outline" className="text-sm mt-1 sm:mt-0">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {exp.duration}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                      <Building className="h-4 w-4" />
+                      <span className="font-medium">{exp.company}</span>
+                      {exp.location && (
+                        <>
+                          <span>•</span>
+                          <span>{exp.location}</span>
+                        </>
+                      )}
+                    </div>
+                    {exp.description && (
+                      <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{exp.description}</p>
                     )}
                   </div>
-                  <p className={`font-medium mb-2 ${theme.accent}`}>{exp.company || exp.organization}</p>
-                  {exp.location && <p className="text-sm text-muted-foreground mb-2">{exp.location}</p>}
-                  {exp.description && <p className="text-muted-foreground mb-2 leading-relaxed">{exp.description}</p>}
-                  {exp.achievements && exp.achievements.length > 0 && (
-                    <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
-                      {exp.achievements.map((achievement: string, achIndex: number) => (
-                        <li key={achIndex}>{achievement}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {exp.responsibilities && exp.responsibilities.length > 0 && (
-                    <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
-                      {exp.responsibilities.map((responsibility: string, respIndex: number) => (
-                        <li key={respIndex}>{responsibility}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </CardContent>
           </Card>
         ) : (
-          // Fallback experience section
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+          <Card className={`mb-8 ${theme.card} shadow-lg`}>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 <Briefcase className="h-5 w-5" />
                 Professional Experience
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`${theme.section} pl-4`}>
-                <p className="text-muted-foreground">
+              </h2>
+              <div className={`border-l-4 ${theme.accent} pl-6`}>
+                <p className="text-muted-foreground italic">
                   Professional experience details will be displayed here once added to the resume.
                 </p>
               </div>
@@ -517,125 +515,113 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
 
         {/* Projects Section */}
         {projects.length > 0 && (
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
-                <Code className="h-5 w-5" />
-                Projects & Portfolio
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {projects.map((project: any, index: number) => (
-                <div key={index} className={`${theme.section} pl-4`}>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
-                    <h3 className="font-semibold">{project.name || project.title}</h3>
-                    {project.date && (
-                      <Badge variant="outline">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {project.date}
-                      </Badge>
+          <Card className={`mb-8 ${theme.card} shadow-lg`}>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <Star className="h-5 w-5" />
+                Featured Projects
+              </h2>
+              <div className="grid gap-6 md:grid-cols-2">
+                {projects.map((project, index) => (
+                  <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <h3 className="text-lg font-semibold mb-2">{project.name}</h3>
+                    {project.description && (
+                      <p className="text-muted-foreground mb-3 text-sm leading-relaxed">{project.description}</p>
                     )}
-                  </div>
-                  {project.description && <p className="text-muted-foreground mb-2">{project.description}</p>}
-                  {project.technologies && project.technologies.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {project.technologies.map((tech: string, techIndex: number) => (
-                        <Badge key={techIndex} variant="secondary" className="text-xs">
-                          {tech}
-                        </Badge>
-                      ))}
+                    {project.technologies && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {project.technologies.split(",").map((tech: string, techIndex: number) => (
+                          <Badge key={techIndex} variant="outline" className="text-xs">
+                            {tech.trim()}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      {project.url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(formatUrl(project.url), "_blank")}
+                          className="text-xs"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Demo
+                        </Button>
+                      )}
+                      {project.github && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(formatUrl(project.github), "_blank")}
+                          className="text-xs"
+                        >
+                          <Github className="h-3 w-3 mr-1" />
+                          Code
+                        </Button>
+                      )}
                     </div>
-                  )}
-                  {project.url && (
-                    <a
-                      href={project.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`${theme.accent} hover:underline flex items-center gap-1 text-sm`}
-                    >
-                      View Project <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}
 
         {/* Education Section */}
         {education.length > 0 && (
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
-                <Award className="h-5 w-5" />
+          <Card className={`mb-8 ${theme.card} shadow-lg`}>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <GraduationCap className="h-5 w-5" />
                 Education
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {education.map((edu: any, index: number) => (
-                <div key={index} className={`${theme.section} pl-4`}>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
-                    <h3 className="font-semibold">{edu.degree || edu.studyType}</h3>
-                    {(edu.startDate || edu.endDate) && (
-                      <Badge variant="outline">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {edu.startDate || edu.start} - {edu.endDate || edu.end || "Present"}
-                      </Badge>
+              </h2>
+              <div className="space-y-4">
+                {education.map((edu, index) => (
+                  <div key={index} className={`border-l-4 ${theme.accent} pl-6 pb-4 last:pb-0`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+                      <h3 className="text-lg font-semibold">{edu.degree}</h3>
+                      {edu.duration && (
+                        <Badge variant="outline" className="text-sm mt-1 sm:mt-0">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {edu.duration}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mb-2 text-muted-foreground">
+                      <Building className="h-4 w-4" />
+                      <span className="font-medium">{edu.institution}</span>
+                      {edu.gpa && (
+                        <>
+                          <span>•</span>
+                          <span>GPA: {edu.gpa}</span>
+                        </>
+                      )}
+                    </div>
+                    {edu.description && (
+                      <p className="text-muted-foreground text-sm leading-relaxed">{edu.description}</p>
                     )}
                   </div>
-                  <p className={`font-medium ${theme.accent}`}>{edu.school || edu.institution}</p>
-                  {edu.location && <p className="text-sm text-muted-foreground">{edu.location}</p>}
-                  {edu.gpa && <p className="text-sm text-muted-foreground">GPA: {edu.gpa}</p>}
-                  {edu.description && <p className="text-muted-foreground mt-2">{edu.description}</p>}
-                </div>
-              ))}
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Certifications Section */}
-        {certifications.length > 0 && (
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
-                <Award className="h-5 w-5" />
-                Certifications & Awards
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {certifications.map((cert: any, index: number) => (
-                <div key={index} className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <h3 className="font-semibold">{cert.name || cert.title}</h3>
-                    <p className={`text-sm ${theme.accent}`}>{cert.issuer || cert.organization}</p>
-                  </div>
-                  {cert.date && (
-                    <Badge variant="outline">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {cert.date}
-                    </Badge>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Default content when no specific sections are available */}
-        {experience.length === 0 && projects.length === 0 && education.length === 0 && skills.length === 0 && (
-          <Card className={theme.card}>
-            <CardHeader>
-              <CardTitle className={`${theme.accent} flex items-center gap-2`}>
+        {/* Default About Section when no specific sections are available */}
+        {experience.length === 0 && education.length === 0 && projects.length === 0 && (
+          <Card className={`mb-8 ${theme.card} shadow-lg`}>
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 <User className="h-5 w-5" />
                 About This Portfolio
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h2>
               <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-4 leading-relaxed">
                   This portfolio is currently being built. More content will be added soon including professional
                   experience, projects, education, and skills.
                 </p>
+                <Separator className="my-6" />
                 <p className="text-sm text-muted-foreground">
                   Portfolio created with Resume Builder • Last updated{" "}
                   {new Date(portfolio.updated_at).toLocaleDateString()}
@@ -646,8 +632,7 @@ export function PortfolioViewer({ portfolio }: PortfolioViewerProps) {
         )}
 
         {/* Footer */}
-        <div className="text-center text-sm text-muted-foreground print:hidden">
-          <Separator className="mb-4" />
+        <div className="text-center py-6 text-sm text-muted-foreground">
           <p>
             Portfolio created with Resume Builder • Last updated {new Date(portfolio.updated_at).toLocaleDateString()}
           </p>
