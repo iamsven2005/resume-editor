@@ -18,63 +18,44 @@ interface DocumentUploadProps {
 
 type FileType = "pdf" | "docx"
 
-const processDocumentFile = async (
-  file: File,
-  setProgress: (progress: number) => void,
-  setCurrentStep: (step: string) => void,
-): Promise<ResumeData> => {
-  console.log("Processing file:", file.name, "Type:", file.type)
-
+const processDocumentFile = async (file: File): Promise<ResumeData> => {
   const fileType = getFileType(file)
   let extractedText: string
 
   if (fileType === "pdf") {
-    setCurrentStep("Analyzing PDF structure...")
-    setProgress(30)
-
     try {
-      console.log("Attempting primary PDF extraction...")
+      // Try primary PDF extraction method
       extractedText = await extractTextFromPDF(file)
-      setCurrentStep("PDF text extraction successful!")
-      setProgress(60)
     } catch (primaryError) {
-      console.warn("Primary PDF extraction failed:", primaryError)
-      setCurrentStep("Trying advanced PDF extraction method...")
-      setProgress(45)
-
+      console.warn("Primary PDF extraction failed, trying advanced method:", primaryError)
       try {
+        // Try advanced PDF extraction method
         extractedText = await extractTextFromPDFAdvanced(file)
-        setCurrentStep("Advanced PDF extraction successful!")
-        setProgress(60)
       } catch (advancedError) {
         console.error("Both PDF extraction methods failed:", advancedError)
-        throw advancedError
+        throw new Error(
+          "Failed to extract text from PDF. This PDF might be:\n\n" +
+            "• A scanned document (image-based)\n" +
+            "• Password-protected or encrypted\n" +
+            "• Corrupted or in an unsupported format\n\n" +
+            "Please try:\n" +
+            "• Converting to a text-based PDF\n" +
+            "• Uploading a Word document (.docx) instead\n" +
+            "• Manually copying and pasting the text",
+        )
       }
     }
-
-    setCurrentStep("Processing extracted text with AI...")
-    setProgress(75)
     return parseResumeWithAI(extractedText)
   } else if (fileType === "docx") {
-    setCurrentStep("Processing Word document...")
-    setProgress(40)
-
     extractedText = await extractFormattedTextFromWord(file)
-    setCurrentStep("Word document processed successfully!")
-    setProgress(60)
-
-    setCurrentStep("Processing extracted text with AI...")
-    setProgress(75)
     return parseWordResumeWithAI(extractedText)
   } else {
-    throw new Error("Unsupported file type. Please upload a PDF or Word document (.docx).")
+    throw new Error("Unsupported file type")
   }
 }
 
 const getFileType = (file: File): FileType => {
-  console.log("Detecting file type for:", file.name, "MIME type:", file.type)
-
-  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+  if (file.type === "application/pdf") {
     return "pdf"
   } else if (
     file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
@@ -82,7 +63,7 @@ const getFileType = (file: File): FileType => {
   ) {
     return "docx"
   } else {
-    throw new Error(`Unsupported file type: ${file.type}. Please upload a PDF or Word document (.docx).`)
+    throw new Error("Unsupported file type")
   }
 }
 
@@ -98,15 +79,13 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const validateFile = (file: File): string | null => {
-    console.log("Validating file:", file.name, "Size:", file.size, "Type:", file.type)
-
-    const isPDF = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+    const isPDF = file.type === "application/pdf"
     const isDocx =
       file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       file.name.toLowerCase().endsWith(".docx")
 
     if (!isPDF && !isDocx) {
-      return `Unsupported file type: ${file.type || "unknown"}. Please upload a PDF or Word document (.docx) only.`
+      return "Please upload a PDF or Word document (.docx) only."
     }
 
     if (file.size > 10 * 1024 * 1024) {
@@ -114,16 +93,10 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
       return "File size must be less than 10MB."
     }
 
-    if (file.size === 0) {
-      return "The file appears to be empty. Please select a valid document."
-    }
-
     return null
   }
 
   const processFile = async (file: File) => {
-    console.log("Starting file processing for:", file.name)
-
     setIsProcessing(true)
     setError("")
     setProgress(0)
@@ -137,35 +110,56 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
         throw new Error(validationError)
       }
 
-      setProgress(10)
-      setCurrentStep("Detecting file type...")
-
       const detectedFileType = getFileType(file)
       setFileType(detectedFileType)
-      console.log("Detected file type:", detectedFileType)
 
       setProgress(20)
+      setCurrentStep(
+        detectedFileType === "pdf" ? "Extracting text from PDF..." : "Extracting text from Word document...",
+      )
 
-      // Process the document
-      const resumeData = await processDocumentFile(file, setProgress, setCurrentStep)
-
-      // Show preview of extracted text if available
-      if (resumeData) {
-        const previewText = JSON.stringify(resumeData).substring(0, 500)
-        setExtractedText(previewText)
+      // Extract text with improved error handling
+      let text: string
+      if (detectedFileType === "pdf") {
+        try {
+          text = await extractTextFromPDF(file)
+        } catch (primaryError) {
+          setCurrentStep("Primary extraction failed, trying advanced method...")
+          setProgress(35)
+          text = await extractTextFromPDFAdvanced(file)
+        }
+      } else {
+        text = await extractFormattedTextFromWord(file)
       }
 
-      setProgress(90)
-      setCurrentStep("Finalizing...")
+      setExtractedText(text)
+      setProgress(50)
 
-      // Small delay to show completion
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      // Validate extracted text
+      if (!text || text.trim().length === 0) {
+        throw new Error(
+          "No text could be extracted from the document. Please ensure the document contains readable text.",
+        )
+      }
+
+      if (text.trim().length < 50) {
+        throw new Error("Very little text was extracted. Please ensure the document contains substantial content.")
+      }
+
+      setCurrentStep("Processing with AI...")
+      setProgress(70)
+
+      // Process with AI
+      let resumeData: ResumeData
+      if (detectedFileType === "pdf") {
+        resumeData = await parseResumeWithAI(text)
+      } else {
+        resumeData = await parseWordResumeWithAI(text)
+      }
 
       setProgress(100)
       setCurrentStep("Complete!")
       setSuccess(true)
-
-      console.log("File processing completed successfully")
 
       // Wait a moment to show success, then callback
       setTimeout(() => {
@@ -173,29 +167,19 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
       }, 1000)
     } catch (err) {
       console.error("Error processing document:", err)
-      let errorMessage = "An unexpected error occurred while processing the document."
+      let errorMessage = "An unexpected error occurred"
 
       if (err instanceof Error) {
         errorMessage = err.message
       }
 
-      // Provide more specific error messages based on error content
+      // Provide helpful error messages
       if (errorMessage.includes("Network error") || errorMessage.includes("fetch")) {
         errorMessage = "Network error. Please check your internet connection and try again."
-      } else if (errorMessage.includes("AI service") || errorMessage.includes("parse-resume")) {
+      } else if (errorMessage.includes("AI service")) {
         errorMessage = "AI service is temporarily unavailable. Please try again in a few moments."
-      } else if (errorMessage.includes("Server returned") || errorMessage.includes("HTTP error")) {
+      } else if (errorMessage.includes("Server returned")) {
         errorMessage = "Server error. Please try again or contact support if the problem persists."
-      }
-
-      // Add helpful tip for PDF issues
-      if (
-        errorMessage.includes("scanned") ||
-        errorMessage.includes("image-based") ||
-        errorMessage.includes("extract")
-      ) {
-        errorMessage =
-          errorMessage + "\n\n💡 Tip: Word documents (.docx) usually work better than PDFs for text extraction."
       }
 
       setError(errorMessage)
@@ -207,7 +191,6 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
   }
 
   const handleFileSelect = (file: File) => {
-    console.log("File selected:", file.name)
     processFile(file)
   }
 
@@ -216,8 +199,6 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
     setIsDragOver(false)
 
     const files = Array.from(e.dataTransfer.files)
-    console.log("Files dropped:", files.length)
-
     if (files.length > 0) {
       handleFileSelect(files[0])
     }
@@ -235,8 +216,6 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    console.log("File input changed:", files?.length)
-
     if (files && files.length > 0) {
       handleFileSelect(files[0])
     }
@@ -255,7 +234,6 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
   }
 
   const resetUpload = () => {
-    console.log("Resetting upload state")
     setError("")
     setSuccess(false)
     setProgress(0)
@@ -287,37 +265,23 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
         </DialogDescription>
       </DialogHeader>
 
-      {/* Improved Information Alert */}
+      {/* PDF Information Alert */}
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <div className="space-y-2">
-            <p>
-              <strong>For best results:</strong>
-            </p>
-            <ul className="text-sm space-y-1 ml-4">
-              <li>
-                • <strong>Word documents (.docx)</strong> - Recommended, most reliable
-              </li>
-              <li>
-                • <strong>Text-based PDFs</strong> - Good, but avoid scanned PDFs
-              </li>
-              <li>• Ensure documents contain actual text, not just images</li>
-              <li>• Remove password protection before uploading</li>
-            </ul>
-          </div>
+          <strong>For best results:</strong> Use text-based PDFs or Word documents. Scanned PDFs or image-based
+          documents may not work well. Word documents (.docx) generally provide better text extraction.
         </AlertDescription>
       </Alert>
 
       {!isProcessing && !success && !error && (
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-muted-foreground/50"
           }`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => handleBrowseClick()}
         >
           <div className="flex justify-center space-x-4 mb-4">
             <FileText className="h-8 w-8 text-red-500" title="PDF" />
@@ -350,14 +314,16 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
             {getFileIcon()}
             <p className="font-medium">{currentStep}</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Processing {fileType === "docx" ? "Word document" : "PDF"}...
-            </p>
           </div>
           <Progress value={progress} className="w-full" />
+          <p className="text-sm text-muted-foreground text-center">
+            {fileType === "docx"
+              ? "Processing Word document..."
+              : "Processing PDF... This may take longer for complex documents..."}
+          </p>
           {extractedText && (
             <div className="mt-4 p-3 bg-muted rounded-md">
-              <p className="text-xs text-muted-foreground mb-2">Processing preview:</p>
+              <p className="text-xs text-muted-foreground mb-2">Extracted text preview:</p>
               <p className="text-xs font-mono max-h-20 overflow-y-auto">{extractedText.substring(0, 200)}...</p>
             </div>
           )}
