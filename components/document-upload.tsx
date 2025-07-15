@@ -1,352 +1,476 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useRef } from "react"
+import { useState, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
-import { Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
-import { useAuth } from "@/contexts/auth-context"
-import { parsePDF } from "@/utils/pdf-parser"
-import { parseWord } from "@/utils/word-parser"
-import type { ResumeData } from "@/types/resume"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Upload, FileText, AlertCircle, CheckCircle2, X, File, Info, Lock } from "lucide-react"
+import { extractTextFromPDF, extractTextFromPDFAdvanced, parseResumeWithAI } from "../utils/pdf-parser"
+import { extractFormattedTextFromWord, parseWordResumeWithAI } from "../utils/word-parser"
+import type { ResumeData } from "../types/resume"
+import { useAuth } from "../contexts/auth-context"
 
 interface DocumentUploadProps {
-  onResumeExtracted: (resumeData: ResumeData) => void
-  children?: React.ReactNode
+  onResumeExtracted: (data: ResumeData) => void
+  onClose: () => void
 }
 
-export function DocumentUpload({ onResumeExtracted, children }: DocumentUploadProps) {
+type FileType = "pdf" | "docx"
+
+const processDocumentFile = async (
+  file: File,
+  setProgress: (progress: number) => void,
+  setCurrentStep: (step: string) => void,
+): Promise<ResumeData> => {
+  console.log("Processing file:", file.name, "Type:", file.type)
+
+  const fileType = getFileType(file)
+  let extractedText: string
+
+  if (fileType === "pdf") {
+    setCurrentStep("Analyzing PDF structure...")
+    setProgress(30)
+
+    try {
+      console.log("Attempting primary PDF extraction...")
+      extractedText = await extractTextFromPDF(file)
+      console.log("PDF extraction successful, text length:", extractedText.length)
+      setCurrentStep("PDF text extraction successful!")
+      setProgress(60)
+    } catch (primaryError) {
+      console.warn("Primary PDF extraction failed:", primaryError)
+      setCurrentStep("Trying advanced PDF extraction method...")
+      setProgress(45)
+
+      try {
+        extractedText = await extractTextFromPDFAdvanced(file)
+        console.log("Advanced PDF extraction successful, text length:", extractedText.length)
+        setCurrentStep("Advanced PDF extraction successful!")
+        setProgress(60)
+      } catch (advancedError) {
+        console.error("Both PDF extraction methods failed:", advancedError)
+        throw new Error("Failed to extract text from PDF. This might be a scanned document or image-based PDF.")
+      }
+    }
+
+    setCurrentStep("Processing extracted text with AI...")
+    setProgress(75)
+    return parseResumeWithAI(extractedText)
+  } else if (fileType === "docx") {
+    setCurrentStep("Processing Word document...")
+    setProgress(40)
+
+    try {
+      extractedText = await extractFormattedTextFromWord(file)
+      console.log("Word extraction successful, text length:", extractedText.length)
+      setCurrentStep("Word document processed successfully!")
+      setProgress(60)
+
+      setCurrentStep("Processing extracted text with AI...")
+      setProgress(75)
+      return parseWordResumeWithAI(extractedText)
+    } catch (error) {
+      console.error("Word processing failed:", error)
+      throw new Error("Failed to process Word document. Please ensure it's a valid .docx file.")
+    }
+  } else {
+    throw new Error("Unsupported file type. Please upload a PDF or Word document (.docx).")
+  }
+}
+
+const getFileType = (file: File): FileType => {
+  console.log("Detecting file type for:", file.name, "MIME type:", file.type)
+
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    return "pdf"
+  } else if (
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    file.name.toLowerCase().endsWith(".docx")
+  ) {
+    return "docx"
+  } else {
+    throw new Error(`Unsupported file type: ${file.type}. Please upload a PDF or Word document (.docx).`)
+  }
+}
+
+export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadProps) => {
   const { user } = useAuth()
-  const [isOpen, setIsOpen] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string>("")
+  const [success, setSuccess] = useState(false)
+  const [currentStep, setCurrentStep] = useState<string>("")
+  const [fileType, setFileType] = useState<FileType | null>(null)
   const [extractedText, setExtractedText] = useState<string>("")
-  const [step, setStep] = useState<"upload" | "processing" | "success" | "error">("upload")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const resetState = () => {
-    setFile(null)
-    setIsProcessing(false)
-    setProgress(0)
-    setError(null)
-    setExtractedText("")
-    setStep("upload")
+  const validateFile = (file: File): string | null => {
+    console.log("Validating file:", file.name, "Size:", file.size, "Type:", file.type)
+
+    const isPDF = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+    const isDocx =
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.name.toLowerCase().endsWith(".docx")
+
+    if (!isPDF && !isDocx) {
+      return `Unsupported file type: ${file.type || "unknown"}. Please upload a PDF or Word document (.docx) only.`
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      // 10MB limit
+      return "File size must be less than 10MB."
+    }
+
+    if (file.size === 0) {
+      return "The file appears to be empty. Please select a valid document."
+    }
+
+    return null
   }
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0]
-    if (!selectedFile) return
-
-    // Validate file type
-    const allowedTypes = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/msword",
-    ]
-
-    if (!allowedTypes.includes(selectedFile.type)) {
-      setError("Please select a PDF or Word document (.pdf, .docx, .doc)")
-      return
-    }
-
-    // Validate file size (10MB limit)
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      setError("File size must be less than 10MB")
-      return
-    }
-
-    setFile(selectedFile)
-    setError(null)
-  }
-
-  const extractTextFromFile = async (file: File): Promise<string> => {
-    console.log("Extracting text from file:", file.name, file.type)
-
-    try {
-      if (file.type === "application/pdf") {
-        return await parsePDF(file)
-      } else if (
-        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        file.type === "application/msword"
-      ) {
-        return await parseWord(file)
-      } else {
-        throw new Error("Unsupported file type")
-      }
-    } catch (error) {
-      console.error("Text extraction error:", error)
-      throw new Error(`Failed to extract text from ${file.type === "application/pdf" ? "PDF" : "Word"} file`)
-    }
-  }
-
-  const processWithAI = async (text: string): Promise<ResumeData> => {
-    console.log("Processing text with AI, length:", text.length)
-
-    const response = await fetch("/api/parse-resume", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const result = await response.json()
-    console.log("AI processing result:", result)
-
-    if (!result.success) {
-      throw new Error(result.error || "Failed to process resume")
-    }
-
-    return result.resumeData
-  }
-
-  const handleUpload = async () => {
-    if (!file) {
-      setError("Please select a file first")
-      return
-    }
-
-    if (!user) {
-      setError("Please log in to upload documents")
-      return
-    }
+  const processFile = async (file: File) => {
+    console.log("Starting file processing for:", file.name)
 
     setIsProcessing(true)
-    setStep("processing")
+    setError("")
     setProgress(0)
-    setError(null)
+    setCurrentStep("Validating file...")
+    setExtractedText("")
+    setSuccess(false)
 
     try {
-      // Step 1: Extract text from file
-      setProgress(25)
-      console.log("Starting text extraction...")
-      const extractedText = await extractTextFromFile(file)
-      console.log("Text extracted successfully, length:", extractedText.length)
-
-      if (!extractedText.trim()) {
-        throw new Error("No text could be extracted from the document")
+      // Validate file
+      const validationError = validateFile(file)
+      if (validationError) {
+        throw new Error(validationError)
       }
 
-      setExtractedText(extractedText)
-      setProgress(50)
+      setProgress(10)
+      setCurrentStep("Detecting file type...")
 
-      // Step 2: Process with AI
-      console.log("Starting AI processing...")
-      const resumeData = await processWithAI(extractedText)
-      console.log("AI processing completed:", resumeData)
-      setProgress(75)
+      const detectedFileType = getFileType(file)
+      setFileType(detectedFileType)
+      console.log("Detected file type:", detectedFileType)
 
-      // Step 3: Validate and structure data
-      if (!resumeData || typeof resumeData !== "object") {
-        throw new Error("Invalid resume data received from AI processing")
+      setProgress(20)
+
+      // Process the document
+      const resumeData = await processDocumentFile(file, setProgress, setCurrentStep)
+
+      console.log("Resume data processed:", resumeData)
+
+      // Show preview of extracted data
+      if (resumeData) {
+        const previewText = `Title: ${resumeData.title}\nSections: ${resumeData.sections.length}`
+        setExtractedText(previewText)
       }
 
-      // Ensure proper structure
-      const structuredData: ResumeData = {
-        title: resumeData.title || file.name.replace(/\.[^/.]+$/, ""),
-        sections: resumeData.sections || [],
-      }
+      setProgress(90)
+      setCurrentStep("Finalizing...")
+
+      // Small delay to show completion
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
       setProgress(100)
-      setStep("success")
+      setCurrentStep("Complete!")
+      setSuccess(true)
 
-      // Step 4: Pass data to parent component
-      console.log("Calling onResumeExtracted with:", structuredData)
-      onResumeExtracted(structuredData)
+      console.log("File processing completed successfully, calling onResumeExtracted")
 
-      toast({
-        title: "Success!",
-        description: "Resume uploaded and processed successfully",
-      })
-
-      // Close dialog after a short delay
+      // Wait a moment to show success, then callback
       setTimeout(() => {
-        setIsOpen(false)
-        resetState()
-      }, 1500)
-    } catch (error) {
-      console.error("Upload processing error:", error)
-      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred"
-      setError(errorMessage)
-      setStep("error")
+        onResumeExtracted(resumeData)
+        onClose() // Close the dialog after successful upload
+      }, 1000)
+    } catch (err) {
+      console.error("Error processing document:", err)
+      let errorMessage = "An unexpected error occurred while processing the document."
 
-      toast({
-        title: "Upload Failed",
-        description: errorMessage,
-        variant: "destructive",
-      })
+      if (err instanceof Error) {
+        errorMessage = err.message
+      }
+
+      // Provide more specific error messages based on error content
+      if (errorMessage.includes("Network error") || errorMessage.includes("fetch")) {
+        errorMessage = "Network error. Please check your internet connection and try again."
+      } else if (errorMessage.includes("AI service") || errorMessage.includes("parse-resume")) {
+        errorMessage = "AI service is temporarily unavailable. Please try again in a few moments."
+      } else if (errorMessage.includes("Server returned") || errorMessage.includes("HTTP error")) {
+        errorMessage = "Server error. Please try again or contact support if the problem persists."
+      }
+
+      // Add helpful tip for PDF issues
+      if (
+        errorMessage.includes("scanned") ||
+        errorMessage.includes("image-based") ||
+        errorMessage.includes("extract")
+      ) {
+        errorMessage =
+          errorMessage + "\n\n💡 Tip: Word documents (.docx) usually work better than PDFs for text extraction."
+      }
+
+      setError(errorMessage)
+      setProgress(0)
+      setCurrentStep("")
     } finally {
       setIsProcessing(false)
     }
   }
 
-  const handleClose = () => {
-    if (!isProcessing) {
-      setIsOpen(false)
-      resetState()
+  const handleFileSelect = (file: File) => {
+    if (!user) {
+      setError("Please log in to upload documents.")
+      return
+    }
+
+    console.log("File selected:", file.name)
+    processFile(file)
+  }
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragOver(false)
+
+      if (!user) {
+        setError("Please log in to upload documents.")
+        return
+      }
+
+      const files = Array.from(e.dataTransfer.files)
+      console.log("Files dropped:", files.length)
+
+      if (files.length > 0) {
+        handleFileSelect(files[0])
+      }
+    },
+    [user],
+  )
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      if (user) {
+        setIsDragOver(true)
+      }
+    },
+    [user],
+  )
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+  }, [])
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) {
+      setError("Please log in to upload documents.")
+      return
+    }
+
+    const files = e.target.files
+    console.log("File input changed:", files?.length)
+
+    if (files && files.length > 0) {
+      handleFileSelect(files[0])
+    }
+    // Reset the input value to allow selecting the same file again
+    if (e.target) {
+      e.target.value = ""
     }
   }
 
-  const triggerFileSelect = () => {
+  const handleBrowseClick = (e?: React.MouseEvent) => {
+    if (!user) {
+      setError("Please log in to upload documents.")
+      return
+    }
+
+    // Prevent event bubbling if called from click handler
+    if (e) {
+      e.stopPropagation()
+    }
     fileInputRef.current?.click()
   }
 
+  const resetUpload = () => {
+    console.log("Resetting upload state")
+    setError("")
+    setSuccess(false)
+    setProgress(0)
+    setCurrentStep("")
+    setIsProcessing(false)
+    setFileType(null)
+    setExtractedText("")
+  }
+
+  const getFileIcon = () => {
+    if (fileType === "pdf") {
+      return <FileText className="h-12 w-12 mx-auto mb-4 text-red-500" />
+    } else if (fileType === "docx") {
+      return <File className="h-12 w-12 mx-auto mb-4 text-blue-500" />
+    }
+    return <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {children || (
-          <Button variant="outline" disabled={!user}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Document
+    <div className="space-y-4">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Upload className="h-5 w-5" />
+          Upload Resume Document
+        </DialogTitle>
+        <DialogDescription>
+          Upload your PDF or Word document (.docx) resume and we'll extract the information using AI to populate the
+          editor.
+        </DialogDescription>
+      </DialogHeader>
+
+      {/* Authentication Alert */}
+      {!user && (
+        <Alert variant="destructive">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Login Required:</strong> You must be logged in to upload and process documents. Please log in to
+            continue.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Information Alert */}
+      {user && !isProcessing && !success && !error && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            <div className="space-y-2">
+              <p>
+                <strong>For best results:</strong>
+              </p>
+              <ul className="text-sm space-y-1 ml-4">
+                <li>
+                  • <strong>Word documents (.docx)</strong> - Recommended, most reliable
+                </li>
+                <li>
+                  • <strong>Text-based PDFs</strong> - Good, but avoid scanned PDFs
+                </li>
+                <li>• Ensure documents contain actual text, not just images</li>
+                <li>• Remove password protection before uploading</li>
+              </ul>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!isProcessing && !success && !error && user && (
+        <div
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+            isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-muted-foreground/50"
+          }`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onClick={() => handleBrowseClick()}
+        >
+          <div className="flex justify-center space-x-4 mb-4">
+            <FileText className="h-8 w-8 text-red-500" title="PDF" />
+            <File className="h-8 w-8 text-blue-500" title="Word Document" />
+          </div>
+          <p className="text-lg font-medium mb-2">Drop your document here</p>
+          <p className="text-sm text-muted-foreground mb-4">or click to browse files</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={handleFileInput}
+            className="hidden"
+          />
+          <Button variant="outline" onClick={(e) => handleBrowseClick(e)}>
+            Choose Document
           </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => isProcessing && e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle>Upload Resume Document</DialogTitle>
-          <DialogDescription>Upload a PDF or Word document to extract and edit your resume data</DialogDescription>
-        </DialogHeader>
+          <div className="mt-4 space-y-1">
+            <p className="text-xs text-muted-foreground">Supported formats:</p>
+            <p className="text-xs text-muted-foreground">• Word documents (.docx) - recommended</p>
+            <p className="text-xs text-muted-foreground">• PDF documents (.pdf) - text-based only</p>
+            <p className="text-xs text-muted-foreground">Maximum file size: 10MB</p>
+          </div>
+        </div>
+      )}
 
+      {/* Disabled state for non-authenticated users */}
+      {!user && (
+        <div className="border-2 border-dashed rounded-lg p-8 text-center bg-muted/50 opacity-60">
+          <div className="flex justify-center space-x-4 mb-4">
+            <Lock className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <p className="text-lg font-medium mb-2 text-muted-foreground">Document Upload Disabled</p>
+          <p className="text-sm text-muted-foreground mb-4">Please log in to upload documents</p>
+          <Button variant="outline" disabled>
+            Login Required
+          </Button>
+        </div>
+      )}
+
+      {isProcessing && (
         <div className="space-y-4">
-          {!user && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>Please log in to upload documents</AlertDescription>
-            </Alert>
-          )}
-
-          {step === "upload" && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="file-upload">Select Document</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    ref={fileInputRef}
-                    id="file-upload"
-                    type="file"
-                    accept=".pdf,.docx,.doc"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={triggerFileSelect}
-                    className="flex-1 bg-transparent"
-                    disabled={!user}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    {file ? file.name : "Choose File"}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Supported formats: PDF, Word (.docx, .doc) • Max size: 10MB
-                </p>
-              </div>
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleClose}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpload} disabled={!file || !user || isProcessing}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload & Process
-                </Button>
-              </div>
-            </>
-          )}
-
-          {step === "processing" && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Processing your document...</p>
-              </div>
-              <Progress value={progress} className="w-full" />
-              <div className="text-xs text-center text-muted-foreground">
-                {progress < 25 && "Preparing file..."}
-                {progress >= 25 && progress < 50 && "Extracting text..."}
-                {progress >= 50 && progress < 75 && "Processing with AI..."}
-                {progress >= 75 && "Finalizing..."}
-              </div>
-            </div>
-          )}
-
-          {step === "success" && (
-            <div className="text-center space-y-4">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-              <div>
-                <h3 className="font-medium">Upload Successful!</h3>
-                <p className="text-sm text-muted-foreground">
-                  Your resume has been processed and loaded into the editor
-                </p>
-              </div>
-            </div>
-          )}
-
-          {step === "error" && (
-            <div className="space-y-4">
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-
-              {extractedText && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Extracted Text Preview</CardTitle>
-                    <CardDescription>
-                      This is what was extracted from your document before AI processing
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-32 overflow-y-auto text-xs bg-muted p-2 rounded">
-                      {extractedText.substring(0, 500)}
-                      {extractedText.length > 500 && "..."}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setStep("upload")}>
-                  Try Again
-                </Button>
-                <Button variant="outline" onClick={handleClose}>
-                  Close
-                </Button>
-              </div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+            {getFileIcon()}
+            <p className="font-medium">{currentStep}</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Processing {fileType === "docx" ? "Word document" : "PDF"}...
+            </p>
+          </div>
+          <Progress value={progress} className="w-full" />
+          {extractedText && (
+            <div className="mt-4 p-3 bg-muted rounded-md">
+              <p className="text-xs text-muted-foreground mb-2">Processing preview:</p>
+              <p className="text-xs font-mono max-h-20 overflow-y-auto">{extractedText}</p>
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+
+      {success && (
+        <div className="text-center space-y-4">
+          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+          <div>
+            <p className="font-medium text-green-700">
+              {fileType === "docx" ? "Word document" : "PDF"} processed successfully!
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Your resume data has been extracted and will be loaded into the editor.
+            </p>
+          </div>
+          {extractedText && (
+            <div className="mt-4 p-3 bg-green-50 rounded-md">
+              <p className="text-xs text-green-600 mb-2">Extracted data preview:</p>
+              <p className="text-xs font-mono">{extractedText}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex justify-end space-x-2 pt-4">
+        {(error || success) && user && (
+          <Button variant="outline" onClick={resetUpload}>
+            Upload Another
+          </Button>
+        )}
+        <Button variant="outline" onClick={onClose}>
+          <X className="h-4 w-4 mr-2" />
+          Close
+        </Button>
+      </div>
+    </div>
   )
 }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import { neon } from "@neondatabase/serverless"
 import { PortfolioViewer } from "@/components/portfolio-viewer"
 import type { Metadata } from "next"
+import { headers } from "next/headers"
 
 const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
@@ -53,22 +54,53 @@ async function getPortfolio(slug: string): Promise<Portfolio | null> {
   }
 }
 
-async function trackPortfolioView(portfolioId: string, userAgent?: string) {
+async function trackPortfolioView(portfolioId: string, request?: any) {
   try {
-    // Update total views
+    console.log("Tracking portfolio view for:", portfolioId)
+
+    // Get request headers for analytics
+    const headersList = headers()
+    const userAgent = headersList.get("user-agent") || "Unknown"
+    const forwardedFor = headersList.get("x-forwarded-for")
+    const realIp = headersList.get("x-real-ip")
+    const visitorIp = forwardedFor?.split(",")[0] || realIp || "Unknown"
+
+    // Determine device type from user agent
+    let deviceType = "Desktop"
+    if (userAgent.toLowerCase().includes("mobile")) {
+      deviceType = "Mobile"
+    } else if (userAgent.toLowerCase().includes("tablet")) {
+      deviceType = "Tablet"
+    }
+
+    // Extract browser info
+    let browser = "Unknown"
+    if (userAgent.includes("Chrome")) browser = "Chrome"
+    else if (userAgent.includes("Firefox")) browser = "Firefox"
+    else if (userAgent.includes("Safari")) browser = "Safari"
+    else if (userAgent.includes("Edge")) browser = "Edge"
+
+    // Extract OS info
+    let os = "Unknown"
+    if (userAgent.includes("Windows")) os = "Windows"
+    else if (userAgent.includes("Mac")) os = "macOS"
+    else if (userAgent.includes("Linux")) os = "Linux"
+    else if (userAgent.includes("Android")) os = "Android"
+    else if (userAgent.includes("iOS")) os = "iOS"
+
+    // Insert analytics record
     await sql`
-      UPDATE portfolios 
-      SET total_views = total_views + 1
-      WHERE id = ${portfolioId}
+      INSERT INTO portfolio_analytics (
+        portfolio_id, visitor_ip, user_agent, device_type, 
+        browser, os, pages_viewed, session_duration, created_at
+      )
+      VALUES (
+        ${portfolioId}, ${visitorIp}, ${userAgent}, ${deviceType},
+        ${browser}, ${os}, 1, 0, CURRENT_TIMESTAMP
+      )
     `
 
-    // Track analytics (simplified - in production you'd want more sophisticated tracking)
-    await sql`
-      INSERT INTO portfolio_analytics (portfolio_id, view_date, user_agent)
-      VALUES (${portfolioId}, CURRENT_DATE, ${userAgent || "unknown"})
-      ON CONFLICT (portfolio_id, view_date) 
-      DO UPDATE SET view_count = portfolio_analytics.view_count + 1
-    `
+    console.log("Portfolio view tracked successfully")
   } catch (error) {
     console.error("Error tracking portfolio view:", error)
     // Don't fail the page load if analytics fail
@@ -103,7 +135,7 @@ export default async function PortfolioPage({ params }: { params: { slug: string
     notFound()
   }
 
-  // Track the view (in a real app, you'd want to do this client-side to avoid bot traffic)
+  // Track the view with enhanced analytics
   await trackPortfolioView(portfolio.id)
 
   return (

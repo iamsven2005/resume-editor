@@ -4,149 +4,213 @@ import { openai } from "@ai-sdk/openai"
 
 export async function POST(request: NextRequest) {
   try {
-    const { text } = await request.json()
-
-    if (!text || typeof text !== "string") {
-      return NextResponse.json({ success: false, error: "Text content is required" }, { status: 400 })
+    // Parse request body
+    let body
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      console.error("Failed to parse request body:", parseError)
+      return NextResponse.json({ success: false, error: "Invalid request body. Expected JSON." }, { status: 400 })
     }
 
-    console.log("Parsing resume text, length:", text.length)
+    const { text, type } = body
+
+    if (!text || typeof text !== "string") {
+      return NextResponse.json(
+        { success: false, error: "Invalid text provided. Expected non-empty string." },
+        { status: 400 },
+      )
+    }
+
+    if (text.trim().length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Empty text provided. Please provide resume content." },
+        { status: 400 },
+      )
+    }
+
+    // Check if text is too long (optional safety check)
+    if (text.length > 50000) {
+      return NextResponse.json(
+        { success: false, error: "Text too long. Please provide a shorter resume." },
+        { status: 400 },
+      )
+    }
+
+    console.log(`Processing ${type || "unknown"} resume text, length:`, text.length)
+    console.log("Text preview:", text.substring(0, 200) + "...")
 
     const prompt = `
-You are a resume parsing expert. Parse the following resume text and convert it into a structured JSON format.
+You are an AI assistant that extracts structured information from resume text. 
+Parse the following resume text and convert it into a structured JSON format.
 
-IMPORTANT: Return ONLY valid JSON, no markdown formatting, no code blocks, no additional text.
+IMPORTANT: Return ONLY the JSON object, no markdown formatting, no code blocks, no additional text.
 
-The JSON should have this exact structure:
+The output should follow this exact structure:
 {
-  "title": "Resume Title or Person's Name",
+  "title": "Full Name - Job Title",
   "sections": [
     {
       "section name": "Experience",
       "content": [
         {
-          "job title": "Job Title",
+          "job title": "Position Title",
           "Organization": "Company Name",
           "Duration": "Start Date - End Date",
           "Description": "Job description and achievements"
         }
       ],
-      "id": "unique-id-1"
+      "id": "exp-123"
     },
     {
-      "section name": "Education",
+      "section name": "Education", 
       "content": [
         {
           "Degree": "Degree Name",
           "Organization": "School Name",
-          "Duration": "Start Date - End Date",
+          "Duration": "Start Year - End Year",
           "GPA": "GPA if mentioned"
         }
       ],
-      "id": "unique-id-2"
+      "id": "edu-456"
     },
     {
       "section name": "Skills",
       "content": [
         {
-          "Category": "Technical Skills",
-          "Skills": "List of skills separated by commas"
+          "Category": "Skill Category",
+          "Skills": "List of skills"
         }
       ],
-      "id": "unique-id-3"
+      "id": "skills-789"
     }
   ]
 }
 
-Rules:
-1. Extract ALL information from the resume
-2. Create appropriate sections (Experience, Education, Skills, Projects, Certifications, etc.)
-3. Use consistent field names within each section type
-4. Generate unique IDs for each section (use format: "section-1", "section-2", etc.)
-5. If no clear title is found, use "Resume" as the title
-6. Preserve all dates, descriptions, and details
-7. Group similar information together
-8. Return ONLY the JSON object, nothing else
+Instructions:
+1. Extract the person's name and create a title in format "Name - Primary Job Title"
+2. Group information into logical sections (Experience, Education, Skills, etc.)
+3. For experience entries, extract job title, company, dates, and description
+4. For education entries, extract degree, school, dates, and GPA if available
+5. For skills, group them by category when possible
+6. Generate unique IDs for each section (use format like "exp-123", "edu-456", etc.)
+7. Preserve all important information from the original text
+8. If dates are unclear, make reasonable assumptions or use "Present" for current positions
+9. Clean up formatting and make descriptions concise but informative
+10. If you can't find a clear name, use "Resume" as the title
+11. Always include at least Experience, Education, and Skills sections even if empty
 
 Resume text to parse:
 ${text}
+
+Return ONLY the JSON object with no additional formatting or text.
 `
 
-    const result = await generateText({
-      model: openai("gpt-4o"),
-      prompt,
-      temperature: 0.1,
-    })
-
-    console.log("AI response received, length:", result.text.length)
-
-    // Clean the response to ensure it's valid JSON
-    let cleanedResponse = result.text.trim()
-
-    // Remove markdown code blocks if present
-    if (cleanedResponse.startsWith("```json")) {
-      cleanedResponse = cleanedResponse.replace(/^```json\s*/, "").replace(/\s*```$/, "")
-    } else if (cleanedResponse.startsWith("```")) {
-      cleanedResponse = cleanedResponse.replace(/^```\s*/, "").replace(/\s*```$/, "")
+    let result
+    try {
+      const aiResponse = await generateText({
+        model: openai("gpt-4o"),
+        prompt,
+        temperature: 0.1, // Low temperature for consistent parsing
+      })
+      result = aiResponse.text
+      console.log("AI response received, length:", result.length)
+    } catch (aiError) {
+      console.error("AI generation error:", aiError)
+      return NextResponse.json(
+        { success: false, error: "AI service temporarily unavailable. Please try again later." },
+        { status: 503 },
+      )
     }
 
-    // Try to parse the JSON
-    let resumeData
-    try {
-      resumeData = JSON.parse(cleanedResponse)
-      console.log("JSON parsed successfully:", resumeData)
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError)
-      console.error("Raw response:", cleanedResponse)
+    // Clean the AI response to extract JSON
+    let cleanedResult = result.trim()
 
-      // Fallback: create a basic structure with the original text
-      resumeData = {
-        title: "Parsed Resume",
-        sections: [
-          {
-            "section name": "Raw Content",
-            content: [
-              {
-                Content: text.substring(0, 1000) + (text.length > 1000 ? "..." : ""),
-              },
-            ],
-            id: "section-1",
-          },
-        ],
+    // Remove markdown code blocks if present
+    if (cleanedResult.startsWith("```json")) {
+      cleanedResult = cleanedResult.replace(/^```json\s*/, "").replace(/\s*```$/, "")
+    } else if (cleanedResult.startsWith("```")) {
+      cleanedResult = cleanedResult.replace(/^```\s*/, "").replace(/\s*```$/, "")
+    }
+
+    // Remove any leading/trailing whitespace again
+    cleanedResult = cleanedResult.trim()
+
+    // Log the cleaned result for debugging
+    console.log("Cleaned AI response preview:", cleanedResult.substring(0, 200) + "...")
+
+    // Parse the AI response
+    let parsedData
+    try {
+      parsedData = JSON.parse(cleanedResult)
+      console.log("Successfully parsed AI response")
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", parseError)
+      console.error("Original AI response:", result)
+      console.error("Cleaned response:", cleanedResult)
+
+      // Try to extract JSON from the response if it's embedded in text
+      const jsonMatch = cleanedResult.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          parsedData = JSON.parse(jsonMatch[0])
+          console.log("Successfully extracted JSON from text")
+        } catch (secondParseError) {
+          console.error("Failed to parse extracted JSON:", secondParseError)
+          return NextResponse.json(
+            { success: false, error: "AI returned invalid JSON format. Please try again." },
+            { status: 500 },
+          )
+        }
+      } else {
+        return NextResponse.json(
+          { success: false, error: "AI returned invalid format. Please try again." },
+          { status: 500 },
+        )
       }
     }
 
     // Validate the structure
-    if (!resumeData.title) {
-      resumeData.title = "Resume"
+    if (!parsedData || typeof parsedData !== "object") {
+      return NextResponse.json({ success: false, error: "AI returned invalid data structure." }, { status: 500 })
     }
 
-    if (!Array.isArray(resumeData.sections)) {
-      resumeData.sections = []
+    if (!parsedData.title || typeof parsedData.title !== "string") {
+      parsedData.title = "Resume" // Fallback title
     }
 
-    // Ensure each section has required fields
-    resumeData.sections = resumeData.sections.map((section: any, index: number) => ({
-      "section name": section["section name"] || section.name || `Section ${index + 1}`,
+    if (!Array.isArray(parsedData.sections)) {
+      return NextResponse.json({ success: false, error: "AI failed to extract resume sections." }, { status: 500 })
+    }
+
+    // Ensure all sections have required fields and generate IDs
+    parsedData.sections = parsedData.sections.map((section: any, index: number) => ({
+      "section name": section["section name"] || `Section ${index + 1}`,
       content: Array.isArray(section.content) ? section.content : [],
-      id: section.id || `section-${index + 1}`,
+      id: section.id || `section-${Math.random().toString(36).substring(2, 9)}`,
     }))
 
-    console.log("Final structured data:", resumeData)
+    console.log("Resume parsing completed successfully")
+    console.log("Parsed data preview:", {
+      title: parsedData.title,
+      sectionsCount: parsedData.sections.length,
+      sections: parsedData.sections.map((s: any) => s["section name"]),
+    })
 
     return NextResponse.json({
       success: true,
-      resumeData,
+      data: parsedData,
     })
   } catch (error) {
-    console.error("Resume parsing error:", error)
-
+    console.error("Unexpected error in parse-resume API:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to parse resume",
-      },
+      { success: false, error: "Internal server error. Please try again later." },
       { status: 500 },
     )
   }
+}
+
+// Handle other HTTP methods
+export async function GET() {
+  return NextResponse.json({ success: false, error: "Method not allowed. Use POST." }, { status: 405 })
 }

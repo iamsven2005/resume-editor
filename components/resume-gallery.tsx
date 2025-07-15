@@ -88,7 +88,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   const [activeTab, setActiveTab] = useState("resumes")
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null)
+  const [manualSaving, setManualSaving] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -99,33 +99,19 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
   // Auto-save functionality
   useEffect(() => {
-    // Clear existing timer
-    if (autoSaveTimer) {
-      clearTimeout(autoSaveTimer)
-    }
+    if (!autoSaveEnabled || !currentResumeData || !user) return
 
-    if (!autoSaveEnabled || !currentResumeData || !user || !currentResumeData.title) {
-      return
-    }
-
-    // Set new timer
-    const timer = setTimeout(async () => {
-      try {
-        console.log("Auto-saving resume:", currentResumeData.title)
-        await handleAutoSave()
-      } catch (error) {
-        console.error("Auto-save failed:", error)
+    const autoSaveTimer = setTimeout(async () => {
+      if (currentResumeData && currentResumeData.title) {
+        try {
+          await handleAutoSave()
+        } catch (error) {
+          console.error("Auto-save failed:", error)
+        }
       }
-    }, 30000) // 30 seconds
+    }, 30000) // Auto-save every 30 seconds
 
-    setAutoSaveTimer(timer)
-
-    // Cleanup function
-    return () => {
-      if (timer) {
-        clearTimeout(timer)
-      }
-    }
+    return () => clearTimeout(autoSaveTimer)
   }, [currentResumeData, autoSaveEnabled, user])
 
   const fetchResumes = async () => {
@@ -133,9 +119,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       const response = await fetch("/api/resumes")
       if (response.ok) {
         const data = await response.json()
-        setResumes(data.resumes || [])
+        setResumes(data.resumes)
       } else {
-        console.error("Failed to fetch resumes:", response.status)
         toast({
           title: "Error",
           description: "Failed to load resumes",
@@ -143,7 +128,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         })
       }
     } catch (error) {
-      console.error("Error fetching resumes:", error)
       toast({
         title: "Error",
         description: "Failed to load resumes",
@@ -159,9 +143,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       const response = await fetch("/api/portfolios")
       if (response.ok) {
         const data = await response.json()
-        setPortfolios(data.portfolios || [])
+        setPortfolios(data.portfolios)
       } else {
-        console.error("Failed to fetch portfolios:", response.status)
         toast({
           title: "Error",
           description: "Failed to load portfolios",
@@ -169,7 +152,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         })
       }
     } catch (error) {
-      console.error("Error fetching portfolios:", error)
       toast({
         title: "Error",
         description: "Failed to load portfolios",
@@ -181,32 +163,53 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   }
 
   const handleAutoSave = async () => {
-    if (!currentResumeData?.title) {
-      console.log("Auto-save skipped: no title")
-      return
-    }
+    if (!currentResumeData?.title) return
 
     try {
-      console.log("Auto-saving resume:", currentResumeData.title)
       await onSaveResume(currentResumeData.title)
       setLastSaved(new Date())
       toast({
         description: "Auto-saved successfully",
         duration: 2000,
       })
-      // Refresh the resumes list
-      fetchResumes()
     } catch (error) {
       console.error("Auto-save failed:", error)
-      toast({
-        description: "Auto-save failed",
-        variant: "destructive",
-        duration: 2000,
-      })
     }
   }
 
   const handleManualSave = async () => {
+    if (!currentResumeData) {
+      toast({
+        title: "Error",
+        description: "No resume data to save",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const title = currentResumeData.title || currentResumeData.personalInfo?.name || "Untitled Resume"
+
+    setManualSaving(true)
+    try {
+      await onSaveResume(title)
+      setLastSaved(new Date())
+      fetchResumes()
+      toast({
+        title: "Success",
+        description: "Resume saved successfully!",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save resume. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setManualSaving(false)
+    }
+  }
+
+  const saveCurrentResume = async () => {
     if (!saveTitle.trim()) {
       toast({
         title: "Error",
@@ -226,7 +229,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         description: "Resume saved successfully!",
       })
     } catch (error) {
-      console.error("Manual save error:", error)
       toast({
         title: "Error",
         description: "Failed to save resume. Please try again.",
@@ -258,8 +260,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
           description: `Resume ${!currentFavorite ? "added to" : "removed from"} favorites`,
         })
       } else {
-        const errorData = await response.json()
-        console.error("Favorite toggle error:", errorData)
         toast({
           title: "Error",
           description: "Failed to update favorite status",
@@ -267,7 +267,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         })
       }
     } catch (error) {
-      console.error("Favorite toggle error:", error)
       toast({
         title: "Error",
         description: "Failed to update favorite status",
@@ -451,6 +450,15 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
               <Save className="h-4 w-4 mr-2" />
               Auto-save {autoSaveEnabled ? "ON" : "OFF"}
             </Button>
+            <Button
+              onClick={handleManualSave}
+              disabled={manualSaving || !currentResumeData}
+              variant="outline"
+              size="sm"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {manualSaving ? "Saving..." : "Save Current"}
+            </Button>
             {lastSaved && (
               <Badge variant="secondary" className="text-xs">
                 Last saved: {lastSaved.toLocaleTimeString()}
@@ -458,7 +466,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             )}
           </div>
 
-          {/* Manual Save Current Resume */}
+          {/* Save Current Resume */}
           <div className="flex gap-2">
             <Input
               placeholder="Enter resume title to save..."
@@ -466,12 +474,12 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
               onChange={(e) => setSaveTitle(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !saving) {
-                  handleManualSave()
+                  saveCurrentResume()
                 }
               }}
               className="flex-1"
             />
-            <Button onClick={handleManualSave} disabled={saving || !saveTitle.trim()}>
+            <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
               {saving ? "Saving..." : "Save Resume"}
             </Button>
           </div>
@@ -554,7 +562,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             </div>
           </div>
 
-          {/* Resume Grid */}
+          {/* Resume Flex Layout */}
           {filteredAndSortedResumes.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
@@ -576,9 +584,12 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
               )}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-wrap gap-4">
               {filteredAndSortedResumes.map((resume) => (
-                <Card key={resume.id} className="hover:shadow-md transition-shadow group">
+                <Card
+                  key={resume.id}
+                  className="hover:shadow-md transition-shadow group flex-1 min-w-[300px] max-w-[400px]"
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2 flex-1 mr-2">
@@ -683,7 +694,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             </span>
           </div>
 
-          {/* Portfolio Grid */}
+          {/* Portfolio Flex Layout */}
           {filteredAndSortedPortfolios.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <Briefcase className="h-12 w-12 text-muted-foreground mb-4" />
@@ -715,9 +726,12 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
               )}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-wrap gap-4">
               {filteredAndSortedPortfolios.map((portfolio) => (
-                <Card key={portfolio.id} className="hover:shadow-md transition-shadow">
+                <Card
+                  key={portfolio.id}
+                  className="hover:shadow-md transition-shadow flex-1 min-w-[300px] max-w-[400px]"
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <CardTitle className="text-base line-clamp-2 flex-1 mr-2">{portfolio.title}</CardTitle>
@@ -738,11 +752,11 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                     <div className="flex items-center gap-4 text-xs">
                       <div className="flex items-center gap-1">
                         <Eye className="h-3 w-3" />
-                        <span>{portfolio.total_views || 0} views</span>
+                        <span>{portfolio.total_views} views</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
-                        <span>{portfolio.unique_visitors || 0} visitors</span>
+                        <span>{portfolio.unique_visitors} visitors</span>
                       </div>
                     </div>
                     {/* Portfolio URL */}

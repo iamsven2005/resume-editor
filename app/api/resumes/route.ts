@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth"
 
 const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
 
@@ -50,42 +50,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if resume with same title already exists for this user
-    const existingResume = await sql`
-      SELECT id FROM resumes 
-      WHERE user_id = ${user.id} AND title = ${title}
+    const result = await sql`
+      INSERT INTO resumes (user_id, title, resume_data, is_favorite, created_at, updated_at)
+      VALUES (${user.id}, ${title}, ${JSON.stringify(resumeData)}, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING id, title, resume_data, is_favorite, created_at, updated_at
     `
 
-    if (existingResume.length > 0) {
-      // Update existing resume
-      const result = await sql`
-        UPDATE resumes 
-        SET resume_data = ${JSON.stringify(resumeData)}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${existingResume[0].id}
-        RETURNING *
-      `
-
-      return NextResponse.json({
-        success: true,
-        resume: result[0],
-        message: "Resume updated successfully",
-      })
-    } else {
-      // Create new resume
-      const result = await sql`
-        INSERT INTO resumes (user_id, title, resume_data, is_favorite, created_at, updated_at)
-        VALUES (${user.id}, ${title}, ${JSON.stringify(resumeData)}, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING *
-      `
-
-      return NextResponse.json({
-        success: true,
-        resume: result[0],
-        message: "Resume created successfully",
-      })
-    }
+    return NextResponse.json({
+      success: true,
+      resume: result[0],
+    })
   } catch (error) {
-    console.error("Error saving resume:", error)
-    return NextResponse.json({ success: false, error: "Failed to save resume" }, { status: 500 })
+    console.error("Error creating resume:", error)
+    return NextResponse.json({ success: false, error: "Failed to create resume" }, { status: 500 })
   }
 }

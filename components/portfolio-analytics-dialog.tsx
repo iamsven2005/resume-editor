@@ -15,11 +15,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
-import { Eye, Users, Calendar, TrendingUp, Activity, Globe, Clock } from "lucide-react"
+import { Eye, Users, Calendar, TrendingUp, Activity, Globe, Clock, Monitor, Smartphone, Tablet } from "lucide-react"
 
 interface AnalyticsData {
   view_date: string
   view_count: number
+  unique_visitors_on_date: number
+  device_types: string
   user_agent: string
 }
 
@@ -28,6 +30,8 @@ interface AnalyticsStats {
   unique_visitors: number
   views_last_7_days: number
   views_last_30_days: number
+  avg_session_duration: number
+  avg_pages_viewed: number
 }
 
 interface PortfolioAnalyticsDialogProps {
@@ -44,6 +48,8 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
     unique_visitors: 0,
     views_last_7_days: 0,
     views_last_30_days: 0,
+    avg_session_duration: 0,
+    avg_pages_viewed: 0,
   })
   const [loading, setLoading] = useState(false)
 
@@ -51,23 +57,57 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
     setLoading(true)
     try {
       const response = await fetch(`/api/portfolios/${portfolioId}/analytics`)
-      const data = await response.json()
 
-      if (data.success) {
-        setAnalytics(data.analytics || [])
-        setStats(data.stats || stats)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setAnalytics(data.analytics || [])
+          setStats(data.stats || stats)
+        } else {
+          // Handle empty analytics gracefully
+          setAnalytics([])
+          setStats({
+            total_views: 0,
+            unique_visitors: 0,
+            views_last_7_days: 0,
+            views_last_30_days: 0,
+            avg_session_duration: 0,
+            avg_pages_viewed: 0,
+          })
+        }
       } else {
+        // Handle 500 errors gracefully
+        console.warn("Analytics fetch failed, showing empty state")
+        setAnalytics([])
+        setStats({
+          total_views: 0,
+          unique_visitors: 0,
+          views_last_7_days: 0,
+          views_last_30_days: 0,
+          avg_session_duration: 0,
+          avg_pages_viewed: 0,
+        })
         toast({
-          title: "Error",
-          description: data.error || "Failed to load analytics",
+          title: "Analytics Unavailable",
+          description: "Analytics data is currently unavailable. Please try again later.",
           variant: "destructive",
         })
       }
     } catch (error) {
       console.error("Error fetching analytics:", error)
+      // Set empty state on error
+      setAnalytics([])
+      setStats({
+        total_views: 0,
+        unique_visitors: 0,
+        views_last_7_days: 0,
+        views_last_30_days: 0,
+        avg_session_duration: 0,
+        avg_pages_viewed: 0,
+      })
       toast({
-        title: "Error",
-        description: "Failed to load analytics",
+        title: "Connection Error",
+        description: "Unable to load analytics data. Please check your connection.",
         variant: "destructive",
       })
     } finally {
@@ -89,9 +129,15 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
     })
   }
 
-  const getDeviceType = (userAgent: string) => {
-    if (userAgent.toLowerCase().includes("mobile")) return "Mobile"
-    if (userAgent.toLowerCase().includes("tablet")) return "Tablet"
+  const getDeviceIcon = (deviceTypes: string) => {
+    if (deviceTypes.toLowerCase().includes("mobile")) return <Smartphone className="h-4 w-4" />
+    if (deviceTypes.toLowerCase().includes("tablet")) return <Tablet className="h-4 w-4" />
+    return <Monitor className="h-4 w-4" />
+  }
+
+  const getDeviceType = (deviceTypes: string) => {
+    if (deviceTypes.toLowerCase().includes("mobile")) return "Mobile"
+    if (deviceTypes.toLowerCase().includes("tablet")) return "Tablet"
     return "Desktop"
   }
 
@@ -192,13 +238,16 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
                             <div>
                               <p className="font-medium">{formatDate(item.view_date)}</p>
                               <p className="text-sm text-muted-foreground">
-                                {item.view_count} view{item.view_count !== 1 ? "s" : ""}
+                                {item.view_count} view{item.view_count !== 1 ? "s" : ""} •{" "}
+                                {item.unique_visitors_on_date} unique visitor
+                                {item.unique_visitors_on_date !== 1 ? "s" : ""}
                               </p>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right flex items-center gap-2">
+                            {getDeviceIcon(item.device_types)}
                             <Badge variant="secondary" className="text-xs">
-                              {getDeviceType(item.user_agent)}
+                              {getDeviceType(item.device_types)}
                             </Badge>
                           </div>
                         </div>
@@ -242,6 +291,21 @@ export function PortfolioAnalyticsDialog({ portfolioId, portfolioTitle, children
                           <p className="text-sm text-muted-foreground">
                             Your portfolio is gaining traction with {stats.views_last_30_days - stats.views_last_7_days}{" "}
                             additional views in the past month.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {stats.avg_session_duration > 0 && (
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock className="h-4 w-4 text-purple-500" />
+                            <span className="font-medium">Engagement</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Visitors spend an average of {Math.round(stats.avg_session_duration)} seconds on your
+                            portfolio and view {stats.avg_pages_viewed.toFixed(1)} pages per session.
                           </p>
                         </CardContent>
                       </Card>

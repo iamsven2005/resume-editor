@@ -42,48 +42,33 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json()
     const { title, resumeData, isFavorite } = body
 
-    // Build the update query dynamically based on provided fields
-    const updateFields = []
-    const updateValues = []
+    console.log("Updating resume:", params.id, "for user:", user.id)
+    console.log("Update data:", { title, isFavorite, hasResumeData: !!resumeData })
 
-    if (title !== undefined) {
-      updateFields.push("title = $" + (updateValues.length + 1))
-      updateValues.push(title)
-    }
-
-    if (resumeData !== undefined) {
-      updateFields.push("resume_data = $" + (updateValues.length + 1))
-      updateValues.push(JSON.stringify(resumeData))
-    }
-
-    if (isFavorite !== undefined) {
-      updateFields.push("is_favorite = $" + (updateValues.length + 1))
-      updateValues.push(isFavorite)
-    }
-
-    updateFields.push("updated_at = CURRENT_TIMESTAMP")
-
-    if (updateFields.length === 1) {
-      // Only timestamp update
-      return NextResponse.json({ success: false, error: "No fields to update" }, { status: 400 })
-    }
-
-    // Add WHERE conditions
-    updateValues.push(params.id, user.id)
-    const whereClause = `WHERE id = $${updateValues.length - 1} AND user_id = $${updateValues.length}`
-
-    const query = `
-      UPDATE resumes 
-      SET ${updateFields.join(", ")}
-      ${whereClause}
-      RETURNING *
+    // Check if resume exists and belongs to user
+    const existingResume = await sql`
+      SELECT * FROM resumes 
+      WHERE id = ${params.id} AND user_id = ${user.id}
     `
 
-    const result = await sql.unsafe(query, updateValues)
-
-    if (result.length === 0) {
+    if (existingResume.length === 0) {
+      console.log("Resume not found for user")
       return NextResponse.json({ success: false, error: "Resume not found" }, { status: 404 })
     }
+
+    // Update resume with only the provided fields
+    const result = await sql`
+      UPDATE resumes
+      SET 
+        title = COALESCE(${title}, title),
+        resume_data = COALESCE(${resumeData ? JSON.stringify(resumeData) : null}, resume_data),
+        is_favorite = COALESCE(${isFavorite}, is_favorite),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${params.id} AND user_id = ${user.id}
+      RETURNING id, title, resume_data, is_favorite, created_at, updated_at
+    `
+
+    console.log("Resume updated successfully")
 
     return NextResponse.json({
       success: true,
@@ -104,7 +89,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     const result = await sql`
-      DELETE FROM resumes 
+      DELETE FROM resumes
       WHERE id = ${params.id} AND user_id = ${user.id}
       RETURNING id
     `
