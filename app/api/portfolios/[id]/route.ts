@@ -14,13 +14,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const result = await sql`
       SELECT 
-        p.*,
+        p.id,
+        p.title,
+        p.description,
+        p.theme,
+        p.resume_data,
+        p.is_published,
+        p.portfolio_url,
+        p.created_at,
+        p.updated_at,
         COALESCE(pas.total_views, 0) as total_views,
         COALESCE(pas.unique_visitors, 0) as unique_visitors,
         COALESCE(pas.views_last_7_days, 0) as views_last_7_days,
-        COALESCE(pas.views_last_30_days, 0) as views_last_30_days,
-        COALESCE(pas.avg_session_duration, 0) as avg_session_duration,
-        COALESCE(pas.avg_pages_viewed, 0) as avg_pages_viewed
+        COALESCE(pas.views_last_30_days, 0) as views_last_30_days
       FROM portfolios p
       LEFT JOIN portfolio_analytics_summary pas ON p.id = pas.portfolio_id
       WHERE p.id = ${params.id} AND p.user_id = ${user.id}
@@ -48,7 +54,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const { title, description, theme, isPublished } = await request.json()
+    const { title, description, theme, resumeData, isPublished } = await request.json()
 
     const result = await sql`
       UPDATE portfolios
@@ -56,10 +62,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         title = COALESCE(${title}, title),
         description = COALESCE(${description}, description),
         theme = COALESCE(${theme}, theme),
+        resume_data = COALESCE(${resumeData ? JSON.stringify(resumeData) : null}, resume_data),
         is_published = COALESCE(${isPublished}, is_published),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${params.id} AND user_id = ${user.id}
-      RETURNING *
+      RETURNING id, title, description, theme, resume_data, is_published, portfolio_url, created_at, updated_at
     `
 
     if (result.length === 0) {

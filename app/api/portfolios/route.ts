@@ -14,7 +14,15 @@ export async function GET() {
 
     const portfolios = await sql`
       SELECT 
-        p.*,
+        p.id,
+        p.title,
+        p.description,
+        p.theme,
+        p.resume_data,
+        p.is_published,
+        p.portfolio_url,
+        p.created_at,
+        p.updated_at,
         COALESCE(pas.total_views, 0) as total_views,
         COALESCE(pas.unique_visitors, 0) as unique_visitors,
         COALESCE(pas.views_last_7_days, 0) as views_last_7_days,
@@ -43,7 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const { title, description, theme = "modern", resumeIds } = await request.json()
+    const { title, description, theme, resumeIds, isPublished } = await request.json()
 
     if (!title || !resumeIds || !Array.isArray(resumeIds) || resumeIds.length === 0) {
       return NextResponse.json(
@@ -57,35 +65,34 @@ export async function POST(request: NextRequest) {
 
     // Fetch the selected resumes
     const resumes = await sql`
-      SELECT id, title, resume_data
+      SELECT resume_data
       FROM resumes
       WHERE id = ANY(${resumeIds}) AND user_id = ${user.id}
     `
 
-    if (resumes.length !== resumeIds.length) {
+    if (resumes.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: "Some resumes not found or not accessible",
+          error: "No valid resumes found",
         },
-        { status: 404 },
+        { status: 400 },
       )
     }
 
     // Merge resume data
-    const mergedResumeData = {
+    const mergedData = {
       title: title,
       sections: [],
     }
 
-    // Combine all sections from selected resumes
     const sectionMap = new Map()
 
-    resumes.forEach((resume: any) => {
-      const resumeData = typeof resume.resume_data === "string" ? JSON.parse(resume.resume_data) : resume.resume_data
-
+    // Process each resume
+    resumes.forEach((resume) => {
+      const resumeData = resume.resume_data
       if (resumeData.sections) {
-        resumeData.sections.forEach((section: any) => {
+        resumeData.sections.forEach((section) => {
           const sectionName = section["section name"]
           if (sectionMap.has(sectionName)) {
             // Merge content if section already exists
@@ -93,23 +100,24 @@ export async function POST(request: NextRequest) {
           } else {
             // Add new section
             sectionMap.set(sectionName, {
-              ...section,
+              "section name": sectionName,
               content: [...section.content],
+              id: section.id,
             })
           }
         })
       }
     })
 
-    mergedResumeData.sections = Array.from(sectionMap.values())
+    mergedData.sections = Array.from(sectionMap.values())
 
-    // Generate unique portfolio URL
+    // Generate portfolio URL
     const portfolioUrl = `${title.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now()}`
 
     const result = await sql`
-      INSERT INTO portfolios (user_id, title, description, theme, resume_data, portfolio_url)
-      VALUES (${user.id}, ${title}, ${description || null}, ${theme}, ${JSON.stringify(mergedResumeData)}, ${portfolioUrl})
-      RETURNING *
+      INSERT INTO portfolios (user_id, title, description, theme, resume_data, is_published, portfolio_url)
+      VALUES (${user.id}, ${title}, ${description || null}, ${theme || "modern"}, ${JSON.stringify(mergedData)}, ${isPublished || false}, ${portfolioUrl})
+      RETURNING id, title, description, theme, resume_data, is_published, portfolio_url, created_at, updated_at
     `
 
     return NextResponse.json({

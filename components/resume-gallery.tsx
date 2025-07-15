@@ -1,11 +1,30 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Trash2,
+  Star,
+  StarOff,
+  Search,
+  X,
+  Calendar,
+  FileText,
+  Briefcase,
+  BarChart3,
+  Plus,
+  Edit,
+  Save,
+  Download,
+} from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { toast } from "@/hooks/use-toast"
+import { PortfolioCreatorDialog } from "./portfolio-creator-dialog"
+import { PortfolioAnalyticsDialog } from "./portfolio-analytics-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,112 +36,266 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Search, FileText, Trash2, Download, Eye, BarChart3, Globe, Users, Calendar, Folder } from "lucide-react"
-import { toast } from "sonner"
-import { useAuth } from "@/contexts/auth-context"
-import { PortfolioCreatorDialog } from "./portfolio-creator-dialog"
-import { PortfolioAnalyticsDialog } from "./portfolio-analytics-dialog"
-import type { Portfolio } from "@/types/portfolio"
 
-interface Resume {
-  id: number
+interface SavedResume {
+  id: string
   title: string
+  resume_data: any
+  is_favorite: boolean
   created_at: string
   updated_at: string
 }
 
-export function ResumeGallery() {
+interface Portfolio {
+  id: string
+  title: string
+  description?: string
+  theme: string
+  resume_data: any
+  is_published: boolean
+  portfolio_url?: string
+  total_views: number
+  unique_visitors: number
+  views_last_7_days: number
+  views_last_30_days: number
+  created_at: string
+  updated_at: string
+}
+
+interface ResumeGalleryProps {
+  onLoadResume: (resumeData: any) => void
+  onCreateNew: () => void
+  currentResumeData: any
+  onSaveResume: (title: string) => Promise<void>
+}
+
+export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, onSaveResume }: ResumeGalleryProps) {
   const { user } = useAuth()
-  const [resumes, setResumes] = useState<Resume[]>([])
+  const [resumes, setResumes] = useState<SavedResume[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [portfoliosLoading, setPortfoliosLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [saveTitle, setSaveTitle] = useState("")
   const [activeTab, setActiveTab] = useState("resumes")
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+
+  useEffect(() => {
+    if (user) {
+      fetchResumes()
+      fetchPortfolios()
+    }
+  }, [user])
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSaveEnabled || !currentResumeData || !user) return
+
+    const autoSaveTimer = setTimeout(async () => {
+      if (currentResumeData && currentResumeData.title) {
+        try {
+          await handleAutoSave()
+        } catch (error) {
+          console.error("Auto-save failed:", error)
+        }
+      }
+    }, 30000) // Auto-save every 30 seconds
+
+    return () => clearTimeout(autoSaveTimer)
+  }, [currentResumeData, autoSaveEnabled, user])
 
   const fetchResumes = async () => {
     try {
       const response = await fetch("/api/resumes")
-      const data = await response.json()
-
-      if (data.success) {
+      if (response.ok) {
+        const data = await response.json()
         setResumes(data.resumes)
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load resumes",
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      console.error("Error fetching resumes:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load resumes",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
   const fetchPortfolios = async () => {
     try {
       const response = await fetch("/api/portfolios")
-      const data = await response.json()
-
-      if (data.success) {
+      if (response.ok) {
+        const data = await response.json()
         setPortfolios(data.portfolios)
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load portfolios",
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      console.error("Error fetching portfolios:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load portfolios",
+        variant: "destructive",
+      })
+    } finally {
+      setPortfoliosLoading(false)
     }
   }
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      await Promise.all([fetchResumes(), fetchPortfolios()])
-      setLoading(false)
-    }
+  const handleAutoSave = async () => {
+    if (!currentResumeData?.title) return
 
-    if (user) {
-      fetchData()
-    }
-  }, [user])
-
-  const handleDeleteResume = async (id: number) => {
     try {
-      const response = await fetch(`/api/resumes/${id}`, {
+      await onSaveResume(currentResumeData.title)
+      setLastSaved(new Date())
+      toast({
+        description: "Auto-saved successfully",
+        duration: 2000,
+      })
+    } catch (error) {
+      console.error("Auto-save failed:", error)
+    }
+  }
+
+  const saveCurrentResume = async () => {
+    if (!saveTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a title for your resume",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSaving(true)
+    try {
+      await onSaveResume(saveTitle.trim())
+      setSaveTitle("")
+      fetchResumes()
+      toast({
+        title: "Success",
+        description: "Resume saved successfully!",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save resume. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleFavorite = async (resumeId: string, currentFavorite: boolean) => {
+    try {
+      const response = await fetch(`/api/resumes/${resumeId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isFavorite: !currentFavorite,
+        }),
+      })
+
+      if (response.ok) {
+        setResumes((prev) =>
+          prev.map((resume) => (resume.id === resumeId ? { ...resume, is_favorite: !currentFavorite } : resume)),
+        )
+        toast({
+          title: "Success",
+          description: `Resume ${!currentFavorite ? "added to" : "removed from"} favorites`,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update favorite status",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update favorite status",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const deleteResume = async (resumeId: string) => {
+    try {
+      const response = await fetch(`/api/resumes/${resumeId}`, {
         method: "DELETE",
       })
 
-      const data = await response.json()
-
-      if (data.success) {
-        setResumes(resumes.filter((resume) => resume.id !== id))
-        toast.success("Resume deleted successfully")
+      if (response.ok) {
+        setResumes((prev) => prev.filter((resume) => resume.id !== resumeId))
+        toast({
+          title: "Success",
+          description: "Resume deleted successfully",
+        })
       } else {
-        toast.error(data.error || "Failed to delete resume")
+        toast({
+          title: "Error",
+          description: "Failed to delete resume",
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      console.error("Error deleting resume:", error)
-      toast.error("Failed to delete resume")
+      toast({
+        title: "Error",
+        description: "Failed to delete resume",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleDeletePortfolio = async (id: number) => {
+  const deletePortfolio = async (portfolioId: string) => {
     try {
-      const response = await fetch(`/api/portfolios/${id}`, {
+      const response = await fetch(`/api/portfolios/${portfolioId}`, {
         method: "DELETE",
       })
 
-      const data = await response.json()
-
-      if (data.success) {
-        setPortfolios(portfolios.filter((portfolio) => portfolio.id !== id))
-        toast.success("Portfolio deleted successfully")
+      if (response.ok) {
+        setPortfolios((prev) => prev.filter((portfolio) => portfolio.id !== portfolioId))
+        toast({
+          title: "Success",
+          description: "Portfolio deleted successfully",
+        })
       } else {
-        toast.error(data.error || "Failed to delete portfolio")
+        toast({
+          title: "Error",
+          description: "Failed to delete portfolio",
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      console.error("Error deleting portfolio:", error)
-      toast.error("Failed to delete portfolio")
+      toast({
+        title: "Error",
+        description: "Failed to delete portfolio",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleDownloadResume = async (id: number, title: string) => {
+  const downloadResume = async (resumeId: string, title: string) => {
     try {
-      const response = await fetch(`/api/resumes/${id}`)
-      const data = await response.json()
-
-      if (data.success) {
+      const response = await fetch(`/api/resumes/${resumeId}`)
+      if (response.ok) {
+        const data = await response.json()
         const blob = new Blob([JSON.stringify(data.resume.resume_data, null, 2)], {
           type: "application/json",
         })
@@ -134,271 +307,400 @@ export function ResumeGallery() {
         a.click()
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
-        toast.success("Resume downloaded successfully")
+        toast({
+          title: "Success",
+          description: "Resume downloaded successfully",
+        })
       }
     } catch (error) {
-      console.error("Error downloading resume:", error)
-      toast.error("Failed to download resume")
+      toast({
+        title: "Error",
+        description: "Failed to download resume",
+        variant: "destructive",
+      })
     }
   }
 
-  const filteredResumes = resumes.filter((resume) => resume.title.toLowerCase().includes(searchTerm.toLowerCase()))
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
 
-  const filteredPortfolios = portfolios.filter((portfolio) =>
-    portfolio.title.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  // Filter and sort resumes
+  const filteredAndSortedResumes = useMemo(() => {
+    const filtered = resumes.filter((resume) => resume.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    return filtered.sort((a, b) => {
+      if (a.is_favorite && !b.is_favorite) return -1
+      if (!a.is_favorite && b.is_favorite) return 1
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    })
+  }, [resumes, searchQuery])
+
+  // Filter and sort portfolios
+  const filteredAndSortedPortfolios = useMemo(() => {
+    const filtered = portfolios.filter((portfolio) => portfolio.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    return filtered.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  }, [portfolios, searchQuery])
+
+  const favoriteCount = resumes.filter((resume) => resume.is_favorite).length
 
   if (!user) {
     return (
-      <Card>
-        <CardContent className="text-center py-8">
-          <p className="text-muted-foreground">Please log in to view your resumes and portfolios.</p>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Please log in to view your saved resumes and portfolios.</p>
+      </div>
+    )
+  }
+
+  if (loading && portfoliosLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>My Work</CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 w-64"
-              />
-            </div>
-            {activeTab === "portfolios" && (
-              <PortfolioCreatorDialog
-                resumes={resumes}
-                onPortfolioCreated={() => {
-                  fetchPortfolios()
-                  toast.success("Portfolio created successfully!")
-                }}
-              />
+    <div className="space-y-6">
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={onCreateNew} variant="outline" size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Create New Resume
+            </Button>
+            <Button
+              onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
+              variant={autoSaveEnabled ? "default" : "outline"}
+              size="sm"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Auto-save {autoSaveEnabled ? "ON" : "OFF"}
+            </Button>
+            {lastSaved && (
+              <Badge variant="secondary" className="text-xs">
+                Last saved: {lastSaved.toLocaleTimeString()}
+              </Badge>
             )}
           </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+
+          {/* Save Current Resume */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter resume title to save..."
+              value={saveTitle}
+              onChange={(e) => setSaveTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !saving) {
+                  saveCurrentResume()
+                }
+              }}
+              className="flex-1"
+            />
+            <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
+              {saving ? "Saving..." : "Save Resume"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tabs for Resumes and Portfolios */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex items-center justify-between">
+          <TabsList>
             <TabsTrigger value="resumes" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Resumes ({resumes.length})
             </TabsTrigger>
             <TabsTrigger value="portfolios" className="flex items-center gap-2">
-              <Folder className="h-4 w-4" />
+              <Briefcase className="h-4 w-4" />
               Portfolios ({portfolios.length})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="resumes" className="mt-6">
-            {loading ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Loading resumes...</p>
-              </div>
-            ) : filteredResumes.length === 0 ? (
-              <div className="text-center py-8">
-                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground">
-                  {searchTerm
-                    ? "No resumes found matching your search."
-                    : "No resumes found. Create your first resume!"}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredResumes.map((resume) => (
-                  <Card key={resume.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{resume.title}</CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Created {new Date(resume.created_at).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Updated {new Date(resume.updated_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDownloadResume(resume.id, resume.title)}
-                          className="flex items-center gap-1"
-                        >
-                          <Download className="h-3 w-3" />
-                          Download
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex items-center gap-1 text-destructive hover:text-destructive bg-transparent"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              Delete
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Resume</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{resume.title}"? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteResume(resume.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+          {activeTab === "portfolios" && (
+            <PortfolioCreatorDialog
+              resumes={resumes}
+              onPortfolioCreated={() => {
+                fetchPortfolios()
+                setActiveTab("portfolios")
+              }}
+            >
+              <Button size="sm" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Create Portfolio
+              </Button>
+            </PortfolioCreatorDialog>
+          )}
+        </div>
 
-          <TabsContent value="portfolios" className="mt-6">
-            {loading ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Loading portfolios...</p>
-              </div>
-            ) : filteredPortfolios.length === 0 ? (
-              <div className="text-center py-8">
-                <Folder className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm
-                    ? "No portfolios found matching your search."
-                    : "No portfolios found. Create your first portfolio!"}
-                </p>
-                {!searchTerm && resumes.length > 0 && (
+        {/* Search */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder={`Search ${activeTab}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <TabsContent value="resumes" className="space-y-4">
+          {/* Results Summary */}
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>
+                {filteredAndSortedResumes.length} result{filteredAndSortedResumes.length !== 1 ? "s" : ""}
+                {searchQuery && ` for "${searchQuery}"`}
+              </span>
+              {favoriteCount > 0 && !searchQuery && (
+                <Badge variant="secondary" className="text-xs">
+                  <Star className="h-3 w-3 mr-1 fill-current" />
+                  Favorites shown first
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Resume Grid */}
+          {filteredAndSortedResumes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+              {searchQuery ? (
+                <>
+                  <p className="text-muted-foreground mb-2">No resumes found for "{searchQuery}"</p>
+                  <Button variant="outline" onClick={() => setSearchQuery("")}>
+                    Clear search
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground mb-4">No saved resumes yet. Create your first resume!</p>
+                  <Button onClick={onCreateNew}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Resume
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredAndSortedResumes.map((resume) => (
+                <Card key={resume.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="text-base line-clamp-2 flex-1 mr-2">{resume.title}</CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleFavorite(resume.id, resume.is_favorite)}
+                        className="h-8 w-8 p-0 flex-shrink-0"
+                      >
+                        {resume.is_favorite ? (
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        ) : (
+                          <StarOff className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>Updated {formatDate(resume.updated_at)}</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onLoadResume(resume.resume_data)}
+                        className="flex-1 min-w-0"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Load
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadResume(resume.id, resume.title)}
+                        className="px-3"
+                      >
+                        <Download className="h-3 w-3" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="px-3 bg-transparent">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Resume</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{resume.title}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteResume(resume.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="portfolios" className="space-y-4">
+          {/* Results Summary */}
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              {filteredAndSortedPortfolios.length} portfolio{filteredAndSortedPortfolios.length !== 1 ? "s" : ""}
+              {searchQuery && ` matching "${searchQuery}"`}
+            </span>
+          </div>
+
+          {/* Portfolio Grid */}
+          {filteredAndSortedPortfolios.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <Briefcase className="h-12 w-12 text-muted-foreground mb-4" />
+              {searchQuery ? (
+                <>
+                  <p className="text-muted-foreground mb-2">No portfolios found for "{searchQuery}"</p>
+                  <Button variant="outline" onClick={() => setSearchQuery("")}>
+                    Clear search
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground mb-4">
+                    No portfolios yet. Create your first portfolio by merging resumes!
+                  </p>
                   <PortfolioCreatorDialog
                     resumes={resumes}
                     onPortfolioCreated={() => {
                       fetchPortfolios()
-                      toast.success("Portfolio created successfully!")
+                      setActiveTab("portfolios")
                     }}
-                  />
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredPortfolios.map((portfolio) => (
-                  <Card key={portfolio.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{portfolio.title}</CardTitle>
-                          {portfolio.description && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{portfolio.description}</p>
-                          )}
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant={portfolio.is_published ? "default" : "secondary"}>
-                              {portfolio.is_published ? "Published" : "Draft"}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {portfolio.theme}
-                            </Badge>
-                          </div>
-                        </div>
+                  >
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Portfolio
+                    </Button>
+                  </PortfolioCreatorDialog>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredAndSortedPortfolios.map((portfolio) => (
+                <Card key={portfolio.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="text-base line-clamp-2 flex-1 mr-2">{portfolio.title}</CardTitle>
+                      <Badge variant={portfolio.is_published ? "default" : "secondary"} className="text-xs">
+                        {portfolio.is_published ? "Published" : "Draft"}
+                      </Badge>
+                    </div>
+                    {portfolio.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">{portfolio.description}</p>
+                    )}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>Updated {formatDate(portfolio.updated_at)}</span>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Eye className="h-3 w-3" />
-                            <span>{portfolio.total_views || 0}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            <span>{portfolio.unique_visitors || 0}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>{portfolio.views_last_7_days || 0}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <PortfolioAnalyticsDialog
-                            portfolio={portfolio}
-                            trigger={
-                              <Button size="sm" variant="outline" className="flex items-center gap-1 bg-transparent">
-                                <BarChart3 className="h-3 w-3" />
-                                Analytics
-                              </Button>
-                            }
-                          />
-                          {portfolio.is_published && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(`/portfolio/${portfolio.portfolio_url}`, "_blank")}
-                              className="flex items-center gap-1"
+                    </div>
+                    {/* Analytics Summary */}
+                    <div className="flex items-center gap-4 text-xs">
+                      <Badge variant="outline" className="text-xs">
+                        {portfolio.total_views} views
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {portfolio.unique_visitors} visitors
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onLoadResume(portfolio.resume_data)}
+                        className="flex-1 min-w-0"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Load
+                      </Button>
+                      <PortfolioAnalyticsDialog portfolioId={portfolio.id} portfolioTitle={portfolio.title}>
+                        <Button variant="outline" size="sm" className="px-3 bg-transparent">
+                          <BarChart3 className="h-4 w-4" />
+                        </Button>
+                      </PortfolioAnalyticsDialog>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="px-3 bg-transparent">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{portfolio.title}"? This action cannot be undone and will
+                              also delete all associated analytics.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deletePortfolio(portfolio.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             >
-                              <Globe className="h-3 w-3" />
-                              View
-                            </Button>
-                          )}
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex items-center gap-1 text-destructive hover:text-destructive bg-transparent"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                                Delete
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete "{portfolio.title}"? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeletePortfolio(portfolio.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }
