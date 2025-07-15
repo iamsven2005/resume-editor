@@ -28,8 +28,10 @@ interface PanelLayoutManagerProps {
 export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProps) => {
   const isMobile = useIsMobile()
   const [panelOrder, setPanelOrder] = useState<string[]>(panels.map((p) => p.id))
+
+  // Close all panels by default
   const [collapsedPanels, setCollapsedPanels] = useState<Set<string>>(
-    new Set(panels.filter((p) => p.defaultCollapsed).map((p) => p.id)),
+    new Set(panels.map((p) => p.id)), // All panels collapsed by default
   )
 
   // Determine if we should use vertical layout based on screen size
@@ -49,6 +51,11 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
   // Reset panel order when panels change
   useEffect(() => {
     setPanelOrder(panels.map((p) => p.id))
+  }, [panels])
+
+  // Update collapsed panels when panels change (keep all collapsed by default)
+  useEffect(() => {
+    setCollapsedPanels(new Set(panels.map((p) => p.id)))
   }, [panels])
 
   const handleDragEnd = (result: any) => {
@@ -160,7 +167,7 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
             size="sm"
             onClick={expandAllPanels}
             disabled={collapsedCount === 0}
-            className="h-7 px-2 text-xs"
+            className="h-7 px-2 text-xs bg-transparent"
           >
             <Maximize2 className="h-3 w-3 mr-1" />
             Expand All
@@ -170,7 +177,7 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
             size="sm"
             onClick={collapseAllPanels}
             disabled={collapsedCount === totalPanels}
-            className="h-7 px-2 text-xs"
+            className="h-7 px-2 text-xs bg-transparent"
           >
             <Minimize2 className="h-3 w-3 mr-1" />
             Collapse All
@@ -179,7 +186,7 @@ export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProp
             variant="outline"
             size="sm"
             onClick={resetPanelOrder}
-            className="h-7 px-2 text-xs"
+            className="h-7 px-2 text-xs bg-transparent"
             title="Reset panel order"
           >
             <RotateCcw className="h-3 w-3" />
