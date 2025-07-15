@@ -3,94 +3,135 @@ import type { ResumeData } from "../types/resume"
 // Improved PDF text extraction with multiple methods
 export const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
+    // First, verify this is actually a PDF file
+    if (!file.type.includes("pdf") && !file.name.toLowerCase().endsWith(".pdf")) {
+      throw new Error("This file doesn't appear to be a PDF document.")
+    }
+
     const arrayBuffer = await file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
 
-    // Convert to string for processing
+    // Convert to string for processing - try different encodings
     let pdfString = ""
 
-    // Try different encoding approaches
     try {
-      // First try UTF-8
+      // Try UTF-8 first
       pdfString = new TextDecoder("utf-8", { fatal: false }).decode(uint8Array)
     } catch {
       try {
         // Fallback to latin1
         pdfString = new TextDecoder("latin1").decode(uint8Array)
       } catch {
-        // Final fallback to binary string
+        // Final fallback - convert bytes to string
         pdfString = Array.from(uint8Array, (byte) => String.fromCharCode(byte)).join("")
       }
     }
 
-    // Check if this is actually a PDF
+    // Verify this is a valid PDF by checking the header
     if (!pdfString.startsWith("%PDF-")) {
-      throw new Error("This doesn't appear to be a valid PDF file.")
+      throw new Error("This file doesn't appear to be a valid PDF document. The PDF header is missing.")
     }
 
-    // Extract text using multiple methods
+    console.log("PDF file validated, starting text extraction...")
+
+    // Extract text using multiple methods and pick the best result
     let extractedText = ""
 
-    // Method 1: Extract from text objects (BT...ET blocks)
-    const textFromObjects = extractFromTextObjects(pdfString)
-    if (textFromObjects.length > extractedText.length) {
-      extractedText = textFromObjects
+    // Method 1: Extract from PDF text objects (most reliable)
+    try {
+      const textFromObjects = extractFromTextObjects(pdfString)
+      if (textFromObjects && textFromObjects.length > extractedText.length) {
+        extractedText = textFromObjects
+        console.log("Text extracted from PDF objects:", textFromObjects.substring(0, 100) + "...")
+      }
+    } catch (error) {
+      console.warn("Text object extraction failed:", error)
     }
 
     // Method 2: Extract from stream content
-    const textFromStreams = extractFromStreams(pdfString)
-    if (textFromStreams.length > extractedText.length) {
-      extractedText = textFromStreams
+    try {
+      const textFromStreams = extractFromStreams(pdfString)
+      if (textFromStreams && textFromStreams.length > extractedText.length) {
+        extractedText = textFromStreams
+        console.log("Text extracted from streams:", textFromStreams.substring(0, 100) + "...")
+      }
+    } catch (error) {
+      console.warn("Stream extraction failed:", error)
     }
 
-    // Method 3: Simple parentheses extraction
-    const textFromParentheses = extractFromParentheses(pdfString)
-    if (textFromParentheses.length > extractedText.length) {
-      extractedText = textFromParentheses
+    // Method 3: Simple parentheses extraction (fallback)
+    try {
+      const textFromParentheses = extractFromParentheses(pdfString)
+      if (textFromParentheses && textFromParentheses.length > extractedText.length) {
+        extractedText = textFromParentheses
+        console.log("Text extracted from parentheses:", textFromParentheses.substring(0, 100) + "...")
+      }
+    } catch (error) {
+      console.warn("Parentheses extraction failed:", error)
     }
 
     // Clean up the extracted text
     extractedText = cleanExtractedText(extractedText)
 
-    // Validate extracted text
-    if (!extractedText || extractedText.length < 50) {
+    // Validate the extracted text quality
+    if (!extractedText || extractedText.trim().length < 50) {
       throw new Error(
-        "Could not extract sufficient text from this PDF. This might be because:\n\n" +
-          "• The PDF contains scanned images instead of text\n" +
+        "Could not extract sufficient readable text from this PDF.\n\n" +
+          "This might be because:\n" +
+          "• The PDF contains scanned images instead of searchable text\n" +
           "• The PDF is password-protected or encrypted\n" +
-          "• The PDF uses an unsupported text encoding\n\n" +
+          "• The PDF uses an unsupported text encoding\n" +
+          "• The PDF is corrupted or malformed\n\n" +
           "Please try:\n" +
-          "• Using a Word document (.docx) instead\n" +
+          "• Using a Word document (.docx) instead - recommended\n" +
           "• Converting the PDF to a text-based format\n" +
-          "• Copying and pasting the text manually",
+          "• Using OCR software if it's a scanned document\n" +
+          "• Manually copying and pasting the text",
       )
     }
 
-    // Check if the text seems meaningful
-    const wordCount = extractedText.split(/\s+/).filter((word) => word.length > 2).length
-    if (wordCount < 10) {
+    // Check if the text contains meaningful resume content
+    const words = extractedText.split(/\s+/).filter((word) => word.length > 2)
+    const hasResumeKeywords = /\b(experience|education|skills|work|employment|resume|cv|name|email|phone)\b/i.test(
+      extractedText,
+    )
+
+    if (words.length < 20 || !hasResumeKeywords) {
       throw new Error(
-        "The extracted text doesn't appear to contain meaningful content. " +
-          "Please try uploading a Word document (.docx) or manually entering your resume text.",
+        "The extracted text doesn't appear to contain meaningful resume content.\n\n" +
+          "Please ensure your PDF:\n" +
+          "• Contains actual resume/CV information\n" +
+          "• Is not just a cover letter or other document\n" +
+          "• Has searchable text (not just images)\n\n" +
+          "Word documents (.docx) typically work better for text extraction.",
       )
     }
 
+    console.log(`Successfully extracted ${extractedText.length} characters from PDF`)
     return extractedText
   } catch (error) {
     console.error("PDF extraction error:", error)
 
-    if (error instanceof Error && error.message.includes("Could not extract")) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("Could not extract") ||
+        error.message.includes("doesn't appear to contain") ||
+        error.message.includes("doesn't appear to be"))
+    ) {
       throw error
     }
 
     throw new Error(
-      "Failed to process the PDF file. Common causes:\n\n" +
+      "Failed to process the PDF file.\n\n" +
+        "Common causes:\n" +
         "• Scanned PDFs (image-based) cannot be processed\n" +
         "• Password-protected or encrypted PDFs\n" +
-        "• Corrupted or non-standard PDF format\n\n" +
+        "• Corrupted or non-standard PDF format\n" +
+        "• Very complex PDF structure\n\n" +
         "Recommended solutions:\n" +
-        "• Upload a Word document (.docx) instead\n" +
+        "• Upload a Word document (.docx) instead - most reliable\n" +
         "• Use a text-based PDF (not scanned)\n" +
+        "• Try converting the PDF to Word format first\n" +
         "• Copy and paste your resume text manually",
     )
   }
@@ -100,45 +141,47 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
 function extractFromTextObjects(pdfString: string): string {
   const textParts: string[] = []
 
-  // Find all text objects
+  // Find all text objects in the PDF
   const textObjectRegex = /BT\s*([\s\S]*?)\s*ET/g
   let match
 
   while ((match = textObjectRegex.exec(pdfString)) !== null) {
     const textObject = match[1]
 
-    // Extract text using various text operators
-    // Tj operator: (text) Tj
+    // Extract text using Tj operator: (text) Tj
     const tjRegex = /$$([^)]*)$$\s*Tj/g
     let tjMatch
     while ((tjMatch = tjRegex.exec(textObject)) !== null) {
-      if (tjMatch[1] && tjMatch[1].trim()) {
-        textParts.push(tjMatch[1].trim())
+      const text = tjMatch[1]
+      if (text && text.trim()) {
+        textParts.push(decodePDFString(text))
       }
     }
 
-    // TJ operator: [(text)] TJ
+    // Extract text using TJ operator: [(text)] TJ
     const tjArrayRegex = /\[([^\]]*)\]\s*TJ/g
     let tjArrayMatch
     while ((tjArrayMatch = tjArrayRegex.exec(textObject)) !== null) {
       const arrayContent = tjArrayMatch[1]
+      // Find text strings in the array
       const textInArray = arrayContent.match(/$$([^)]*)$$/g)
       if (textInArray) {
-        textInArray.forEach((text) => {
-          const cleanText = text.slice(1, -1).trim()
-          if (cleanText) {
-            textParts.push(cleanText)
+        textInArray.forEach((textMatch) => {
+          const text = textMatch.slice(1, -1) // Remove parentheses
+          if (text && text.trim()) {
+            textParts.push(decodePDFString(text))
           }
         })
       }
     }
 
-    // ' and " operators (move to next line and show text)
+    // Extract text using ' and " operators (move to next line and show text)
     const quoteRegex = /$$([^)]*)$$\s*['"]/g
     let quoteMatch
     while ((quoteMatch = quoteRegex.exec(textObject)) !== null) {
-      if (quoteMatch[1] && quoteMatch[1].trim()) {
-        textParts.push(quoteMatch[1].trim())
+      const text = quoteMatch[1]
+      if (text && text.trim()) {
+        textParts.push(decodePDFString(text))
       }
     }
   }
@@ -158,20 +201,20 @@ function extractFromStreams(pdfString: string): string {
     const streamContent = match[1]
 
     // Look for text patterns in streams
-    const textPatterns = [
+    const patterns = [
       /$$([^)]+)$$/g, // Text in parentheses
       /\[([^\]]+)\]/g, // Text in brackets
       /<([^>]+)>/g, // Text in angle brackets
     ]
 
-    textPatterns.forEach((pattern) => {
+    patterns.forEach((pattern) => {
       let patternMatch
       while ((patternMatch = pattern.exec(streamContent)) !== null) {
         const text = patternMatch[1]
         if (text && text.length > 1 && /[a-zA-Z]/.test(text)) {
           // Filter out non-text content
-          if (!text.match(/^[0-9\s\-.]+$/) && !text.includes("\\") && text.length < 100) {
-            textParts.push(text)
+          if (!text.match(/^[0-9\s\-.]+$/) && !text.includes("\\") && text.length < 200 && text.length > 2) {
+            textParts.push(decodePDFString(text))
           }
         }
       }
@@ -188,11 +231,11 @@ function extractFromParentheses(pdfString: string): string {
   let match
 
   while ((match = regex.exec(pdfString)) !== null) {
-    const text = match[1].trim()
-    if (text.length > 2 && /[a-zA-Z]/.test(text)) {
+    const text = match[1]
+    if (text && text.length > 2 && /[a-zA-Z]/.test(text)) {
       // Filter out likely non-text content
       if (!text.match(/^[0-9\s\-.]+$/) && !text.includes("\\") && !text.includes("/") && text.length < 200) {
-        textParts.push(text)
+        textParts.push(decodePDFString(text))
       }
     }
   }
@@ -200,25 +243,36 @@ function extractFromParentheses(pdfString: string): string {
   return textParts.join(" ")
 }
 
+// Decode PDF string escape sequences
+function decodePDFString(text: string): string {
+  return text
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace(/\\t/g, "\t")
+    .replace(/\\\(/g, "(")
+    .replace(/\\\)/g, ")")
+    .replace(/\\\\/g, "\\")
+    .replace(/\\'/g, "'")
+    .replace(/\\"/g, '"')
+    .replace(/\\([0-7]{3})/g, (match, octal) => {
+      // Convert octal escape sequences
+      return String.fromCharCode(Number.parseInt(octal, 8))
+    })
+}
+
 // Clean and format extracted text
 function cleanExtractedText(text: string): string {
   return (
     text
-      // Decode common PDF escape sequences
-      .replace(/\\n/g, "\n")
-      .replace(/\\r/g, "\r")
-      .replace(/\\t/g, "\t")
-      .replace(/\\\(/g, "(")
-      .replace(/\\\)/g, ")")
-      .replace(/\\\\/g, "\\")
-      .replace(/\\'/g, "'")
-      .replace(/\\"/g, '"')
       // Clean up whitespace
       .replace(/\s+/g, " ")
       .replace(/\n\s+/g, "\n")
       .replace(/\s+\n/g, "\n")
       // Remove control characters except newlines and tabs
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+      // Fix common PDF artifacts
+      .replace(/([a-z])([A-Z])/g, "$1 $2") // Add space between camelCase
+      .replace(/([.!?])([A-Z])/g, "$1 $2") // Add space after sentence endings
       .trim()
   )
 }
@@ -226,46 +280,57 @@ function cleanExtractedText(text: string): string {
 // Enhanced extraction method (fallback)
 export const extractTextFromPDFAdvanced = async (file: File): Promise<string> => {
   try {
+    console.log("Attempting advanced PDF extraction...")
+
     const arrayBuffer = await file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
 
-    // Try to find readable text patterns in the binary data
-    let bestText = ""
-
-    // Convert using different approaches
-    const approaches = [
+    // Try multiple decoding approaches
+    const decodingMethods = [
       () => new TextDecoder("utf-8", { fatal: false }).decode(uint8Array),
       () => new TextDecoder("latin1").decode(uint8Array),
       () => new TextDecoder("ascii", { fatal: false }).decode(uint8Array),
       () => Array.from(uint8Array, (byte) => String.fromCharCode(byte)).join(""),
     ]
 
-    for (const approach of approaches) {
+    let bestText = ""
+
+    for (let i = 0; i < decodingMethods.length; i++) {
       try {
-        const decoded = approach()
+        console.log(`Trying decoding method ${i + 1}...`)
+        const decoded = decodingMethods[i]()
+
+        if (!decoded.startsWith("%PDF-")) {
+          console.warn(`Method ${i + 1}: Not a valid PDF`)
+          continue
+        }
+
         const extracted = extractAllTextPatterns(decoded)
+        console.log(`Method ${i + 1}: Extracted ${extracted.length} characters`)
 
         if (extracted.length > bestText.length) {
           bestText = extracted
         }
       } catch (error) {
-        console.warn("Decoding approach failed:", error)
+        console.warn(`Decoding method ${i + 1} failed:`, error)
         continue
       }
     }
 
     if (bestText.length < 50) {
-      throw new Error("Advanced extraction could not find sufficient text")
+      throw new Error("Advanced extraction could not find sufficient readable text")
     }
 
     return cleanExtractedText(bestText)
   } catch (error) {
     console.error("Advanced PDF extraction failed:", error)
     throw new Error(
-      "All PDF text extraction methods failed. This PDF likely contains:\n\n" +
+      "All PDF text extraction methods failed.\n\n" +
+        "This PDF likely contains:\n" +
         "• Scanned images instead of searchable text\n" +
         "• Complex formatting that cannot be parsed\n" +
-        "• Encryption or protection\n\n" +
+        "• Encryption or protection\n" +
+        "• Unsupported PDF version or structure\n\n" +
         "Please try uploading a Word document (.docx) instead.",
     )
   }
@@ -281,14 +346,17 @@ function extractAllTextPatterns(pdfString: string): string {
 
   let bestResult = ""
 
-  for (const method of methods) {
+  for (let i = 0; i < methods.length; i++) {
     try {
-      const result = method()
+      console.log(`Trying extraction method ${i + 1}...`)
+      const result = methods[i]()
+      console.log(`Method ${i + 1}: Got ${result.length} characters`)
+
       if (result.length > bestResult.length) {
         bestResult = result
       }
     } catch (error) {
-      console.warn("Text extraction method failed:", error)
+      console.warn(`Text extraction method ${i + 1} failed:`, error)
     }
   }
 
@@ -298,6 +366,8 @@ function extractAllTextPatterns(pdfString: string): string {
 // Parse resume text using AI with improved error handling
 export const parseResumeWithAI = async (text: string): Promise<ResumeData> => {
   try {
+    console.log("Sending text to AI for parsing...")
+
     const response = await fetch("/api/parse-resume", {
       method: "POST",
       headers: {
@@ -307,8 +377,14 @@ export const parseResumeWithAI = async (text: string): Promise<ResumeData> => {
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      let errorMessage = `HTTP error! status: ${response.status}`
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.error || errorMessage
+      } catch {
+        // If we can't parse the error response, use the status
+      }
+      throw new Error(errorMessage)
     }
 
     const result = await response.json()
@@ -317,6 +393,7 @@ export const parseResumeWithAI = async (text: string): Promise<ResumeData> => {
       throw new Error(result.error || "Failed to parse resume")
     }
 
+    console.log("AI parsing successful")
     return ensureSectionIds(result.data)
   } catch (error) {
     console.error("Error parsing resume with AI:", error)
