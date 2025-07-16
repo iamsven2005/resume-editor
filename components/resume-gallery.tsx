@@ -31,7 +31,12 @@ import {
   Phone,
   Linkedin,
   Briefcase,
-  CheckCircle2
+  CheckCircle2,
+  Save,
+  StarOff,
+  X,
+  Edit2,
+  ImageIcon
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
@@ -58,6 +63,7 @@ interface Resume {
   data: any
   created_at: string
   updated_at: string
+  is_favorite?: boolean
 }
 
 interface Portfolio {
@@ -89,7 +95,19 @@ interface ResumeAnalysis {
   }
 }
 
-export function ResumeGallery() {
+interface ResumeGalleryProps {
+  onLoadResume?: (resumeData: any) => void
+  onCreateNew?: () => void
+  currentResumeData?: any
+  onSaveResume?: (title: string) => Promise<void>
+}
+
+export function ResumeGallery({ 
+  onLoadResume, 
+  onCreateNew, 
+  currentResumeData, 
+  onSaveResume 
+}: ResumeGalleryProps = {}) {
   const { user, token } = useAuth()
   const [resumes, setResumes] = useState<Resume[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
@@ -101,6 +119,13 @@ export function ResumeGallery() {
   const [showPortfolioCreator, setShowPortfolioCreator] = useState(false)
   const [showPortfolioEditor, setShowPortfolioEditor] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
+
+  // Quick Actions state
+  const [saving, setSaving] = useState(false)
+  const [saveTitle, setSaveTitle] = useState("")
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [manualSaving, setManualSaving] = useState(false)
 
   // Ranking functionality state
   const [selectedResumeIds, setSelectedResumeIds] = useState<Set<number>>(new Set())
@@ -115,6 +140,23 @@ export function ResumeGallery() {
       fetchPortfolios()
     }
   }, [user, token])
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSaveEnabled || !currentResumeData || !user || !onSaveResume) return
+
+    const autoSaveTimer = setTimeout(async () => {
+      if (currentResumeData && currentResumeData.title) {
+        try {
+          await handleAutoSave()
+        } catch (error) {
+          console.error("Auto-save failed:", error)
+        }
+      }
+    }, 30000) // Auto-save every 30 seconds
+
+    return () => clearTimeout(autoSaveTimer)
+  }, [currentResumeData, autoSaveEnabled, user, onSaveResume])
 
   const fetchResumes = async () => {
     try {
@@ -154,6 +196,121 @@ export function ResumeGallery() {
       }
     } catch (error) {
       console.error("Error fetching portfolios:", error)
+    }
+  }
+
+  // Quick Actions handlers
+  const handleAutoSave = async () => {
+    if (!currentResumeData?.title || !onSaveResume) return
+
+    try {
+      await onSaveResume(currentResumeData.title)
+      setLastSaved(new Date())
+      toast({
+        description: "Auto-saved successfully",
+        duration: 2000,
+      })
+    } catch (error) {
+      console.error("Auto-save failed:", error)
+    }
+  }
+
+  const handleManualSave = async () => {
+    if (!currentResumeData || !onSaveResume) {
+      toast({
+        title: "Error",
+        description: "No resume data to save",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const title = currentResumeData.title || currentResumeData.personalInfo?.name || "Untitled Resume"
+
+    setManualSaving(true)
+    try {
+      await onSaveResume(title)
+      setLastSaved(new Date())
+      fetchResumes()
+      toast({
+        title: "Success",
+        description: "Resume saved successfully!",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save resume. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setManualSaving(false)
+    }
+  }
+
+  const saveCurrentResume = async () => {
+    if (!saveTitle.trim() || !onSaveResume) {
+      toast({
+        title: "Error",
+        description: "Please enter a title for your resume",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSaving(true)
+    try {
+      await onSaveResume(saveTitle.trim())
+      setSaveTitle("")
+      fetchResumes()
+      toast({
+        title: "Success",
+        description: "Resume saved successfully!",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save resume. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleFavorite = async (resumeId: number, currentFavorite: boolean) => {
+    try {
+      const response = await fetch(`/api/resumes/${resumeId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          isFavorite: !currentFavorite,
+        }),
+      })
+
+      if (response.ok) {
+        setResumes((prev) =>
+          prev.map((resume) => (resume.id === resumeId ? { ...resume, is_favorite: !currentFavorite } : resume)),
+        )
+        toast({
+          title: "Success",
+          description: `Resume ${!currentFavorite ? "added to" : "removed from"} favorites`,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update favorite status",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update favorite status",
+        variant: "destructive",
+      })
     }
   }
 
@@ -226,6 +383,40 @@ export function ResumeGallery() {
       toast({
         title: "Error",
         description: "Failed to copy link",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const downloadResume = async (resumeId: number, title: string) => {
+    try {
+      const response = await fetch(`/api/resumes/${resumeId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const blob = new Blob([JSON.stringify(data.resume.data, null, 2)], {
+          type: "application/json",
+        })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        toast({
+          title: "Success",
+          description: "Resume downloaded successfully",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download resume",
         variant: "destructive",
       })
     }
@@ -337,6 +528,15 @@ export function ResumeGallery() {
     portfolio.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // Filter and sort resumes with favorites first
+  const filteredAndSortedResumes = filteredResumes.sort((a, b) => {
+    if (a.is_favorite && !b.is_favorite) return -1
+    if (!a.is_favorite && b.is_favorite) return 1
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  })
+
+  const favoriteCount = resumes.filter((resume) => resume.is_favorite).length
+
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -347,15 +547,90 @@ export function ResumeGallery() {
 
   return (
     <div className="space-y-6">
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {onCreateNew && (
+              <Button onClick={onCreateNew} variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Resume
+              </Button>
+            )}
+            {onSaveResume && (
+              <>
+                <Button
+                  onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
+                  variant={autoSaveEnabled ? "default" : "outline"}
+                  size="sm"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Auto-save {autoSaveEnabled ? "ON" : "OFF"}
+                </Button>
+                <Button
+                  onClick={handleManualSave}
+                  disabled={manualSaving || !currentResumeData}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {manualSaving ? "Saving..." : "Save Current"}
+                </Button>
+              </>
+            )}
+            {lastSaved && (
+              <Badge variant="secondary" className="text-xs">
+                Last saved: {lastSaved.toLocaleTimeString()}
+              </Badge>
+            )}
+          </div>
+
+          {/* Save Current Resume */}
+          {onSaveResume && (
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter resume title to save..."
+                value={saveTitle}
+                onChange={(e) => setSaveTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !saving) {
+                    saveCurrentResume()
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
+                {saving ? "Saving..." : "Save Resume"}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Search resumes, portfolios, and files..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search resumes, portfolios, and files..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -364,6 +639,12 @@ export function ResumeGallery() {
           <TabsTrigger value="resumes" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Resumes ({filteredResumes.length})
+            {favoriteCount > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                <Star className="h-3 w-3 mr-1 fill-current" />
+                {favoriteCount}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="portfolios" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
@@ -381,50 +662,122 @@ export function ResumeGallery() {
 
         {/* Resumes Tab */}
         <TabsContent value="resumes" className="space-y-4">
+          {/* Results Summary */}
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>
+                {filteredAndSortedResumes.length} result{filteredAndSortedResumes.length !== 1 ? "s" : ""}
+                {searchQuery && ` for "${searchQuery}"`}
+              </span>
+              {favoriteCount > 0 && !searchQuery && (
+                <Badge variant="secondary" className="text-xs">
+                  <Star className="h-3 w-3 mr-1 fill-current" />
+                  Favorites shown first
+                </Badge>
+              )}
+            </div>
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <p className="text-muted-foreground">Loading resumes...</p>
             </div>
-          ) : filteredResumes.length === 0 ? (
+          ) : filteredAndSortedResumes.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <FileText className="h-16 w-16 text-muted-foreground mb-4" />
               {searchQuery ? (
-                <p className="text-muted-foreground">No resumes found for "{searchQuery}"</p>
+                <>
+                  <p className="text-muted-foreground mb-2">No resumes found for "{searchQuery}"</p>
+                  <Button variant="outline" onClick={() => setSearchQuery("")}>
+                    Clear search
+                  </Button>
+                </>
               ) : (
-                <p className="text-muted-foreground">No resumes yet. Create your first resume!</p>
+                <>
+                  <p className="text-muted-foreground mb-4">No resumes yet. Create your first resume!</p>
+                  {onCreateNew && (
+                    <Button onClick={onCreateNew}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create New Resume
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           ) : (
             <ScrollArea className="h-[600px] w-full">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
-                {filteredResumes.map((resume) => (
-                  <Card key={resume.id} className="hover:shadow-md transition-shadow">
+                {filteredAndSortedResumes.map((resume) => (
+                  <Card key={resume.id} className="hover:shadow-md transition-shadow group">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{resume.name}</CardTitle>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>Updated {formatDate(resume.updated_at)}</span>
-                          </div>
+                        <div className="flex items-center gap-2 flex-1 mr-2">
+                          <CardTitle className="text-lg truncate flex-1">{resume.name}</CardTitle>
+                          <ResumeNameEditorDialog
+                            open={showResumeEditor && selectedResume?.id === resume.id}
+                            onOpenChange={(open) => {
+                              setShowResumeEditor(open)
+                              if (!open) setSelectedResume(null)
+                            }}
+                            resume={resume}
+                            onSave={(updatedResume) => {
+                              setResumes(resumes.map((r) => (r.id === updatedResume.id ? updatedResume : r)))
+                              setSelectedResume(null)
+                            }}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedResume(resume)
+                                setShowResumeEditor(true)
+                              }}
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          </ResumeNameEditorDialog>
                         </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleFavorite(resume.id, resume.is_favorite || false)}
+                            className="h-8 w-8 p-0 flex-shrink-0"
+                          >
+                            {resume.is_favorite ? (
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            ) : (
+                              <StarOff className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>Updated {formatDate(resume.updated_at)}</span>
+                        {resume.is_favorite && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Star className="h-3 w-3 mr-1 fill-current" />
+                            Favorite
+                          </Badge>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedResume(resume)
-                              setShowResumeEditor(true)
-                            }}
-                            className="h-8 px-2"
-                          >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Edit
-                          </Button>
+                          {onLoadResume && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onLoadResume(resume.data)}
+                              className="h-8 px-2"
+                            >
+                              <Edit className="h-3 w-3 mr-1" />
+                              Load
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -436,6 +789,14 @@ export function ResumeGallery() {
                           >
                             <Plus className="h-3 w-3 mr-1" />
                             Portfolio
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadResume(resume.id, resume.name)}
+                            className="h-8 px-2"
+                          >
+                            <Download className="h-3 w-3" />
                           </Button>
                         </div>
                         <AlertDialog>
