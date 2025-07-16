@@ -1,6 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { PortfolioAnalyticsDialog } from "./PortfolioAnalyticsDialog"
+import { PortfolioEditorDialog } from "./portfolio-editor-dialog"
+
 import {
   Calendar,
   Edit,
@@ -58,6 +61,8 @@ export function PortfolioCard({
   onPortfolioDeleted,
   onPortfolioUpdated,
 }: PortfolioCardProps) {
+
+const [showAnalytics, setShowAnalytics] = useState(false)
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
@@ -146,16 +151,17 @@ export function PortfolioCard({
               <Eye className="h-3 w-3 mr-1" />
               View
             </Button>
-            {/* TODO: Add PortfolioEditorDialog */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 px-2"
-              onClick={() => toast({ description: "Portfolio editing coming soon" })}
-            >
-              <Edit className="h-3 w-3 mr-1" />
-              Edit
-            </Button>
+                                      <PortfolioEditorDialog
+                            portfolio={portfolio}
+                            onPortfolioUpdated={() => {
+                              fetchPortfolios()
+                            }}
+                          >
+                            <Button variant="ghost" size="sm" className="h-8 px-2">
+                              <Edit className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          </PortfolioEditorDialog>
             <Button
               variant="ghost"
               size="sm"
@@ -167,15 +173,11 @@ export function PortfolioCard({
             </Button>
           </div>
           <div className="flex items-center gap-1">
-            {/* TODO: Add PortfolioAnalyticsDialog */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 w-8 p-0"
-              onClick={() => toast({ description: "Analytics coming soon" })}
-            >
-              <BarChart3 className="h-3 w-3" />
-            </Button>
+                          <PortfolioAnalyticsDialog portfolioId={portfolio.id} portfolioTitle={portfolio.title}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <BarChart3 className="h-3 w-3" />
+                            </Button>
+                          </PortfolioAnalyticsDialog>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive">
