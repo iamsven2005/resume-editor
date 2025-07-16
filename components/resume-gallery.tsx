@@ -525,7 +525,7 @@ export function ResumeGallery({
   }
 
   const filteredResumes = resumes.filter((resume) =>
-    resume.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    resume.title?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
