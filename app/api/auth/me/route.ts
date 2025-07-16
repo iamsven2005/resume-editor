@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getCurrentUser } from "@/lib/auth"
+import { getCurrentUser, generateToken } from "@/lib/auth"
 
 export async function GET() {
   try {
@@ -9,11 +9,15 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
+    const token = generateToken(user.id)
+
     return NextResponse.json({
       success: true,
       user,
+      token,
     })
   } catch (error) {
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    console.error("Auth check error:", error)
+    return NextResponse.json({ success: false, error: "Authentication failed" }, { status: 500 })
   }
 }

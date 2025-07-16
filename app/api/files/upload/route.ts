@@ -1,16 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { put } from "@vercel/blob"
-import { verifyToken } from "@/lib/auth"
+import { getUserFromToken } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
-    const token = request.headers.get("authorization")?.replace("Bearer ", "")
+    const authHeader = request.headers.get("authorization")
+    const token = authHeader?.replace("Bearer ", "")
+
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const user = await verifyToken(token)
+    const user = await getUserFromToken(token)
     if (!user) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const uploadPromises = files.map(async (file) => {
-      const filename = `${user.id}/${Date.now()}-${file.name}`
+      const filename = `user-${user.id}/${Date.now()}-${file.name}`
 
       const blob = await put(filename, file, {
         access: "public",

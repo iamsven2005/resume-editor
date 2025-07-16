@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { cookies } from "next/headers"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_NEON_NEON_DATABASE_URL!)
 
 export interface User {
   id: number
@@ -34,6 +34,19 @@ export function verifyToken(token: string): { userId: number } | null {
   try {
     return jwt.verify(token, process.env.JWT_SECRET!) as { userId: number }
   } catch {
+    return null
+  }
+}
+
+export async function getUserFromToken(token: string): Promise<User | null> {
+  try {
+    const payload = verifyToken(token)
+    if (!payload) {
+      return null
+    }
+
+    return getUserById(payload.userId)
+  } catch (error) {
     return null
   }
 }

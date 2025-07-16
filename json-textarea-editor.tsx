@@ -17,6 +17,8 @@ import { PanelLayoutManager, type PanelConfig } from "./components/panel-layout-
 import { useAuth } from "./contexts/auth-context"
 import type { Section, ContentItem, TabType, ResumeData } from "./types/resume"
 import type { ResumeAnalysis } from "./types/analysis"
+import{Footer}from "@/components/footer"
+
 import {
   FileText,
   Edit3,
@@ -834,6 +836,7 @@ export default function JsonTextareaEditor() {
 
         <PanelLayoutManager panels={panels} />
       </div>
+      <Footer/>
     </div>
   )
 }
