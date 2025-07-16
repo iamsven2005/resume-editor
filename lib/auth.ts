@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import { cookies } from "next/headers"
 
-const sql = neon(process.env.NEON_NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_DATABASE_URL!)
 
 export interface User {
   id: number
