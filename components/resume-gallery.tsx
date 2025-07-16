@@ -185,10 +185,12 @@ export function ResumeGallery() {
     })
   }
 
-  const filteredResumes = resumes.filter((resume) => resume.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredResumes = resumes.filter((resume) =>
+    resume.name?.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
-    portfolio.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    portfolio.name?.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   if (!user) {
