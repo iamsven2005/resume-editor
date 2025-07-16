@@ -607,9 +607,11 @@ export function ResumeGallery({
                 }}
                 className="flex-1"
               />
-<Button onClick={saveCurrentResume} disabled={saving || typeof saveTitle !== "string" || saveTitle.trim() === ""}>
-                {saving ? "Saving..." : "Save Resume"}
-              </Button>
+<Button
+  onClick={saveCurrentResume}
+  disabled={saving || typeof saveTitle !== "string" || saveTitle.trim() === ""}
+/>
+
             </div>
           )}
         </CardContent>
