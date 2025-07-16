@@ -59,23 +59,27 @@ import {
 
 interface Resume {
   id: number
-  name: string
-  data: any
+  title: string
+  resume_data: any
   created_at: string
   updated_at: string
   is_favorite?: boolean
 }
 
 interface Portfolio {
-  id: number
-  name: string
-  slug: string
+  id: string
+  title: string
+  description?: string
   theme: string
-  resume_id: number
-  is_public: boolean
+  resume_data: any
+  is_published: boolean
+  portfolio_url: string
+  total_views: number
+  unique_visitors: number
+  views_last_7_days: number
+  views_last_30_days: number
   created_at: string
   updated_at: string
-  resume?: Resume
 }
 
 interface ResumeAnalysis {
@@ -525,7 +529,7 @@ export function ResumeGallery({
   )
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
-    portfolio.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    portfolio.title?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   // Filter and sort resumes with favorites first
@@ -715,7 +719,7 @@ export function ResumeGallery({
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2 flex-1 mr-2">
-                          <CardTitle className="text-lg truncate flex-1">{resume.name}</CardTitle>
+                          <CardTitle className="text-lg truncate flex-1">{resume.title}</CardTitle>
                           <ResumeNameEditorDialog
                             open={showResumeEditor && selectedResume?.id === resume.id}
                             onOpenChange={(open) => {
@@ -796,7 +800,7 @@ export function ResumeGallery({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => downloadResume(resume.id, resume.name)}
+                            onClick={() => downloadResume(resume.id, resume.title)}
                             className="h-8 px-2"
                           >
                             <Download className="h-3 w-3" />
@@ -812,7 +816,7 @@ export function ResumeGallery({
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Resume</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete "{resume.name}"? This action cannot be undone.
+                                Are you sure you want to delete "{resume.title}"? This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -854,7 +858,7 @@ export function ResumeGallery({
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{portfolio.name}</CardTitle>
+                          <CardTitle className="text-lg truncate">{portfolio.title}</CardTitle>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                             <Calendar className="h-3 w-3" />
                             <span>Updated {formatDate(portfolio.updated_at)}</span>
@@ -926,7 +930,7 @@ export function ResumeGallery({
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{portfolio.name}"? This action cannot be undone.
+                                  Are you sure you want to delete "{portfolio.title}"? This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -1020,7 +1024,7 @@ export function ResumeGallery({
                                       onCheckedChange={(checked) => handleResumeSelection(resume.id, checked as boolean)}
                                       onClick={(e) => e.stopPropagation()}
                                     />
-                                    <CardTitle className="text-base truncate">{resume.name}</CardTitle>
+                                    <CardTitle className="text-base truncate">{resume.title}</CardTitle>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                                     <Calendar className="h-3 w-3" />
