@@ -670,7 +670,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
       {/* Tabs */}
       <Tabs defaultValue="resumes" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="flex w-full flex-wrap">
           <TabsTrigger value="resumes" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Resumes ({filteredResumes.length})
