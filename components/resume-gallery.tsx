@@ -105,6 +105,19 @@ interface ResumeGalleryProps {
   onSaveResume?: (title: string) => Promise<void>
 }
 
+// Helper function to safely get string value
+const safeString = (value: any): string => {
+  if (value === null || value === undefined) return ""
+  if (typeof value === "string") return value
+  return String(value)
+}
+
+// Helper function to safely trim string
+const safeTrim = (value: any): string => {
+  const str = safeString(value)
+  return str.trim()
+}
+
 export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, onSaveResume }: ResumeGalleryProps = {}) {
   const { user, token } = useAuth()
   const [resumes, setResumes] = useState<Resume[]>([])
@@ -140,7 +153,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     if (!autoSaveEnabled || !currentResumeData || !user || !onSaveResume) return
 
     const autoSaveTimer = setTimeout(async () => {
-      if (currentResumeData && currentResumeData.title) {
+      if (currentResumeData && safeTrim(currentResumeData.title)) {
         try {
           await handleAutoSave()
         } catch (error) {
@@ -163,12 +176,14 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       if (response.ok) {
         const data = await response.json()
         console.log("Fetched resumes:", data.resumes)
-        setResumes(data.resumes || [])
+        setResumes(Array.isArray(data.resumes) ? data.resumes : [])
       } else {
         console.error("Failed to fetch resumes:", response.status)
+        setResumes([])
       }
     } catch (error) {
       console.error("Error fetching resumes:", error)
+      setResumes([])
       toast({
         title: "Error",
         description: "Failed to load resumes",
@@ -190,12 +205,14 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       if (response.ok) {
         const data = await response.json()
         console.log("Fetched portfolios:", data.portfolios)
-        setPortfolios(data.portfolios || [])
+        setPortfolios(Array.isArray(data.portfolios) ? data.portfolios : [])
       } else {
         console.error("Failed to fetch portfolios:", response.status)
+        setPortfolios([])
       }
     } catch (error) {
       console.error("Error fetching portfolios:", error)
+      setPortfolios([])
     }
   }
 
@@ -204,7 +221,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     if (!currentResumeData?.title || !onSaveResume) return
 
     try {
-      await onSaveResume(currentResumeData.title)
+      await onSaveResume(safeTrim(currentResumeData.title))
       setLastSaved(new Date())
       toast({
         description: "Auto-saved successfully",
@@ -225,7 +242,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       return
     }
 
-    const title = currentResumeData.title || currentResumeData.personalInfo?.name || "Untitled Resume"
+    const title = safeTrim(currentResumeData.title || currentResumeData.personalInfo?.name || "Untitled Resume")
 
     setManualSaving(true)
     try {
@@ -248,8 +265,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   }
 
   const saveCurrentResume = async () => {
-    // Add null checks for saveTitle
-    if (!saveTitle || typeof saveTitle !== "string" || !saveTitle.trim() || !onSaveResume) {
+    const trimmedTitle = safeTrim(saveTitle)
+    if (!trimmedTitle || !onSaveResume) {
       toast({
         title: "Error",
         description: "Please enter a title for your resume",
@@ -260,7 +277,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
     setSaving(true)
     try {
-      await onSaveResume(saveTitle.trim())
+      await onSaveResume(trimmedTitle)
       setSaveTitle("")
       fetchResumes()
       toast({
@@ -404,7 +421,9 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.json`
+        a.download = `${safeTrim(title)
+          .replace(/[^a-z0-9]/gi, "_")
+          .toLowerCase()}.json`
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
@@ -444,7 +463,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   }
 
   const analyzeSelectedResumes = async () => {
-    if (!jobDescription.trim() || selectedResumeIds.size === 0) {
+    if (!safeTrim(jobDescription) || selectedResumeIds.size === 0) {
       toast({
         title: "Missing Information",
         description: "Please enter a job description and select at least one resume.",
@@ -466,10 +485,10 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          jobDescription,
+          jobDescription: safeTrim(jobDescription),
           resumes: selectedResumes.map((r) => ({
             id: r.id,
-            name: r.title,
+            name: safeTrim(r.title),
             data: r.resume_data,
           })),
         }),
@@ -514,36 +533,44 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    } catch {
+      return "Unknown date"
+    }
   }
 
-  // Add null checks for filtering
-  const filteredResumes = resumes.filter(
-    (resume) =>
-      resume.title &&
-      typeof resume.title === "string" &&
-      resume.title.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  // Safe filtering with comprehensive null checks
+  const filteredResumes = resumes.filter((resume) => {
+    if (!resume || typeof resume !== "object") return false
+    const title = safeString(resume.title)
+    const query = safeString(searchQuery).toLowerCase()
+    return title.toLowerCase().includes(query)
+  })
 
-  const filteredPortfolios = portfolios.filter(
-    (portfolio) =>
-      portfolio.title &&
-      typeof portfolio.title === "string" &&
-      portfolio.title.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const filteredPortfolios = portfolios.filter((portfolio) => {
+    if (!portfolio || typeof portfolio !== "object") return false
+    const title = safeString(portfolio.title)
+    const query = safeString(searchQuery).toLowerCase()
+    return title.toLowerCase().includes(query)
+  })
 
   // Filter and sort resumes with favorites first
   const filteredAndSortedResumes = filteredResumes.sort((a, b) => {
     if (a.is_favorite && !b.is_favorite) return -1
     if (!a.is_favorite && b.is_favorite) return 1
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    try {
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    } catch {
+      return 0
+    }
   })
 
-  const favoriteCount = resumes.filter((resume) => resume.is_favorite).length
+  const favoriteCount = resumes.filter((resume) => resume && resume.is_favorite).length
 
   if (!user) {
     return (
@@ -601,8 +628,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             <div className="flex gap-2">
               <Input
                 placeholder="Enter resume title to save..."
-                value={saveTitle || ""}
-                onChange={(e) => setSaveTitle(e.target.value || "")}
+                value={saveTitle}
+                onChange={(e) => setSaveTitle(safeString(e.target.value))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !saving) {
                     saveCurrentResume()
@@ -610,7 +637,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                 }}
                 className="flex-1"
               />
-              <Button onClick={saveCurrentResume} disabled={saving || !saveTitle || !saveTitle.trim()}>
+              <Button onClick={saveCurrentResume} disabled={saving || !safeTrim(saveTitle)}>
                 {saving ? "Saving..." : "Save Resume"}
               </Button>
             </div>
@@ -625,7 +652,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
           <Input
             placeholder="Search resumes, portfolios, and files..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(safeString(e.target.value))}
             className="pl-10 pr-10"
           />
           {searchQuery && (
@@ -720,7 +747,9 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2 flex-1 mr-2">
-                          <CardTitle className="text-lg truncate flex-1">{resume.title || "Untitled Resume"}</CardTitle>
+                          <CardTitle className="text-lg truncate flex-1">
+                            {safeString(resume.title) || "Untitled Resume"}
+                          </CardTitle>
                           <ResumeNameEditorDialog
                             resume={resume}
                             onSave={(updatedResume) => {
@@ -806,7 +835,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Resume</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete "{resume.title}"? This action cannot be undone.
+                                Are you sure you want to delete "{safeString(resume.title)}"? This action cannot be
+                                undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -848,7 +878,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{portfolio.title}</CardTitle>
+                          <CardTitle className="text-lg truncate">{safeString(portfolio.title)}</CardTitle>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                             <Calendar className="h-3 w-3" />
                             <span>Updated {formatDate(portfolio.updated_at)}</span>
@@ -858,7 +888,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                               {portfolio.is_published ? "Public" : "Private"}
                             </Badge>
                             <Badge variant="outline" className="text-xs capitalize">
-                              {portfolio.theme}
+                              {safeString(portfolio.theme)}
                             </Badge>
                           </div>
                         </div>
@@ -913,7 +943,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{portfolio.title}"? This action cannot be undone.
+                                  Are you sure you want to delete "{safeString(portfolio.title)}"? This action cannot be
+                                  undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -953,7 +984,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                   <Textarea
                     placeholder="Enter the job description, required skills, qualifications, and experience you want to match against..."
                     value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
+                    onChange={(e) => setJobDescription(safeString(e.target.value))}
                     className="min-h-[150px]"
                   />
                 </CardContent>
@@ -1007,7 +1038,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                                       }
                                       onClick={(e) => e.stopPropagation()}
                                     />
-                                    <CardTitle className="text-base truncate">{resume.title}</CardTitle>
+                                    <CardTitle className="text-base truncate">{safeString(resume.title)}</CardTitle>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                                     <Calendar className="h-3 w-3" />
@@ -1029,7 +1060,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
               <div className="flex justify-center gap-4">
                 <Button
                   onClick={analyzeSelectedResumes}
-                  disabled={!jobDescription.trim() || selectedResumeIds.size === 0 || isAnalyzing}
+                  disabled={!safeTrim(jobDescription) || selectedResumeIds.size === 0 || isAnalyzing}
                   size="lg"
                   className="px-8"
                 >
@@ -1083,7 +1114,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                               </div>
                             </div>
                             <div>
-                              <CardTitle className="text-lg">{result.fileName}</CardTitle>
+                              <CardTitle className="text-lg">{safeString(result.fileName)}</CardTitle>
                               <p className="text-sm text-muted-foreground">Resume #{index + 1}</p>
                             </div>
                           </div>
@@ -1108,7 +1139,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                             {result.contactInfo.name && (
                               <div className="flex items-center gap-2">
                                 <User className="w-4 h-4 text-gray-500" />
-                                <span className="font-medium text-gray-900">{result.contactInfo.name}</span>
+                                <span className="font-medium text-gray-900">{safeString(result.contactInfo.name)}</span>
                               </div>
                             )}
 
@@ -1155,7 +1186,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                         {/* Summary */}
                         <div>
                           <h4 className="font-semibold mb-2">Summary</h4>
-                          <p className="text-gray-700">{result.summary}</p>
+                          <p className="text-gray-700">{safeString(result.summary)}</p>
                         </div>
 
                         <Separator />
@@ -1166,7 +1197,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                           <div className="flex flex-wrap gap-2">
                             {result.keySkills.map((skill, skillIndex) => (
                               <Badge key={skillIndex} variant="outline">
-                                {skill}
+                                {safeString(skill)}
                               </Badge>
                             ))}
                           </div>
@@ -1177,7 +1208,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                         {/* Experience */}
                         <div>
                           <h4 className="font-semibold mb-2">Experience Level</h4>
-                          <p className="text-gray-700">{result.experience}</p>
+                          <p className="text-gray-700">{safeString(result.experience)}</p>
                         </div>
 
                         <Separator />
@@ -1190,7 +1221,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                               {result.strengths.map((strength, strengthIndex) => (
                                 <li key={strengthIndex} className="flex items-start gap-2">
                                   <Star className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                                  <span className="text-sm text-gray-700">{strength}</span>
+                                  <span className="text-sm text-gray-700">{safeString(strength)}</span>
                                 </li>
                               ))}
                             </ul>
@@ -1202,7 +1233,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                               {result.weaknesses.map((weakness, weaknessIndex) => (
                                 <li key={weaknessIndex} className="flex items-start gap-2">
                                   <div className="w-4 h-4 bg-red-100 rounded-full mt-0.5 flex-shrink-0" />
-                                  <span className="text-sm text-gray-700">{weakness}</span>
+                                  <span className="text-sm text-gray-700">{safeString(weakness)}</span>
                                 </li>
                               ))}
                             </ul>
