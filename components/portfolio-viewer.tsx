@@ -1,455 +1,378 @@
 "use client"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import {
-  Mail,
-  Phone,
-  MapPin,
-  Globe,
-  Linkedin,
+import React from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { 
+  Calendar, 
+  MapPin, 
+  Mail, 
+  Phone, 
+  Linkedin, 
   Github,
-  Calendar,
-  Building,
+  Globe,
+  Briefcase,
   GraduationCap,
   Award,
   User,
-  Briefcase,
-} from "lucide-react"
+  Building,
+  Clock
+} from 'lucide-react'
+
+interface ResumeData {
+  title?: string
+  personalInfo?: {
+    name?: string
+    title?: string
+    email?: string
+    phone?: string
+    location?: string
+    linkedin?: string
+    github?: string
+    website?: string
+    summary?: string
+  }
+  sections?: Array<{
+    id: string
+    'section name': string
+    content: any[]
+  }>
+}
 
 interface PortfolioViewerProps {
-  resumeData: any
-  theme?: string
+  resumeData: ResumeData
+  theme?: 'modern' | 'classic' | 'minimal' | 'creative'
 }
 
-// Helper function to safely get string value
-const safeString = (value: any): string => {
-  if (value === null || value === undefined) return ""
-  if (typeof value === "string") return value
-  return String(value)
-}
-
-// Helper function to safely get array
-const safeArray = (value: any): any[] => {
-  if (Array.isArray(value)) return value
-  return []
-}
-
-export function PortfolioViewer({ resumeData, theme = "modern" }: PortfolioViewerProps) {
-  // Extract data with fallbacks
-  const personalInfo = resumeData?.personalInfo || {}
-  const experience = safeArray(resumeData?.experience)
-  const education = safeArray(resumeData?.education)
-  const skills = safeArray(resumeData?.skills)
-  const projects = safeArray(resumeData?.projects)
-  const certifications = safeArray(resumeData?.certifications)
-
-  // Extract personal information with fallbacks
-  const name = safeString(personalInfo.name || personalInfo.fullName || "Professional Name")
-  const title = safeString(personalInfo.title || personalInfo.jobTitle || "Professional Title")
-  const email = safeString(personalInfo.email)
-  const phone = safeString(personalInfo.phone)
-  const location = safeString(personalInfo.location || personalInfo.address)
-  const website = safeString(personalInfo.website || personalInfo.portfolio)
-  const linkedin = safeString(personalInfo.linkedin)
-  const github = safeString(personalInfo.github)
-  const summary = safeString(personalInfo.summary || personalInfo.objective || personalInfo.about)
-
-  // Theme configurations
-  const themeConfig = {
-    modern: {
-      containerClass: "min-h-screen bg-gradient-to-br from-slate-50 to-blue-50",
-      headerClass: "bg-white shadow-lg border-b-4 border-blue-500",
-      cardClass: "bg-white shadow-md hover:shadow-lg transition-shadow border border-gray-200",
-      titleClass: "text-gray-900 font-bold",
-      subtitleClass: "text-blue-600 font-semibold",
-      textClass: "text-gray-700",
-      accentClass: "text-blue-600",
-      buttonClass: "bg-blue-600 hover:bg-blue-700 text-white",
-      badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
-    },
-    classic: {
-      containerClass: "min-h-screen bg-gray-50",
-      headerClass: "bg-white shadow-sm border-b-2 border-gray-300",
-      cardClass: "bg-white shadow-sm border-2 border-gray-300",
-      titleClass: "text-gray-900 font-serif font-bold",
-      subtitleClass: "text-gray-700 font-serif font-semibold",
-      textClass: "text-gray-600 font-serif",
-      accentClass: "text-gray-800",
-      buttonClass: "bg-gray-700 hover:bg-gray-800 text-white border border-gray-600",
-      badgeClass: "bg-gray-200 text-gray-800 border-gray-300",
-    },
-    minimal: {
-      containerClass: "min-h-screen bg-white",
-      headerClass: "bg-white border-b border-gray-200",
-      cardClass: "bg-white border border-gray-100 hover:border-gray-200 transition-colors",
-      titleClass: "text-gray-900 font-light",
-      subtitleClass: "text-gray-600 font-medium",
-      textClass: "text-gray-500",
-      accentClass: "text-gray-700",
-      buttonClass: "bg-gray-900 hover:bg-gray-800 text-white",
-      badgeClass: "bg-gray-100 text-gray-700 border-gray-200",
-    },
-    creative: {
-      containerClass: "min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50",
-      headerClass: "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-xl",
-      cardClass: "bg-white shadow-lg hover:shadow-xl transition-all border border-purple-200 rounded-xl",
-      titleClass: "text-white font-bold",
-      subtitleClass: "text-purple-600 font-bold",
-      textClass: "text-gray-700",
-      accentClass: "text-purple-600",
-      buttonClass: "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white",
-      badgeClass: "bg-gradient-to-r from-purple-100 to-blue-100 text-purple-800 border-purple-200",
-    },
+export function PortfolioViewer({ resumeData, theme = 'modern' }: PortfolioViewerProps) {
+  const getThemeClasses = () => {
+    switch (theme) {
+      case 'classic':
+        return {
+          container: 'bg-white text-gray-900',
+          header: 'bg-gray-50 border-b-2 border-gray-200',
+          accent: 'text-blue-700',
+          card: 'bg-white border border-gray-200 shadow-sm',
+          badge: 'bg-blue-100 text-blue-800'
+        }
+      case 'minimal':
+        return {
+          container: 'bg-gray-50 text-gray-800',
+          header: 'bg-white border-b border-gray-100',
+          accent: 'text-gray-900',
+          card: 'bg-white border-0 shadow-none',
+          badge: 'bg-gray-100 text-gray-700'
+        }
+      case 'creative':
+        return {
+          container: 'bg-gradient-to-br from-purple-50 to-blue-50 text-gray-900',
+          header: 'bg-white/80 backdrop-blur-sm border-b border-purple-200',
+          accent: 'text-purple-700',
+          card: 'bg-white/70 backdrop-blur-sm border border-purple-100 shadow-lg',
+          badge: 'bg-purple-100 text-purple-800'
+        }
+      default: // modern
+        return {
+          container: 'bg-gray-50 text-gray-900',
+          header: 'bg-white border-b border-gray-200',
+          accent: 'text-indigo-600',
+          card: 'bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow',
+          badge: 'bg-indigo-100 text-indigo-800'
+        }
+    }
   }
 
-  const currentTheme = themeConfig[theme as keyof typeof themeConfig] || themeConfig.modern
+  const themeClasses = getThemeClasses()
 
-  return (
-    <div className={currentTheme.containerClass}>
-      {/* Header Section */}
-      <header className={`${currentTheme.headerClass} py-12 px-6`}>
-        <div className="max-w-4xl mx-auto text-center">
-          <h1
-            className={`text-4xl md:text-5xl ${theme === "creative" ? currentTheme.titleClass : "text-gray-900"} mb-4`}
-          >
-            {name}
-          </h1>
-          <p
-            className={`text-xl md:text-2xl ${theme === "creative" ? "text-purple-100" : currentTheme.accentClass} mb-6`}
-          >
-            {title}
-          </p>
+  const formatDuration = (duration: string) => {
+    if (!duration) return null
+    return duration.replace(/–/g, '–').replace(/-/g, '–')
+  }
 
-          {/* Contact Information */}
-          <div className="flex flex-wrap justify-center gap-4 text-sm">
-            {email && (
-              <a
-                href={`mailto:${email}`}
-                className={`flex items-center gap-2 ${theme === "creative" ? "text-white hover:text-purple-200" : "text-gray-600 hover:text-blue-600"} transition-colors`}
+  const renderPersonalInfo = () => {
+    const personalInfo = resumeData.personalInfo || {}
+    const name = personalInfo.name || 'Professional Portfolio'
+    const title = personalInfo.title || resumeData.title || ''
+
+    return (
+      <div className={`${themeClasses.header} px-8 py-12`}>
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+              {name}
+            </h1>
+            {title && (
+              <p className={`text-xl md:text-2xl ${themeClasses.accent} font-medium mb-6`}>
+                {title}
+              </p>
+            )}
+            {personalInfo.summary && (
+              <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                {personalInfo.summary}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-6 text-sm">
+            {personalInfo.email && (
+              <a 
+                href={`mailto:${personalInfo.email}`}
+                className={`flex items-center gap-2 ${themeClasses.accent} hover:underline transition-colors`}
               >
                 <Mail className="w-4 h-4" />
-                {email}
+                {personalInfo.email}
               </a>
             )}
-            {phone && (
-              <a
-                href={`tel:${phone}`}
-                className={`flex items-center gap-2 ${theme === "creative" ? "text-white hover:text-purple-200" : "text-gray-600 hover:text-blue-600"} transition-colors`}
+            {personalInfo.phone && (
+              <a 
+                href={`tel:${personalInfo.phone}`}
+                className={`flex items-center gap-2 ${themeClasses.accent} hover:underline transition-colors`}
               >
                 <Phone className="w-4 h-4" />
-                {phone}
+                {personalInfo.phone}
               </a>
             )}
-            {location && (
-              <span className={`flex items-center gap-2 ${theme === "creative" ? "text-white" : "text-gray-600"}`}>
+            {personalInfo.location && (
+              <div className="flex items-center gap-2 text-gray-600">
                 <MapPin className="w-4 h-4" />
-                {location}
-              </span>
+                {personalInfo.location}
+              </div>
             )}
-            {website && (
-              <a
-                href={website.startsWith("http") ? website : `https://${website}`}
+            {personalInfo.linkedin && (
+              <a 
+                href={personalInfo.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center gap-2 ${theme === "creative" ? "text-white hover:text-purple-200" : "text-gray-600 hover:text-blue-600"} transition-colors`}
-              >
-                <Globe className="w-4 h-4" />
-                Website
-              </a>
-            )}
-            {linkedin && (
-              <a
-                href={linkedin.startsWith("http") ? linkedin : `https://linkedin.com/in/${linkedin}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-center gap-2 ${theme === "creative" ? "text-white hover:text-purple-200" : "text-gray-600 hover:text-blue-600"} transition-colors`}
+                className={`flex items-center gap-2 ${themeClasses.accent} hover:underline transition-colors`}
               >
                 <Linkedin className="w-4 h-4" />
                 LinkedIn
               </a>
             )}
-            {github && (
-              <a
-                href={github.startsWith("http") ? github : `https://github.com/${github}`}
+            {personalInfo.github && (
+              <a 
+                href={personalInfo.github}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center gap-2 ${theme === "creative" ? "text-white hover:text-purple-200" : "text-gray-600 hover:text-blue-600"} transition-colors`}
+                className={`flex items-center gap-2 ${themeClasses.accent} hover:underline transition-colors`}
               >
                 <Github className="w-4 h-4" />
                 GitHub
               </a>
             )}
+            {personalInfo.website && (
+              <a 
+                href={personalInfo.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center gap-2 ${themeClasses.accent} hover:underline transition-colors`}
+              >
+                <Globe className="w-4 h-4" />
+                Website
+              </a>
+            )}
           </div>
         </div>
-      </header>
+      </div>
+    )
+  }
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-12 space-y-12">
-        {/* Professional Summary */}
-        {summary && (
-          <Card className={currentTheme.cardClass}>
-            <CardHeader>
-              <CardTitle className={`${currentTheme.subtitleClass} flex items-center gap-2`}>
-                <User className="w-5 h-5" />
-                Professional Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className={`${currentTheme.textClass} text-lg leading-relaxed`}>{summary}</p>
-            </CardContent>
-          </Card>
-        )}
+  const renderExperienceSection = (content: any[]) => {
+    const validExperiences = content.filter(exp => 
+      exp['job title'] && exp['job title'].trim() !== ''
+    )
 
-        {/* Experience Section */}
-        {experience.length > 0 && (
-          <Card className={currentTheme.cardClass}>
-            <CardHeader>
-              <CardTitle className={`${currentTheme.subtitleClass} flex items-center gap-2`}>
-                <Briefcase className="w-5 h-5" />
-                Professional Experience
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              {experience.map((exp, index) => (
-                <div key={index} className="relative">
-                  {index > 0 && <Separator className="mb-8" />}
-                  <div className="space-y-3">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                      <h3 className={`text-xl font-semibold ${currentTheme.titleClass}`}>
-                        {safeString(exp.title || exp.position || exp.role)}
-                      </h3>
-                      <div className={`flex items-center gap-2 ${currentTheme.textClass} text-sm`}>
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {safeString(exp.startDate)} - {safeString(exp.endDate || "Present")}
-                        </span>
-                      </div>
-                    </div>
+    if (validExperiences.length === 0) return null
 
-                    <div className={`flex items-center gap-2 ${currentTheme.accentClass} font-medium`}>
+    return (
+      <div className="space-y-6">
+        {validExperiences.map((experience, index) => (
+          <Card key={index} className={themeClasses.card}>
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
+                    <Briefcase className="w-5 h-5 text-gray-500" />
+                    {experience['job title']}
+                  </h3>
+                  {experience.Organization && (
+                    <p className={`${themeClasses.accent} font-medium mb-2 flex items-center gap-2`}>
                       <Building className="w-4 h-4" />
-                      <span>{safeString(exp.company || exp.organization)}</span>
-                      {exp.location && (
-                        <>
-                          <span className="text-gray-400">•</span>
-                          <span className={currentTheme.textClass}>{safeString(exp.location)}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {exp.description && (
-                      <p className={`${currentTheme.textClass} leading-relaxed`}>{safeString(exp.description)}</p>
-                    )}
-
-                    {exp.achievements && safeArray(exp.achievements).length > 0 && (
-                      <ul className={`${currentTheme.textClass} space-y-2 ml-4`}>
-                        {safeArray(exp.achievements).map((achievement, achIndex) => (
-                          <li key={achIndex} className="flex items-start gap-2">
-                            <span
-                              className={`${currentTheme.accentClass} mt-2 w-1 h-1 rounded-full bg-current flex-shrink-0`}
-                            />
-                            <span>{safeString(achievement)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    {exp.technologies && safeArray(exp.technologies).length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-4">
-                        {safeArray(exp.technologies).map((tech, techIndex) => (
-                          <Badge key={techIndex} variant="secondary" className={currentTheme.badgeClass}>
-                            {safeString(tech)}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Skills Section */}
-        {skills.length > 0 && (
-          <Card className={currentTheme.cardClass}>
-            <CardHeader>
-              <CardTitle className={`${currentTheme.subtitleClass} flex items-center gap-2`}>
-                <Award className="w-5 h-5" />
-                Skills & Technologies
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                {skills.map((skill, index) => (
-                  <Badge key={index} variant="outline" className={`${currentTheme.badgeClass} px-3 py-1`}>
-                    {safeString(skill)}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Projects Section */}
-        {projects.length > 0 && (
-          <Card className={currentTheme.cardClass}>
-            <CardHeader>
-              <CardTitle className={`${currentTheme.subtitleClass} flex items-center gap-2`}>
-                <Github className="w-5 h-5" />
-                Featured Projects
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {projects.map((project, index) => (
-                <div key={index} className="space-y-3">
-                  {index > 0 && <Separator />}
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <h3 className={`text-lg font-semibold ${currentTheme.titleClass}`}>
-                      {safeString(project.name || project.title)}
-                    </h3>
-                    {project.url && (
-                      <Button variant="outline" size="sm" asChild className={currentTheme.buttonClass}>
-                        <a href={safeString(project.url)} target="_blank" rel="noopener noreferrer">
-                          <Globe className="w-4 h-4 mr-2" />
-                          View Project
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-
-                  {project.description && (
-                    <p className={`${currentTheme.textClass} leading-relaxed`}>{safeString(project.description)}</p>
-                  )}
-
-                  {project.technologies && safeArray(project.technologies).length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {safeArray(project.technologies).map((tech, techIndex) => (
-                        <Badge key={techIndex} variant="secondary" className={currentTheme.badgeClass}>
-                          {safeString(tech)}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Education Section */}
-        {education.length > 0 && (
-          <Card className={currentTheme.cardClass}>
-            <CardHeader>
-              <CardTitle className={`${currentTheme.subtitleClass} flex items-center gap-2`}>
-                <GraduationCap className="w-5 h-5" />
-                Education
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {education.map((edu, index) => (
-                <div key={index} className="space-y-2">
-                  {index > 0 && <Separator />}
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <h3 className={`text-lg font-semibold ${currentTheme.titleClass}`}>
-                      {safeString(edu.degree || edu.qualification)}
-                    </h3>
-                    <div className={`flex items-center gap-2 ${currentTheme.textClass} text-sm`}>
-                      <Calendar className="w-4 h-4" />
-                      <span>{safeString(edu.year || edu.graduationYear || edu.endDate)}</span>
-                    </div>
-                  </div>
-
-                  <div className={`${currentTheme.accentClass} font-medium`}>
-                    {safeString(edu.school || edu.institution || edu.university)}
-                  </div>
-
-                  {edu.location && (
-                    <div className={`${currentTheme.textClass} text-sm flex items-center gap-2`}>
-                      <MapPin className="w-3 h-3" />
-                      <span>{safeString(edu.location)}</span>
-                    </div>
-                  )}
-
-                  {edu.gpa && <div className={`${currentTheme.textClass} text-sm`}>GPA: {safeString(edu.gpa)}</div>}
-
-                  {edu.description && (
-                    <p className={`${currentTheme.textClass} text-sm leading-relaxed`}>{safeString(edu.description)}</p>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Certifications Section */}
-        {certifications.length > 0 && (
-          <Card className={currentTheme.cardClass}>
-            <CardHeader>
-              <CardTitle className={`${currentTheme.subtitleClass} flex items-center gap-2`}>
-                <Award className="w-5 h-5" />
-                Certifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {certifications.map((cert, index) => (
-                  <div key={index} className={`p-4 rounded-lg border ${currentTheme.cardClass}`}>
-                    <h4 className={`font-semibold ${currentTheme.titleClass} mb-2`}>
-                      {safeString(cert.name || cert.title)}
-                    </h4>
-                    <p className={`${currentTheme.accentClass} text-sm mb-1`}>
-                      {safeString(cert.issuer || cert.organization)}
+                      {experience.Organization}
                     </p>
-                    {cert.date && (
-                      <p className={`${currentTheme.textClass} text-sm flex items-center gap-1`}>
-                        <Calendar className="w-3 h-3" />
-                        {safeString(cert.date)}
-                      </p>
-                    )}
+                  )}
+                </div>
+                {experience.Duration && (
+                  <div className="flex items-center gap-2 text-gray-600 md:text-right">
+                    <Clock className="w-4 h-4" />
+                    <span className="font-medium">{formatDuration(experience.Duration)}</span>
                   </div>
-                ))}
+                )}
+              </div>
+              {experience.Description && (
+                <div className="text-gray-700 leading-relaxed">
+                  <p>{experience.Description}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  const renderEducationSection = (content: any[]) => {
+    const validEducation = content.filter(edu => 
+      edu.Degree && edu.Degree.trim() !== ''
+    )
+
+    if (validEducation.length === 0) return null
+
+    return (
+      <div className="space-y-4">
+        {validEducation.map((education, index) => (
+          <Card key={index} className={themeClasses.card}>
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-gray-500" />
+                    {education.Degree}
+                  </h3>
+                  {education.Organization && (
+                    <p className={`${themeClasses.accent} font-medium`}>
+                      {education.Organization}
+                    </p>
+                  )}
+                </div>
+                {education.Duration && (
+                  <div className="flex items-center gap-2 text-gray-600 mt-2 md:mt-0">
+                    <Calendar className="w-4 h-4" />
+                    <span className="font-medium">{education.Duration}</span>
+                  </div>
+                )}
+              </div>
+              {education.GPA && education.GPA.trim() !== '' && (
+                <div className="mt-3">
+                  <Badge variant="secondary" className={themeClasses.badge}>
+                    GPA: {education.GPA}
+                  </Badge>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  const renderSkillsSection = (content: any[]) => {
+    const validSkills = content.filter(skill => 
+      skill.Category && skill.Category.trim() !== '' && 
+      skill.Skills && skill.Skills.trim() !== ''
+    )
+
+    if (validSkills.length === 0) return null
+
+    return (
+      <div className="space-y-6">
+        {validSkills.map((skillGroup, index) => (
+          <Card key={index} className={themeClasses.card}>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Award className="w-5 h-5 text-gray-500" />
+                {skillGroup.Category}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex flex-wrap gap-2">
+                {skillGroup.Skills.split(',').map((skill: string, skillIndex: number) => {
+                  const trimmedSkill = skill.trim()
+                  if (!trimmedSkill) return null
+                  return (
+                    <Badge 
+                      key={skillIndex} 
+                      variant="secondary" 
+                      className={`${themeClasses.badge} text-sm`}
+                    >
+                      {trimmedSkill}
+                    </Badge>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
-        )}
+        ))}
+      </div>
+    )
+  }
 
-        {/* Fallback message if no content */}
-        {!summary &&
-          experience.length === 0 &&
-          education.length === 0 &&
-          skills.length === 0 &&
-          projects.length === 0 && (
-            <Card className={currentTheme.cardClass}>
-              <CardHeader>
-                <CardTitle className={currentTheme.subtitleClass}>Professional Portfolio</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className={currentTheme.textClass}>
-                  This portfolio is being built from your resume data. Add more sections to your resume to see them
-                  displayed here.
-                </p>
-                <div className="flex gap-2 mt-4">
-                  <Badge variant="outline" className={currentTheme.badgeClass}>
-                    Experience
-                  </Badge>
-                  <Badge variant="outline" className={currentTheme.badgeClass}>
-                    Skills
-                  </Badge>
-                  <Badge variant="outline" className={currentTheme.badgeClass}>
-                    Education
-                  </Badge>
-                  <Badge variant="outline" className={currentTheme.badgeClass}>
-                    Projects
-                  </Badge>
+  const renderSection = (section: any) => {
+    const sectionName = section['section name']?.toLowerCase()
+    
+    switch (sectionName) {
+      case 'experience':
+        return renderExperienceSection(section.content)
+      case 'education':
+        return renderEducationSection(section.content)
+      case 'skills':
+        return renderSkillsSection(section.content)
+      default:
+        return null
+    }
+  }
+
+  const getSectionIcon = (sectionName: string) => {
+    switch (sectionName.toLowerCase()) {
+      case 'experience':
+        return <Briefcase className="w-6 h-6" />
+      case 'education':
+        return <GraduationCap className="w-6 h-6" />
+      case 'skills':
+        return <Award className="w-6 h-6" />
+      default:
+        return <User className="w-6 h-6" />
+    }
+  }
+
+  const sections = resumeData.sections || []
+  const validSections = sections.filter(section => 
+    section['section name'] && section.content && section.content.length > 0
+  )
+
+  return (
+    <div className={`min-h-screen ${themeClasses.container}`}>
+      {renderPersonalInfo()}
+      
+      <div className="max-w-4xl mx-auto px-8 py-12 space-y-12">
+        {validSections.map((section, index) => {
+          const renderedSection = renderSection(section)
+          if (!renderedSection) return null
+
+          return (
+            <section key={section.id || index}>
+              <div className="flex items-center gap-3 mb-8">
+                <div className={themeClasses.accent}>
+                  {getSectionIcon(section['section name'])}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-      </main>
+                <h2 className="text-3xl font-bold tracking-tight">
+                  {section['section name']}
+                </h2>
+                <div className="flex-1 h-px bg-gray-200 ml-4" />
+              </div>
+              {renderedSection}
+            </section>
+          )
+        })}
+      </div>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 bg-white/50 backdrop-blur-sm py-8">
+        <div className="max-w-4xl mx-auto px-8 text-center text-gray-600">
+          <p>© {new Date().getFullYear()} {resumeData.personalInfo?.name || 'Professional Portfolio'}. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   )
 }
