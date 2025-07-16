@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { ResumeNameEditorDialog } from "../resume-name-editor-dialog"
-import { PortfolioCreatorDialog } from "../portfolio-creator-dialog"
+//import { PortfolioCreatorDialog } from "../portfolio-creator-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -253,7 +253,7 @@ export function ResumeCard({
                 Load
               </Button>
             )}
-                                      <PortfolioCreatorDialog
+                                    { /* *<PortfolioCreatorDialog
                             resume={resume}
                             onSuccess={(newPortfolio) => {
                               setPortfolios([...portfolios, newPortfolio])
@@ -263,7 +263,7 @@ export function ResumeCard({
                               <Plus className="h-3 w-3 mr-1" />
                               Portfolio
                             </Button>
-                          </PortfolioCreatorDialog>
+                          </PortfolioCreatorDialog>**/}
             <Button
               variant="ghost"
               size="sm"
