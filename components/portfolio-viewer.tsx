@@ -172,36 +172,52 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
   const skills = extractSkills(data)
   const projects = extractProjects(data)
 
-  // Theme-specific styling
+  // Theme-specific styling with more distinct differences
   const getThemeClasses = () => {
     switch (theme) {
       case "classic":
         return {
-          container: "bg-white text-gray-900",
-          header: "bg-gray-50 border-b-2 border-gray-200",
-          accent: "text-gray-700",
-          card: "border-gray-200 shadow-sm",
+          container: "bg-white text-gray-900 font-serif",
+          header: "bg-gray-100 border-b-4 border-gray-800",
+          headerText: "text-gray-900",
+          accent: "text-gray-800",
+          card: "border-2 border-gray-300 shadow-lg bg-white rounded-none",
+          cardHeader: "bg-gray-50 border-b-2 border-gray-200",
+          badge: "bg-gray-200 text-gray-800 border-gray-400",
+          button: "border-gray-400 text-gray-700 hover:bg-gray-100",
         }
       case "minimal":
         return {
           container: "bg-white text-gray-800",
           header: "bg-white border-b border-gray-100",
+          headerText: "text-gray-900",
           accent: "text-gray-600",
-          card: "border-gray-100 shadow-none",
+          card: "border border-gray-100 shadow-none bg-white rounded-lg",
+          cardHeader: "bg-white border-b border-gray-50",
+          badge: "bg-gray-50 text-gray-700 border-gray-200",
+          button: "border-gray-200 text-gray-600 hover:bg-gray-50",
         }
       case "creative":
         return {
-          container: "bg-gradient-to-br from-purple-50 to-blue-50 text-gray-900",
-          header: "bg-white/80 backdrop-blur-sm border-b border-purple-200",
+          container: "bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 text-gray-900",
+          header: "bg-gradient-to-r from-purple-600 to-blue-600 text-white border-none",
+          headerText: "text-white",
           accent: "text-purple-700",
-          card: "border-purple-200 shadow-md bg-white/60 backdrop-blur-sm",
+          card: "border-2 border-purple-200 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl",
+          cardHeader: "bg-gradient-to-r from-purple-50 to-blue-50 border-b-2 border-purple-200",
+          badge: "bg-gradient-to-r from-purple-100 to-blue-100 text-purple-800 border-purple-300",
+          button: "border-purple-300 text-purple-700 hover:bg-purple-50",
         }
       default: // modern
         return {
           container: "bg-gray-50 text-gray-900",
-          header: "bg-white border-b border-gray-200",
+          header: "bg-white border-b-2 border-blue-200",
+          headerText: "text-gray-900",
           accent: "text-blue-600",
-          card: "border-gray-200 shadow-sm bg-white",
+          card: "border border-gray-200 shadow-md bg-white rounded-lg",
+          cardHeader: "bg-blue-50 border-b border-blue-200",
+          badge: "bg-blue-100 text-blue-800 border-blue-300",
+          button: "border-blue-300 text-blue-700 hover:bg-blue-50",
         }
     }
   }
@@ -211,17 +227,25 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
   return (
     <div className={`min-h-screen ${themeClasses.container}`}>
       {/* Header Section */}
-      <div className={`${themeClasses.header} px-6 py-8`}>
+      <div className={`${themeClasses.header} px-6 py-12`}>
         <div className="max-w-4xl mx-auto">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-2">{personal.name}</h1>
-            <p className={`text-xl ${themeClasses.accent} mb-4`}>{personal.title}</p>
-            {personal.summary && <p className="text-gray-600 max-w-2xl mx-auto mb-6">{personal.summary}</p>}
+            <h1 className={`text-5xl font-bold mb-3 ${themeClasses.headerText}`}>{personal.name}</h1>
+            <p className={`text-2xl mb-6 ${theme === "creative" ? "text-white/90" : themeClasses.accent}`}>
+              {personal.title}
+            </p>
+            {personal.summary && (
+              <p
+                className={`text-lg max-w-3xl mx-auto mb-8 ${theme === "creative" ? "text-white/80" : "text-gray-600"}`}
+              >
+                {personal.summary}
+              </p>
+            )}
 
             {/* Contact Information */}
             <div className="flex flex-wrap justify-center gap-4 text-sm">
               {personal.email && (
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" size="sm" asChild className={themeClasses.button}>
                   <a href={`mailto:${personal.email}`} className="flex items-center gap-2">
                     <Mail className="h-4 w-4" />
                     {personal.email}
@@ -229,7 +253,7 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
                 </Button>
               )}
               {personal.phone && (
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" size="sm" asChild className={themeClasses.button}>
                   <a href={`tel:${personal.phone}`} className="flex items-center gap-2">
                     <Phone className="h-4 w-4" />
                     {personal.phone}
@@ -237,13 +261,13 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
                 </Button>
               )}
               {personal.location && (
-                <div className="flex items-center gap-2 text-gray-600">
+                <div className={`flex items-center gap-2 ${theme === "creative" ? "text-white/80" : "text-gray-600"}`}>
                   <MapPin className="h-4 w-4" />
                   {personal.location}
                 </div>
               )}
               {personal.website && (
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" size="sm" asChild className={themeClasses.button}>
                   <a
                     href={personal.website}
                     target="_blank"
@@ -256,7 +280,7 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
                 </Button>
               )}
               {personal.linkedin && (
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" size="sm" asChild className={themeClasses.button}>
                   <a
                     href={personal.linkedin}
                     target="_blank"
@@ -269,7 +293,7 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
                 </Button>
               )}
               {personal.github && (
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" size="sm" asChild className={themeClasses.button}>
                   <a
                     href={personal.github}
                     target="_blank"
@@ -291,11 +315,13 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
         {/* Skills Section */}
         {skills.length > 0 && (
           <Card className={themeClasses.card}>
+            <div className={`${themeClasses.cardHeader} p-6 rounded-t-lg`}>
+              <h2 className={`text-2xl font-bold ${themeClasses.accent}`}>Skills & Technologies</h2>
+            </div>
             <CardContent className="p-6">
-              <h2 className={`text-2xl font-bold mb-4 ${themeClasses.accent}`}>Skills & Technologies</h2>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {skills.map((skill, index) => (
-                  <Badge key={index} variant="secondary" className="text-sm">
+                  <Badge key={index} variant="secondary" className={`text-sm px-3 py-1 ${themeClasses.badge}`}>
                     {skill}
                   </Badge>
                 ))}
@@ -307,25 +333,27 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
         {/* Experience Section */}
         {experience.length > 0 && (
           <Card className={themeClasses.card}>
-            <CardContent className="p-6">
-              <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${themeClasses.accent}`}>
+            <div className={`${themeClasses.cardHeader} p-6 rounded-t-lg`}>
+              <h2 className={`text-2xl font-bold flex items-center gap-2 ${themeClasses.accent}`}>
                 <Briefcase className="h-6 w-6" />
                 Professional Experience
               </h2>
+            </div>
+            <CardContent className="p-6">
               <div className="space-y-6">
                 {experience.map((exp, index) => (
-                  <div key={index} className="border-l-2 border-gray-200 pl-4 pb-6 last:pb-0">
+                  <div key={index} className="border-l-4 border-gray-200 pl-6 pb-6 last:pb-0">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
-                      <h3 className="text-xl font-semibold">{exp.position}</h3>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <h3 className="text-xl font-semibold text-gray-900">{exp.position}</h3>
+                      <div className={`flex items-center gap-2 text-sm ${themeClasses.accent}`}>
                         <Calendar className="h-4 w-4" />
                         {exp.duration}
                       </div>
                     </div>
-                    <p className={`font-medium mb-2 ${themeClasses.accent}`}>{exp.company}</p>
-                    {exp.description && <p className="text-gray-600 mb-3">{exp.description}</p>}
+                    <p className={`text-lg font-medium mb-3 ${themeClasses.accent}`}>{exp.company}</p>
+                    {exp.description && <p className="text-gray-700 mb-3">{exp.description}</p>}
                     {exp.achievements && exp.achievements.length > 0 && (
-                      <ul className="list-disc list-inside text-gray-600 space-y-1">
+                      <ul className="list-disc list-inside text-gray-700 space-y-1">
                         {exp.achievements.map((achievement: string, achIndex: number) => (
                           <li key={achIndex}>{achievement}</li>
                         ))}
@@ -341,43 +369,43 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
         {/* Projects Section */}
         {projects.length > 0 && (
           <Card className={themeClasses.card}>
+            <div className={`${themeClasses.cardHeader} p-6 rounded-t-lg`}>
+              <h2 className={`text-2xl font-bold ${themeClasses.accent}`}>Featured Projects</h2>
+            </div>
             <CardContent className="p-6">
-              <h2 className={`text-2xl font-bold mb-6 ${themeClasses.accent}`}>Featured Projects</h2>
               <div className="grid gap-6 md:grid-cols-2">
                 {projects.map((project, index) => (
-                  <Card key={index} className="border border-gray-200">
-                    <CardContent className="p-4">
-                      <h3 className="text-lg font-semibold mb-2">{project.name}</h3>
-                      {project.description && <p className="text-gray-600 mb-3">{project.description}</p>}
-                      {project.technologies && project.technologies.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {project.technologies.map((tech: string, techIndex: number) => (
-                            <Badge key={techIndex} variant="outline" className="text-xs">
-                              {tech}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        {project.demoUrl && (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-3 w-3 mr-1" />
-                              Demo
-                            </a>
-                          </Button>
-                        )}
-                        {project.codeUrl && (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={project.codeUrl} target="_blank" rel="noopener noreferrer">
-                              <Github className="h-3 w-3 mr-1" />
-                              Code
-                            </a>
-                          </Button>
-                        )}
+                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{project.name}</h3>
+                    {project.description && <p className="text-gray-700 mb-3">{project.description}</p>}
+                    {project.technologies && project.technologies.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {project.technologies.map((tech: string, techIndex: number) => (
+                          <Badge key={techIndex} variant="outline" className="text-xs">
+                            {tech}
+                          </Badge>
+                        ))}
                       </div>
-                    </CardContent>
-                  </Card>
+                    )}
+                    <div className="flex gap-2">
+                      {project.demoUrl && (
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Demo
+                          </a>
+                        </Button>
+                      )}
+                      {project.codeUrl && (
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={project.codeUrl} target="_blank" rel="noopener noreferrer">
+                            <Github className="h-3 w-3 mr-1" />
+                            Code
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </CardContent>
@@ -387,24 +415,26 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
         {/* Education Section */}
         {education.length > 0 && (
           <Card className={themeClasses.card}>
-            <CardContent className="p-6">
-              <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${themeClasses.accent}`}>
+            <div className={`${themeClasses.cardHeader} p-6 rounded-t-lg`}>
+              <h2 className={`text-2xl font-bold flex items-center gap-2 ${themeClasses.accent}`}>
                 <GraduationCap className="h-6 w-6" />
                 Education
               </h2>
+            </div>
+            <CardContent className="p-6">
               <div className="space-y-4">
                 {education.map((edu, index) => (
-                  <div key={index} className="border-l-2 border-gray-200 pl-4">
+                  <div key={index} className="border-l-4 border-gray-200 pl-6">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
-                      <h3 className="text-lg font-semibold">{edu.degree}</h3>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <h3 className="text-lg font-semibold text-gray-900">{edu.degree}</h3>
+                      <div className={`flex items-center gap-2 text-sm ${themeClasses.accent}`}>
                         <Calendar className="h-4 w-4" />
                         {edu.duration}
                       </div>
                     </div>
-                    <p className={`font-medium ${themeClasses.accent}`}>{edu.institution}</p>
-                    {edu.field && <p className="text-gray-600">{edu.field}</p>}
-                    {edu.gpa && <p className="text-gray-600">GPA: {edu.gpa}</p>}
+                    <p className={`text-base font-medium ${themeClasses.accent}`}>{edu.institution}</p>
+                    {edu.field && <p className="text-gray-700">{edu.field}</p>}
+                    {edu.gpa && <p className="text-gray-700">GPA: {edu.gpa}</p>}
                   </div>
                 ))}
               </div>
@@ -412,25 +442,28 @@ export function PortfolioViewer({ data, theme = "modern" }: PortfolioViewerProps
           </Card>
         )}
 
-        {/* Fallback content if no data */}
+        {/* Fallback message if no content */}
         {experience.length === 0 && education.length === 0 && skills.length === 0 && projects.length === 0 && (
           <Card className={themeClasses.card}>
-            <CardContent className="p-6 text-center">
+            <CardContent className="p-12 text-center">
               <h2 className={`text-2xl font-bold mb-4 ${themeClasses.accent}`}>Professional Portfolio</h2>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 max-w-2xl mx-auto">
                 This portfolio is being built from your resume data. Add more sections to your resume to see them
                 displayed here.
               </p>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Available Sections:</h3>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    <Badge variant="outline">Experience</Badge>
-                    <Badge variant="outline">Education</Badge>
-                    <Badge variant="outline">Skills</Badge>
-                    <Badge variant="outline">Projects</Badge>
-                  </div>
-                </div>
+              <div className="flex justify-center gap-4 mt-6">
+                <Badge variant="outline" className={themeClasses.badge}>
+                  Experience
+                </Badge>
+                <Badge variant="outline" className={themeClasses.badge}>
+                  Education
+                </Badge>
+                <Badge variant="outline" className={themeClasses.badge}>
+                  Skills
+                </Badge>
+                <Badge variant="outline" className={themeClasses.badge}>
+                  Projects
+                </Badge>
               </div>
             </CardContent>
           </Card>

@@ -248,7 +248,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   }
 
   const saveCurrentResume = async () => {
-    if (!saveTitle?.trim?.() || !onSaveResume) {
+    // Add null checks for saveTitle
+    if (!saveTitle || typeof saveTitle !== "string" || !saveTitle.trim() || !onSaveResume) {
       toast({
         title: "Error",
         description: "Please enter a title for your resume",
@@ -520,10 +521,19 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     })
   }
 
-  const filteredResumes = resumes.filter((resume) => resume.title?.toLowerCase().includes(searchQuery.toLowerCase()))
+  // Add null checks for filtering
+  const filteredResumes = resumes.filter(
+    (resume) =>
+      resume.title &&
+      typeof resume.title === "string" &&
+      resume.title.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
-  const filteredPortfolios = portfolios.filter((portfolio) =>
-    portfolio.title?.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredPortfolios = portfolios.filter(
+    (portfolio) =>
+      portfolio.title &&
+      typeof portfolio.title === "string" &&
+      portfolio.title.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   // Filter and sort resumes with favorites first
@@ -591,8 +601,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
             <div className="flex gap-2">
               <Input
                 placeholder="Enter resume title to save..."
-                value={saveTitle}
-                onChange={(e) => setSaveTitle(e.target.value)}
+                value={saveTitle || ""}
+                onChange={(e) => setSaveTitle(e.target.value || "")}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !saving) {
                     saveCurrentResume()
@@ -600,7 +610,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                 }}
                 className="flex-1"
               />
-              <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
+              <Button onClick={saveCurrentResume} disabled={saving || !saveTitle || !saveTitle.trim()}>
                 {saving ? "Saving..." : "Save Resume"}
               </Button>
             </div>
@@ -710,7 +720,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2 flex-1 mr-2">
-                          <CardTitle className="text-lg truncate flex-1">{resume.title}</CardTitle>
+                          <CardTitle className="text-lg truncate flex-1">{resume.title || "Untitled Resume"}</CardTitle>
                           <ResumeNameEditorDialog
                             resume={resume}
                             onSave={(updatedResume) => {
