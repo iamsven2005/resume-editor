@@ -57,29 +57,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-interface SavedResume {
-  id: string
-  title: string
-  resume_data: any
-  is_favorite: boolean
+interface Resume {
+  id: number
+  name: string
+  data: any
   created_at: string
   updated_at: string
+  is_favorite?: boolean
 }
 
 interface Portfolio {
-  id: string
-  title: string
-  description?: string
+  id: number
+  name: string
+  slug: string
   theme: string
-  resume_data: any
-  is_published: boolean
-  portfolio_url: string
-  total_views: number
-  unique_visitors: number
-  views_last_7_days: number
-  views_last_30_days: number
+  resume_id: number
+  is_public: boolean
   created_at: string
   updated_at: string
+  resume?: Resume
 }
 
 interface ResumeAnalysis {
@@ -113,11 +109,11 @@ export function ResumeGallery({
   onSaveResume 
 }: ResumeGalleryProps = {}) {
   const { user, token } = useAuth()
-  const [resumes, setResumes] = useState<SavedResume[]>([])
+  const [resumes, setResumes] = useState<Resume[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedResume, setSelectedResume] = useState<SavedResume | null>(null)
+  const [selectedResume, setSelectedResume] = useState<Resume | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [showResumeEditor, setShowResumeEditor] = useState(false)
   const [showPortfolioCreator, setShowPortfolioCreator] = useState(false)
@@ -252,8 +248,7 @@ export function ResumeGallery({
   }
 
   const saveCurrentResume = async () => {
-    if (typeof saveTitle !== "string" || !saveTitle.trim() || !onSaveResume) {
-
+    if (!saveTitle.trim() || !onSaveResume) {
       toast({
         title: "Error",
         description: "Please enter a title for your resume",
@@ -473,7 +468,7 @@ export function ResumeGallery({
           jobDescription,
           resumes: selectedResumes.map(r => ({
             id: r.id,
-            name: r.title,
+            name: r.name,
             data: r.data
           }))
         }),
@@ -526,11 +521,11 @@ export function ResumeGallery({
   }
 
   const filteredResumes = resumes.filter((resume) =>
-    resume.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    resume.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
-    portfolio.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    portfolio.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   // Filter and sort resumes with favorites first
@@ -607,11 +602,12 @@ export function ResumeGallery({
                 }}
                 className="flex-1"
               />
-<Button
-  onClick={saveCurrentResume}
-  disabled={saving || typeof saveTitle !== "string" || saveTitle.trim() === ""}
-/>
-
+              <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
+                {saving ? "Saving..." : "Save Resume"}
+              </Button>
+              <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
+                {saving ? "Saving..." : "Save Resume"}
+              </Button>
             </div>
           )}
         </CardContent>
@@ -719,7 +715,7 @@ export function ResumeGallery({
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2 flex-1 mr-2">
-                          <CardTitle className="text-lg truncate flex-1">{resume.title}</CardTitle>
+                          <CardTitle className="text-lg truncate flex-1">{resume.name}</CardTitle>
                           <ResumeNameEditorDialog
                             open={showResumeEditor && selectedResume?.id === resume.id}
                             onOpenChange={(open) => {
@@ -800,7 +796,7 @@ export function ResumeGallery({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => downloadResume(resume.id, resume.title)}
+                            onClick={() => downloadResume(resume.id, resume.name)}
                             className="h-8 px-2"
                           >
                             <Download className="h-3 w-3" />
@@ -816,7 +812,7 @@ export function ResumeGallery({
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Resume</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete "{resume.title}"? This action cannot be undone.
+                                Are you sure you want to delete "{resume.name}"? This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -858,7 +854,7 @@ export function ResumeGallery({
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{portfolio.title}</CardTitle>
+                          <CardTitle className="text-lg truncate">{portfolio.name}</CardTitle>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                             <Calendar className="h-3 w-3" />
                             <span>Updated {formatDate(portfolio.updated_at)}</span>
@@ -930,7 +926,7 @@ export function ResumeGallery({
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{portfolio.title}"? This action cannot be undone.
+                                  Are you sure you want to delete "{portfolio.name}"? This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -1024,7 +1020,7 @@ export function ResumeGallery({
                                       onCheckedChange={(checked) => handleResumeSelection(resume.id, checked as boolean)}
                                       onClick={(e) => e.stopPropagation()}
                                     />
-                                    <CardTitle className="text-base truncate">{resume.title}</CardTitle>
+                                    <CardTitle className="text-base truncate">{resume.name}</CardTitle>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                                     <Calendar className="h-3 w-3" />
