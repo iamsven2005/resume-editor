@@ -113,10 +113,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedResume, setSelectedResume] = useState<Resume | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
-  const [showResumeEditor, setShowResumeEditor] = useState(false)
-  const [showPortfolioCreator, setShowPortfolioCreator] = useState(false)
-  const [showPortfolioEditor, setShowPortfolioEditor] = useState(false)
-  const [showAnalytics, setShowAnalytics] = useState(false)
 
   // Quick Actions state
   const [saving, setSaving] = useState(false)
@@ -166,7 +162,10 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
       if (response.ok) {
         const data = await response.json()
-        setResumes(data.resumes)
+        console.log("Fetched resumes:", data.resumes)
+        setResumes(data.resumes || [])
+      } else {
+        console.error("Failed to fetch resumes:", response.status)
       }
     } catch (error) {
       console.error("Error fetching resumes:", error)
@@ -190,7 +189,10 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
       if (response.ok) {
         const data = await response.json()
-        setPortfolios(data.portfolios)
+        console.log("Fetched portfolios:", data.portfolios)
+        setPortfolios(data.portfolios || [])
+      } else {
+        console.error("Failed to fetch portfolios:", response.status)
       }
     } catch (error) {
       console.error("Error fetching portfolios:", error)
@@ -246,8 +248,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   }
 
   const saveCurrentResume = async () => {
-    console.log("saveTitle value:", saveTitle)
-
     if (!saveTitle?.trim?.() || !onSaveResume) {
       toast({
         title: "Error",
@@ -345,7 +345,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     }
   }
 
-  const handleDeletePortfolio = async (portfolioId: number) => {
+  const handleDeletePortfolio = async (portfolioId: string) => {
     try {
       const response = await fetch(`/api/portfolios/${portfolioId}`, {
         method: "DELETE",
@@ -397,7 +397,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       })
       if (response.ok) {
         const data = await response.json()
-        const blob = new Blob([JSON.stringify(data.resume.data, null, 2)], {
+        const blob = new Blob([JSON.stringify(data.resume.resume_data, null, 2)], {
           type: "application/json",
         })
         const url = URL.createObjectURL(blob)
@@ -468,8 +468,8 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
           jobDescription,
           resumes: selectedResumes.map((r) => ({
             id: r.id,
-            name: r.name,
-            data: r.data,
+            name: r.title,
+            data: r.resume_data,
           })),
         }),
       })
@@ -520,7 +520,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     })
   }
 
-  const filteredResumes = resumes.filter((resume) => resume.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredResumes = resumes.filter((resume) => resume.title?.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
     portfolio.title?.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -600,9 +600,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                 }}
                 className="flex-1"
               />
-              <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
-                {saving ? "Saving..." : "Save Resume"}
-              </Button>
               <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
                 {saving ? "Saving..." : "Save Resume"}
               </Button>
@@ -715,24 +712,14 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                         <div className="flex items-center gap-2 flex-1 mr-2">
                           <CardTitle className="text-lg truncate flex-1">{resume.title}</CardTitle>
                           <ResumeNameEditorDialog
-                            open={showResumeEditor && selectedResume?.id === resume.id}
-                            onOpenChange={(open) => {
-                              setShowResumeEditor(open)
-                              if (!open) setSelectedResume(null)
-                            }}
                             resume={resume}
                             onSave={(updatedResume) => {
                               setResumes(resumes.map((r) => (r.id === updatedResume.id ? updatedResume : r)))
-                              setSelectedResume(null)
                             }}
                           >
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                setSelectedResume(resume)
-                                setShowResumeEditor(true)
-                              }}
                               className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                               <Edit2 className="h-3 w-3" />
@@ -772,25 +759,24 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => onLoadResume(resume.data)}
+                              onClick={() => onLoadResume(resume.resume_data)}
                               className="h-8 px-2"
                             >
                               <Edit className="h-3 w-3 mr-1" />
                               Load
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedResume(resume)
-                              setShowPortfolioCreator(true)
+                          <PortfolioCreatorDialog
+                            resume={resume}
+                            onSuccess={(newPortfolio) => {
+                              setPortfolios([...portfolios, newPortfolio])
                             }}
-                            className="h-8 px-2"
                           >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Portfolio
-                          </Button>
+                            <Button variant="ghost" size="sm" className="h-8 px-2">
+                              <Plus className="h-3 w-3 mr-1" />
+                              Portfolio
+                            </Button>
+                          </PortfolioCreatorDialog>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -880,18 +866,17 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                             <Eye className="h-3 w-3 mr-1" />
                             View
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedPortfolio(portfolio)
-                              setShowPortfolioEditor(true)
+                          <PortfolioEditorDialog
+                            portfolio={portfolio}
+                            onPortfolioUpdated={() => {
+                              fetchPortfolios()
                             }}
-                            className="h-8 px-2"
                           >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Edit
-                          </Button>
+                            <Button variant="ghost" size="sm" className="h-8 px-2">
+                              <Edit className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          </PortfolioEditorDialog>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -903,17 +888,11 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                           </Button>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedPortfolio(portfolio)
-                              setShowAnalytics(true)
-                            }}
-                            className="h-8 w-8 p-0"
-                          >
-                            <BarChart3 className="h-3 w-3" />
-                          </Button>
+                          <PortfolioAnalyticsDialog portfolioId={portfolio.id} portfolioTitle={portfolio.title}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <BarChart3 className="h-3 w-3" />
+                            </Button>
+                          </PortfolioAnalyticsDialog>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive">
@@ -1233,50 +1212,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
           <FileUploadManager searchQuery={searchQuery} />
         </TabsContent>
       </Tabs>
-
-      {/* Dialogs */}
-      {selectedResume && (
-        <ResumeNameEditorDialog
-          open={showResumeEditor}
-          onOpenChange={setShowResumeEditor}
-          resume={selectedResume}
-          onSave={(updatedResume) => {
-            setResumes(resumes.map((r) => (r.id === updatedResume.id ? updatedResume : r)))
-            setSelectedResume(null)
-          }}
-        />
-      )}
-
-      {selectedResume && (
-        <PortfolioCreatorDialog
-          open={showPortfolioCreator}
-          onOpenChange={setShowPortfolioCreator}
-          resume={selectedResume}
-          onSuccess={(newPortfolio) => {
-            setPortfolios([...portfolios, newPortfolio])
-            setSelectedResume(null)
-          }}
-        />
-      )}
-
-      {selectedPortfolio && showPortfolioEditor && (
-        <PortfolioEditorDialog
-          portfolio={selectedPortfolio}
-          onPortfolioUpdated={() => {
-            fetchPortfolios()
-            setSelectedPortfolio(null)
-            setShowPortfolioEditor(false)
-          }}
-        >
-          <div />
-        </PortfolioEditorDialog>
-      )}
-
-      {selectedPortfolio && showAnalytics && (
-        <PortfolioAnalyticsDialog portfolioId={selectedPortfolio.id} portfolioTitle={selectedPortfolio.title}>
-          <div />
-        </PortfolioAnalyticsDialog>
-      )}
     </div>
   )
 }
