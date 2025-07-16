@@ -24,9 +24,3 @@ BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_feedback_updated_at
-    BEFORE UPDATE ON feedback
-    FOR EACH ROW
-    EXECUTE FUNCTION update_feedback_updated_at();
