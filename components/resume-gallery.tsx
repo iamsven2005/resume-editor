@@ -252,7 +252,9 @@ export function ResumeGallery({
   }
 
   const saveCurrentResume = async () => {
-    if (!saveTitle.trim() || !onSaveResume) {
+  console.log("saveTitle value:", saveTitle)
+
+if (!saveTitle?.trim?.() || !onSaveResume) {
       toast({
         title: "Error",
         description: "Please enter a title for your resume",
@@ -525,7 +527,7 @@ export function ResumeGallery({
   }
 
   const filteredResumes = resumes.filter((resume) =>
-    resume.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    resume.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
