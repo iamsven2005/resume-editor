@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
-
+//for maker
 export async function POST(request: NextRequest) {
   try {
     let body

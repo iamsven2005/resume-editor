@@ -7,7 +7,32 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { FileText, Globe, Plus, Search, Calendar, Edit, Trash2, Eye, Share, BarChart3, Download } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
+import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
+import { 
+  FileText, 
+  Globe, 
+  Plus, 
+  Search, 
+  Calendar, 
+  Edit, 
+  Trash2, 
+  Eye, 
+  Share, 
+  BarChart3, 
+  Download,
+  TrendingUp,
+  Star,
+  User,
+  Mail,
+  Phone,
+  Linkedin,
+  Briefcase,
+  CheckCircle2
+} from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import { ResumeNameEditorDialog } from "./resume-name-editor-dialog"
@@ -47,6 +72,23 @@ interface Portfolio {
   resume?: Resume
 }
 
+interface ResumeAnalysis {
+  resumeId: number
+  fileName: string
+  score: number
+  strengths: string[]
+  weaknesses: string[]
+  keySkills: string[]
+  experience: string
+  summary: string
+  contactInfo: {
+    email?: string
+    phone?: string
+    name?: string
+    linkedin?: string
+  }
+}
+
 export function ResumeGallery() {
   const { user, token } = useAuth()
   const [resumes, setResumes] = useState<Resume[]>([])
@@ -59,6 +101,13 @@ export function ResumeGallery() {
   const [showPortfolioCreator, setShowPortfolioCreator] = useState(false)
   const [showPortfolioEditor, setShowPortfolioEditor] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
+
+  // Ranking functionality state
+  const [selectedResumeIds, setSelectedResumeIds] = useState<Set<number>>(new Set())
+  const [jobDescription, setJobDescription] = useState("")
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysisResults, setAnalysisResults] = useState<ResumeAnalysis[]>([])
+  const [showRanking, setShowRanking] = useState(false)
 
   useEffect(() => {
     if (user && token) {
@@ -119,6 +168,11 @@ export function ResumeGallery() {
 
       if (response.ok) {
         setResumes(resumes.filter((r) => r.id !== resumeId))
+        setSelectedResumeIds(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(resumeId)
+          return newSet
+        })
         toast({
           description: "Resume deleted successfully",
         })
@@ -177,6 +231,96 @@ export function ResumeGallery() {
     }
   }
 
+  const handleResumeSelection = (resumeId: number, checked: boolean) => {
+    setSelectedResumeIds(prev => {
+      const newSet = new Set(prev)
+      if (checked) {
+        newSet.add(resumeId)
+      } else {
+        newSet.delete(resumeId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAllResumes = (checked: boolean) => {
+    if (checked) {
+      setSelectedResumeIds(new Set(filteredResumes.map(r => r.id)))
+    } else {
+      setSelectedResumeIds(new Set())
+    }
+  }
+
+  const analyzeSelectedResumes = async () => {
+    if (!jobDescription.trim() || selectedResumeIds.size === 0) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a job description and select at least one resume.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsAnalyzing(true)
+    setShowRanking(true)
+
+    try {
+      const selectedResumes = resumes.filter(r => selectedResumeIds.has(r.id))
+      
+      const response = await fetch("/api/analyze-resumes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          jobDescription,
+          resumes: selectedResumes.map(r => ({
+            id: r.id,
+            name: r.name,
+            data: r.data
+          }))
+        }),
+      })
+
+      if (response.ok) {
+        const analysisData = await response.json()
+        setAnalysisResults(analysisData.results.sort((a: ResumeAnalysis, b: ResumeAnalysis) => b.score - a.score))
+      } else {
+        throw new Error("Analysis failed")
+      }
+    } catch (error) {
+      console.error("Analysis failed:", error)
+      toast({
+        title: "Error",
+        description: "Failed to analyze resumes. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const resetRanking = () => {
+    setSelectedResumeIds(new Set())
+    setJobDescription("")
+    setAnalysisResults([])
+    setShowRanking(false)
+  }
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-green-600"
+    if (score >= 60) return "text-yellow-600"
+    return "text-red-600"
+  }
+
+  const getScoreLabel = (score: number) => {
+    if (score >= 80) return "Excellent Match"
+    if (score >= 60) return "Good Match"
+    if (score >= 40) return "Fair Match"
+    return "Poor Match"
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -186,11 +330,11 @@ export function ResumeGallery() {
   }
 
   const filteredResumes = resumes.filter((resume) =>
-    resume.name?.toLowerCase().includes(searchQuery.toLowerCase()),
+    resume.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
-    portfolio.name?.toLowerCase().includes(searchQuery.toLowerCase()),
+    portfolio.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   if (!user) {
@@ -216,7 +360,7 @@ export function ResumeGallery() {
 
       {/* Tabs */}
       <Tabs defaultValue="resumes" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="resumes" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Resumes ({filteredResumes.length})
@@ -224,6 +368,10 @@ export function ResumeGallery() {
           <TabsTrigger value="portfolios" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
             Portfolios ({filteredPortfolios.length})
+          </TabsTrigger>
+          <TabsTrigger value="ranker" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Ranker
           </TabsTrigger>
           <TabsTrigger value="files" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
@@ -438,6 +586,290 @@ export function ResumeGallery() {
           )}
         </TabsContent>
 
+        {/* Ranker Tab */}
+        <TabsContent value="ranker" className="space-y-6">
+          {!showRanking ? (
+            <div className="grid gap-6">
+              {/* Job Description Input */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Briefcase className="w-5 h-5" />
+                    Job Description
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="Enter the job description, required skills, qualifications, and experience you want to match against..."
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    className="min-h-[150px]"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Resume Selection */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      Select Resumes to Rank
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="select-all"
+                        checked={selectedResumeIds.size === filteredResumes.length && filteredResumes.length > 0}
+                        onCheckedChange={handleSelectAllResumes}
+                      />
+                      <Label htmlFor="select-all" className="text-sm">
+                        Select All ({filteredResumes.length})
+                      </Label>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {filteredResumes.length === 0 ? (
+                    <div className="text-center py-8">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No resumes available for ranking</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[300px] w-full">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+                        {filteredResumes.map((resume) => (
+                          <Card 
+                            key={resume.id} 
+                            className={`cursor-pointer transition-all hover:shadow-md ${
+                              selectedResumeIds.has(resume.id) 
+                                ? 'ring-2 ring-blue-500 bg-blue-50' 
+                                : ''
+                            }`}
+                            onClick={() => handleResumeSelection(resume.id, !selectedResumeIds.has(resume.id))}
+                          >
+                            <CardHeader className="pb-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      checked={selectedResumeIds.has(resume.id)}
+                                      onCheckedChange={(checked) => handleResumeSelection(resume.id, checked as boolean)}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <CardTitle className="text-base truncate">{resume.name}</CardTitle>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>Updated {formatDate(resume.updated_at)}</span>
+                                  </div>
+                                </div>
+                                {selectedResumeIds.has(resume.id) && (
+                                  <CheckCircle2 className="h-5 w-5 text-blue-500" />
+                                )}
+                              </div>
+                            </CardHeader>
+                          </Card>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex justify-center gap-4">
+                <Button
+                  onClick={analyzeSelectedResumes}
+                  disabled={!jobDescription.trim() || selectedResumeIds.size === 0 || isAnalyzing}
+                  size="lg"
+                  className="px-8"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <TrendingUp className="w-4 h-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      Rank Selected Resumes ({selectedResumeIds.size})
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // Results View
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">Ranking Results</h2>
+                  <p className="text-muted-foreground">
+                    {analysisResults.length} resumes ranked by job match score
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={resetRanking}>
+                    New Ranking
+                  </Button>
+                </div>
+              </div>
+
+              {isAnalyzing ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <TrendingUp className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
+                    <p className="text-lg font-medium">Analyzing Resumes...</p>
+                    <p className="text-muted-foreground">This may take a moment</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-6">
+                  {analysisResults.map((result, index) => (
+                    <Card key={result.resumeId} className="overflow-hidden">
+                      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-white p-2 rounded-full">
+                              <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                                {index + 1}
+                              </div>
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">{result.fileName}</CardTitle>
+                              <p className="text-sm text-muted-foreground">Resume #{index + 1}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-3xl font-bold ${getScoreColor(result.score)}`}>
+                              {result.score}%
+                            </div>
+                            <Badge
+                              variant={result.score >= 80 ? "default" : result.score >= 60 ? "secondary" : "destructive"}
+                            >
+                              {getScoreLabel(result.score)}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Progress value={result.score} className="mt-4" />
+                      </CardHeader>
+
+                      {/* Contact Information */}
+                      {(result.contactInfo.email || result.contactInfo.phone || result.contactInfo.linkedin) && (
+                        <div className="px-6 py-4 bg-gray-50 border-b">
+                          <div className="flex flex-wrap items-center gap-3">
+                            {result.contactInfo.name && (
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-gray-500" />
+                                <span className="font-medium text-gray-900">{result.contactInfo.name}</span>
+                              </div>
+                            )}
+
+                            {result.contactInfo.email && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8"
+                                onClick={() => window.open(`mailto:${result.contactInfo.email}`, "_blank")}
+                              >
+                                <Mail className="w-4 h-4 mr-2" />
+                                Email
+                              </Button>
+                            )}
+
+                            {result.contactInfo.phone && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8"
+                                onClick={() => window.open(`tel:${result.contactInfo.phone}`, "_blank")}
+                              >
+                                <Phone className="w-4 h-4 mr-2" />
+                                Call
+                              </Button>
+                            )}
+
+                            {result.contactInfo.linkedin && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8"
+                                onClick={() => window.open(result.contactInfo.linkedin, "_blank")}
+                              >
+                                <Linkedin className="w-4 h-4 mr-2" />
+                                LinkedIn
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <CardContent className="p-6 space-y-6">
+                        {/* Summary */}
+                        <div>
+                          <h4 className="font-semibold mb-2">Summary</h4>
+                          <p className="text-gray-700">{result.summary}</p>
+                        </div>
+
+                        <Separator />
+
+                        {/* Key Skills */}
+                        <div>
+                          <h4 className="font-semibold mb-3">Key Skills Found</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {result.keySkills.map((skill, skillIndex) => (
+                              <Badge key={skillIndex} variant="outline">
+                                {skill}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Experience */}
+                        <div>
+                          <h4 className="font-semibold mb-2">Experience Level</h4>
+                          <p className="text-gray-700">{result.experience}</p>
+                        </div>
+
+                        <Separator />
+
+                        {/* Strengths and Weaknesses */}
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="font-semibold mb-3 text-green-700">Strengths</h4>
+                            <ul className="space-y-2">
+                              {result.strengths.map((strength, strengthIndex) => (
+                                <li key={strengthIndex} className="flex items-start gap-2">
+                                  <Star className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                  <span className="text-sm text-gray-700">{strength}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div>
+                            <h4 className="font-semibold mb-3 text-red-700">Areas for Improvement</h4>
+                            <ul className="space-y-2">
+                              {result.weaknesses.map((weakness, weaknessIndex) => (
+                                <li key={weaknessIndex} className="flex items-start gap-2">
+                                  <div className="w-4 h-4 bg-red-100 rounded-full mt-0.5 flex-shrink-0" />
+                                  <span className="text-sm text-gray-700">{weakness}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
         {/* Files Tab */}
         <TabsContent value="files">
           <FileUploadManager searchQuery={searchQuery} />
@@ -482,7 +914,11 @@ export function ResumeGallery() {
       )}
 
       {selectedPortfolio && (
-        <PortfolioAnalyticsDialog open={showAnalytics} onOpenChange={setShowAnalytics} portfolio={selectedPortfolio} />
+        <PortfolioAnalyticsDialog 
+          open={showAnalytics} 
+          onOpenChange={setShowAnalytics} 
+          portfolio={selectedPortfolio} 
+        />
       )}
     </div>
   )
