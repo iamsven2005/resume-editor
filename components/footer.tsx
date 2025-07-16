@@ -8,7 +8,7 @@ export function Footer() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="font-semibold mb-4">Resume Builder</h3>
+            <h3 className="font-semibold mb-4">SparkJob</h3>
             <p className="text-sm text-muted-foreground">
               Create professional resumes and portfolios with AI-powered assistance.
             </p>

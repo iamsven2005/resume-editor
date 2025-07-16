@@ -809,7 +809,7 @@ export default function JsonTextareaEditor() {
       <div className="container mx-auto p-6 max-w-full">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">JSON Resume Editor with PDF Preview</h1>
+            <h1 className="text-3xl font-bold mb-2">SparkJob</h1>
             <p className="text-muted-foreground">
               Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
             </p>

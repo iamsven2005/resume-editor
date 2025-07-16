@@ -275,7 +275,7 @@ export const DataInputPanel = ({
         />
 
         <p className="text-xs text-muted-foreground">
-          💡 Tip: Paste a job description to get AI-powered analysis of how well your resume matches the requirements.
+          💡 Tip: Paste a job description to get AI-powered analysis of how well your resume matches the requirements. Open the resume analysis and ai improvement panel to improve resume.
         </p>
       </div>
     </div>

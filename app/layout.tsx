@@ -9,8 +9,8 @@ import { AuthProvider } from "@/contexts/auth-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Resume Builder - AI-Powered Resume Editor",
-  description: "Create, edit, and optimize your resume with AI assistance",
+  title: "SparkJob",
+  description: "Create, edit, and optimize your career",
     generator: 'v0.dev'
 }
 
