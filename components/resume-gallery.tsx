@@ -252,7 +252,8 @@ export function ResumeGallery({
   }
 
   const saveCurrentResume = async () => {
-    if (!saveTitle.trim() || !onSaveResume) {
+    if (typeof saveTitle !== "string" || !saveTitle.trim() || !onSaveResume) {
+
       toast({
         title: "Error",
         description: "Please enter a title for your resume",
