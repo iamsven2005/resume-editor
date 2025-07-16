@@ -607,7 +607,7 @@ export function ResumeGallery({
                 }}
                 className="flex-1"
               />
-              <Button onClick={saveCurrentResume} disabled={saving || !saveTitle.trim()}>
+<Button onClick={saveCurrentResume} disabled={saving || typeof saveTitle !== "string" || saveTitle.trim() === ""}>
                 {saving ? "Saving..." : "Save Resume"}
               </Button>
             </div>
