@@ -57,29 +57,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-interface SavedResume {
-  id: string
-  title: string
-  resume_data: any
-  is_favorite: boolean
+interface Resume {
+  id: number
+  name: string
+  data: any
   created_at: string
   updated_at: string
+  is_favorite?: boolean
 }
 
 interface Portfolio {
-  id: string
-  title: string
-  description?: string
+  id: number
+  name: string
+  slug: string
   theme: string
-  resume_data: any
-  is_published: boolean
-  portfolio_url: string
-  total_views: number
-  unique_visitors: number
-  views_last_7_days: number
-  views_last_30_days: number
+  resume_id: number
+  is_public: boolean
   created_at: string
   updated_at: string
+  resume?: Resume
 }
 
 interface ResumeAnalysis {
@@ -113,11 +109,11 @@ export function ResumeGallery({
   onSaveResume 
 }: ResumeGalleryProps = {}) {
   const { user, token } = useAuth()
-  const [resumes, setResumes] = useState<SavedResume[]>([])
+  const [resumes, setResumes] = useState<Resume[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedResume, setSelectedResume] = useState<SavedResume | null>(null)
+  const [selectedResume, setSelectedResume] = useState<Resume | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [showResumeEditor, setShowResumeEditor] = useState(false)
   const [showPortfolioCreator, setShowPortfolioCreator] = useState(false)
@@ -164,7 +160,11 @@ export function ResumeGallery({
 
   const fetchResumes = async () => {
     try {
-      const response = await fetch("/api/resumes")
+      const response = await fetch("/api/resumes", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
       if (response.ok) {
         const data = await response.json()
@@ -184,7 +184,11 @@ export function ResumeGallery({
 
   const fetchPortfolios = async () => {
     try {
-      const response = await fetch("/api/portfolios")
+      const response = await fetch("/api/portfolios", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
       if (response.ok) {
         const data = await response.json()
@@ -273,12 +277,13 @@ export function ResumeGallery({
     }
   }
 
-  const toggleFavorite = async (resumeId: string, currentFavorite: boolean) => {
+  const toggleFavorite = async (resumeId: number, currentFavorite: boolean) => {
     try {
       const response = await fetch(`/api/resumes/${resumeId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           isFavorite: !currentFavorite,
@@ -313,20 +318,23 @@ export function ResumeGallery({
     try {
       const response = await fetch(`/api/resumes/${resumeId}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
 
       if (response.ok) {
-        setResumes((prev) => prev.filter((resume) => resume.id !== resumeId))
+        setResumes(resumes.filter((r) => r.id !== resumeId))
+        setSelectedResumeIds(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(resumeId)
+          return newSet
+        })
         toast({
-          title: "Success",
           description: "Resume deleted successfully",
         })
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete resume",
-          variant: "destructive",
-        })
+        throw new Error("Failed to delete resume")
       }
     } catch (error) {
       toast({
@@ -338,23 +346,21 @@ export function ResumeGallery({
   }
 
   const handleDeletePortfolio = async (portfolioId: number) => {
-     try {
+    try {
       const response = await fetch(`/api/portfolios/${portfolioId}`, {
         method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
 
       if (response.ok) {
-        setPortfolios((prev) => prev.filter((portfolio) => portfolio.id !== portfolioId))
+        setPortfolios(portfolios.filter((p) => p.id !== portfolioId))
         toast({
-          title: "Success",
           description: "Portfolio deleted successfully",
         })
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete portfolio",
-          variant: "destructive",
-        })
+        throw new Error("Failed to delete portfolio")
       }
     } catch (error) {
       toast({
@@ -382,12 +388,16 @@ export function ResumeGallery({
     }
   }
 
-  const downloadResume = async (resumeId: string, title: string) => {
+  const downloadResume = async (resumeId: number, title: string) => {
     try {
-      const response = await fetch(`/api/resumes/${resumeId}`)
+      const response = await fetch(`/api/resumes/${resumeId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
       if (response.ok) {
         const data = await response.json()
-        const blob = new Blob([JSON.stringify(data.resume.resume_data, null, 2)], {
+        const blob = new Blob([JSON.stringify(data.resume.data, null, 2)], {
           type: "application/json",
         })
         const url = URL.createObjectURL(blob)
@@ -452,12 +462,13 @@ export function ResumeGallery({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           jobDescription,
           resumes: selectedResumes.map(r => ({
             id: r.id,
-            name: r.name,
+            name: r.title,
             data: r.data
           }))
         }),
@@ -510,11 +521,11 @@ export function ResumeGallery({
   }
 
   const filteredResumes = resumes.filter((resume) =>
-    resume.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    resume.title?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
-    portfolio.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    portfolio.title?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   // Filter and sort resumes with favorites first
@@ -701,7 +712,7 @@ export function ResumeGallery({
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2 flex-1 mr-2">
-                          <CardTitle className="text-lg truncate flex-1">{resume.name}</CardTitle>
+                          <CardTitle className="text-lg truncate flex-1">{resume.title}</CardTitle>
                           <ResumeNameEditorDialog
                             open={showResumeEditor && selectedResume?.id === resume.id}
                             onOpenChange={(open) => {
@@ -782,7 +793,7 @@ export function ResumeGallery({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => downloadResume(resume.id, resume.name)}
+                            onClick={() => downloadResume(resume.id, resume.title)}
                             className="h-8 px-2"
                           >
                             <Download className="h-3 w-3" />
@@ -798,7 +809,7 @@ export function ResumeGallery({
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Resume</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete "{resume.name}"? This action cannot be undone.
+                                Are you sure you want to delete "{resume.title}"? This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -840,7 +851,7 @@ export function ResumeGallery({
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">{portfolio.name}</CardTitle>
+                          <CardTitle className="text-lg truncate">{portfolio.title}</CardTitle>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                             <Calendar className="h-3 w-3" />
                             <span>Updated {formatDate(portfolio.updated_at)}</span>
@@ -912,7 +923,7 @@ export function ResumeGallery({
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{portfolio.name}"? This action cannot be undone.
+                                  Are you sure you want to delete "{portfolio.title}"? This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -1006,7 +1017,7 @@ export function ResumeGallery({
                                       onCheckedChange={(checked) => handleResumeSelection(resume.id, checked as boolean)}
                                       onClick={(e) => e.stopPropagation()}
                                     />
-                                    <CardTitle className="text-base truncate">{resume.name}</CardTitle>
+                                    <CardTitle className="text-base truncate">{resume.title}</CardTitle>
                                   </div>
                                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                                     <Calendar className="h-3 w-3" />
