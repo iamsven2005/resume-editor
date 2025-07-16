@@ -160,11 +160,7 @@ export function ResumeGallery({
 
   const fetchResumes = async () => {
     try {
-      const response = await fetch("/api/resumes", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const response = await fetch("/api/resumes")
 
       if (response.ok) {
         const data = await response.json()
@@ -184,11 +180,7 @@ export function ResumeGallery({
 
   const fetchPortfolios = async () => {
     try {
-      const response = await fetch("/api/portfolios", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const response = await fetch("/api/portfolios")
 
       if (response.ok) {
         const data = await response.json()
@@ -277,13 +269,12 @@ export function ResumeGallery({
     }
   }
 
-  const toggleFavorite = async (resumeId: number, currentFavorite: boolean) => {
+  const toggleFavorite = async (resumeId: string, currentFavorite: boolean) => {
     try {
       const response = await fetch(`/api/resumes/${resumeId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           isFavorite: !currentFavorite,
@@ -318,23 +309,20 @@ export function ResumeGallery({
     try {
       const response = await fetch(`/api/resumes/${resumeId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       })
 
       if (response.ok) {
-        setResumes(resumes.filter((r) => r.id !== resumeId))
-        setSelectedResumeIds(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(resumeId)
-          return newSet
-        })
+        setResumes((prev) => prev.filter((resume) => resume.id !== resumeId))
         toast({
+          title: "Success",
           description: "Resume deleted successfully",
         })
       } else {
-        throw new Error("Failed to delete resume")
+        toast({
+          title: "Error",
+          description: "Failed to delete resume",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       toast({
@@ -346,21 +334,23 @@ export function ResumeGallery({
   }
 
   const handleDeletePortfolio = async (portfolioId: number) => {
-    try {
+     try {
       const response = await fetch(`/api/portfolios/${portfolioId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       })
 
       if (response.ok) {
-        setPortfolios(portfolios.filter((p) => p.id !== portfolioId))
+        setPortfolios((prev) => prev.filter((portfolio) => portfolio.id !== portfolioId))
         toast({
+          title: "Success",
           description: "Portfolio deleted successfully",
         })
       } else {
-        throw new Error("Failed to delete portfolio")
+        toast({
+          title: "Error",
+          description: "Failed to delete portfolio",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       toast({
@@ -388,16 +378,12 @@ export function ResumeGallery({
     }
   }
 
-  const downloadResume = async (resumeId: number, title: string) => {
+  const downloadResume = async (resumeId: string, title: string) => {
     try {
-      const response = await fetch(`/api/resumes/${resumeId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const response = await fetch(`/api/resumes/${resumeId}`)
       if (response.ok) {
         const data = await response.json()
-        const blob = new Blob([JSON.stringify(data.resume.data, null, 2)], {
+        const blob = new Blob([JSON.stringify(data.resume.resume_data, null, 2)], {
           type: "application/json",
         })
         const url = URL.createObjectURL(blob)
@@ -462,7 +448,6 @@ export function ResumeGallery({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           jobDescription,
