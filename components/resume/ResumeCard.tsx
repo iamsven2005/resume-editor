@@ -12,9 +12,8 @@ import {
   Plus,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-// TODO: Import these components when they are created
-// import { ResumeNameEditorDialog } from "../resume-name-editor-dialog"
-// import { PortfolioCreatorDialog } from "../portfolio-creator-dialog"
+import { ResumeNameEditorDialog } from "./ResumeNameEditorDialog"
+import { PortfolioCreatorDialog } from "./PortfolioCreatorDialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +54,7 @@ interface Portfolio {
 interface ResumeCardProps {
   resume: Resume
   token: string
+  resumes?: Resume[]
   onLoadResume?: (resumeData: any) => void
   onResumeUpdated: (updatedResume: Resume) => void
   onResumeDeleted: (resumeId: number) => void
@@ -77,6 +77,7 @@ const safeTrim = (value: any): string => {
 export function ResumeCard({
   resume,
   token,
+  resumes = [],
   onLoadResume,
   onResumeUpdated,
   onResumeDeleted,
@@ -93,6 +94,22 @@ export function ResumeCard({
       return "Unknown date"
     }
   }
+
+  const handleTitleUpdated = (newTitle: string) => {
+    onResumeUpdated({ ...resume, title: newTitle })
+  }
+
+  const handlePortfolioCreated = () => {
+    // Refresh portfolios by calling the parent callback
+    onPortfolioCreated({} as Portfolio)
+  }
+
+  // Convert Resume[] to SavedResume[] for PortfolioCreatorDialog
+  const savedResumes = resumes.map(resume => ({
+    ...resume,
+    id: String(resume.id),
+    is_favorite: resume.is_favorite || false
+  }))
 
   const toggleFavorite = async (resumeId: number, currentFavorite: boolean) => {
     try {
@@ -199,15 +216,19 @@ export function ResumeCard({
             <CardTitle className="text-lg truncate flex-1">
               {safeString(resume.title) || "Untitled Resume"}
             </CardTitle>
-            {/* TODO: Add ResumeNameEditorDialog */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => toast({ description: "Edit functionality coming soon" })}
+            <ResumeNameEditorDialog
+              resumeId={String(resume.id)}
+              currentTitle={resume.title}
+              onTitleUpdated={handleTitleUpdated}
             >
-              <Edit2 className="h-3 w-3" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Edit2 className="h-3 w-3" />
+              </Button>
+            </ResumeNameEditorDialog>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -249,16 +270,19 @@ export function ResumeCard({
                 Load
               </Button>
             )}
-            {/* TODO: Add PortfolioCreatorDialog */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 px-2"
-              onClick={() => toast({ description: "Portfolio creation coming soon" })}
+            <PortfolioCreatorDialog
+              resumes={savedResumes}
+              onPortfolioCreated={handlePortfolioCreated}
             >
-              <Plus className="h-3 w-3 mr-1" />
-              Portfolio
-            </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 px-2"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Portfolio
+              </Button>
+            </PortfolioCreatorDialog>
             <Button
               variant="ghost"
               size="sm"
