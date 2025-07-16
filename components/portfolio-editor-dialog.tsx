@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -50,6 +50,14 @@ export function PortfolioEditorDialog({ portfolio, onPortfolioUpdated, children 
   const [theme, setTheme] = useState(portfolio.theme)
   const [isPublished, setIsPublished] = useState(portfolio.is_published)
   const [isUpdating, setIsUpdating] = useState(false)
+
+  // Reset form when portfolio changes
+  useEffect(() => {
+    setTitle(portfolio.title)
+    setDescription(portfolio.description || "")
+    setTheme(portfolio.theme)
+    setIsPublished(portfolio.is_published)
+  }, [portfolio])
 
   const handleSave = async () => {
     if (!title.trim()) {

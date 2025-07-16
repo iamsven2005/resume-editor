@@ -1,4 +1,3 @@
--- Create feedback table for bug reports and feature requests
 CREATE TABLE IF NOT EXISTS feedback (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -14,13 +13,11 @@ CREATE TABLE IF NOT EXISTS feedback (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_type ON feedback(type);
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
 CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at);
 
--- Create trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_feedback_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

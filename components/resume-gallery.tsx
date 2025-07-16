@@ -12,17 +12,17 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
-import { 
-  FileText, 
-  Globe, 
-  Plus, 
-  Search, 
-  Calendar, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Share, 
-  BarChart3, 
+import {
+  FileText,
+  Globe,
+  Plus,
+  Search,
+  Calendar,
+  Edit,
+  Trash2,
+  Eye,
+  Share,
+  BarChart3,
   Download,
   TrendingUp,
   Star,
@@ -36,7 +36,6 @@ import {
   StarOff,
   X,
   Edit2,
-  ImageIcon
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
@@ -106,12 +105,7 @@ interface ResumeGalleryProps {
   onSaveResume?: (title: string) => Promise<void>
 }
 
-export function ResumeGallery({ 
-  onLoadResume, 
-  onCreateNew, 
-  currentResumeData, 
-  onSaveResume 
-}: ResumeGalleryProps = {}) {
+export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, onSaveResume }: ResumeGalleryProps = {}) {
   const { user, token } = useAuth()
   const [resumes, setResumes] = useState<Resume[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
@@ -252,9 +246,9 @@ export function ResumeGallery({
   }
 
   const saveCurrentResume = async () => {
-  console.log("saveTitle value:", saveTitle)
+    console.log("saveTitle value:", saveTitle)
 
-if (!saveTitle?.trim?.() || !onSaveResume) {
+    if (!saveTitle?.trim?.() || !onSaveResume) {
       toast({
         title: "Error",
         description: "Please enter a title for your resume",
@@ -331,7 +325,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
 
       if (response.ok) {
         setResumes(resumes.filter((r) => r.id !== resumeId))
-        setSelectedResumeIds(prev => {
+        setSelectedResumeIds((prev) => {
           const newSet = new Set(prev)
           newSet.delete(resumeId)
           return newSet
@@ -429,7 +423,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
   }
 
   const handleResumeSelection = (resumeId: number, checked: boolean) => {
-    setSelectedResumeIds(prev => {
+    setSelectedResumeIds((prev) => {
       const newSet = new Set(prev)
       if (checked) {
         newSet.add(resumeId)
@@ -442,7 +436,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
 
   const handleSelectAllResumes = (checked: boolean) => {
     if (checked) {
-      setSelectedResumeIds(new Set(filteredResumes.map(r => r.id)))
+      setSelectedResumeIds(new Set(filteredResumes.map((r) => r.id)))
     } else {
       setSelectedResumeIds(new Set())
     }
@@ -462,8 +456,8 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
     setShowRanking(true)
 
     try {
-      const selectedResumes = resumes.filter(r => selectedResumeIds.has(r.id))
-      
+      const selectedResumes = resumes.filter((r) => selectedResumeIds.has(r.id))
+
       const response = await fetch("/api/analyze-resumes", {
         method: "POST",
         headers: {
@@ -472,11 +466,11 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
         },
         body: JSON.stringify({
           jobDescription,
-          resumes: selectedResumes.map(r => ({
+          resumes: selectedResumes.map((r) => ({
             id: r.id,
             name: r.name,
-            data: r.data
-          }))
+            data: r.data,
+          })),
         }),
       })
 
@@ -526,12 +520,10 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
     })
   }
 
-  const filteredResumes = resumes.filter((resume) =>
-    resume.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredResumes = resumes.filter((resume) => resume.name?.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const filteredPortfolios = portfolios.filter((portfolio) =>
-    portfolio.title?.toLowerCase().includes(searchQuery.toLowerCase())
+    portfolio.title?.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   // Filter and sort resumes with favorites first
@@ -866,8 +858,8 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                             <span>Updated {formatDate(portfolio.updated_at)}</span>
                           </div>
                           <div className="flex items-center gap-2 mt-2">
-                            <Badge variant={portfolio.is_public ? "default" : "secondary"} className="text-xs">
-                              {portfolio.is_public ? "Public" : "Private"}
+                            <Badge variant={portfolio.is_published ? "default" : "secondary"} className="text-xs">
+                              {portfolio.is_published ? "Public" : "Private"}
                             </Badge>
                             <Badge variant="outline" className="text-xs capitalize">
                               {portfolio.theme}
@@ -882,7 +874,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => window.open(`/portfolio/${portfolio.slug}`, "_blank")}
+                            onClick={() => window.open(`/portfolio/${portfolio.portfolio_url}`, "_blank")}
                             className="h-8 px-2"
                           >
                             <Eye className="h-3 w-3 mr-1" />
@@ -903,7 +895,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => copyPortfolioLink(portfolio.slug)}
+                            onClick={() => copyPortfolioLink(portfolio.portfolio_url)}
                             className="h-8 px-2"
                           >
                             <Share className="h-3 w-3 mr-1" />
@@ -1008,12 +1000,10 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                     <ScrollArea className="h-[300px] w-full">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
                         {filteredResumes.map((resume) => (
-                          <Card 
-                            key={resume.id} 
+                          <Card
+                            key={resume.id}
                             className={`cursor-pointer transition-all hover:shadow-md ${
-                              selectedResumeIds.has(resume.id) 
-                                ? 'ring-2 ring-blue-500 bg-blue-50' 
-                                : ''
+                              selectedResumeIds.has(resume.id) ? "ring-2 ring-blue-500 bg-blue-50" : ""
                             }`}
                             onClick={() => handleResumeSelection(resume.id, !selectedResumeIds.has(resume.id))}
                           >
@@ -1023,7 +1013,9 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                                   <div className="flex items-center gap-2">
                                     <Checkbox
                                       checked={selectedResumeIds.has(resume.id)}
-                                      onCheckedChange={(checked) => handleResumeSelection(resume.id, checked as boolean)}
+                                      onCheckedChange={(checked) =>
+                                        handleResumeSelection(resume.id, checked as boolean)
+                                      }
                                       onClick={(e) => e.stopPropagation()}
                                     />
                                     <CardTitle className="text-base truncate">{resume.title}</CardTitle>
@@ -1033,9 +1025,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                                     <span>Updated {formatDate(resume.updated_at)}</span>
                                   </div>
                                 </div>
-                                {selectedResumeIds.has(resume.id) && (
-                                  <CheckCircle2 className="h-5 w-5 text-blue-500" />
-                                )}
+                                {selectedResumeIds.has(resume.id) && <CheckCircle2 className="h-5 w-5 text-blue-500" />}
                               </div>
                             </CardHeader>
                           </Card>
@@ -1074,9 +1064,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">Ranking Results</h2>
-                  <p className="text-muted-foreground">
-                    {analysisResults.length} resumes ranked by job match score
-                  </p>
+                  <p className="text-muted-foreground">{analysisResults.length} resumes ranked by job match score</p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={resetRanking}>
@@ -1111,11 +1099,11 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className={`text-3xl font-bold ${getScoreColor(result.score)}`}>
-                              {result.score}%
-                            </div>
+                            <div className={`text-3xl font-bold ${getScoreColor(result.score)}`}>{result.score}%</div>
                             <Badge
-                              variant={result.score >= 80 ? "default" : result.score >= 60 ? "secondary" : "destructive"}
+                              variant={
+                                result.score >= 80 ? "default" : result.score >= 60 ? "secondary" : "destructive"
+                              }
                             >
                               {getScoreLabel(result.score)}
                             </Badge>
@@ -1139,7 +1127,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8"
+                                className="h-8 bg-transparent"
                                 onClick={() => window.open(`mailto:${result.contactInfo.email}`, "_blank")}
                               >
                                 <Mail className="w-4 h-4 mr-2" />
@@ -1151,7 +1139,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8"
+                                className="h-8 bg-transparent"
                                 onClick={() => window.open(`tel:${result.contactInfo.phone}`, "_blank")}
                               >
                                 <Phone className="w-4 h-4 mr-2" />
@@ -1163,7 +1151,7 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8"
+                                className="h-8 bg-transparent"
                                 onClick={() => window.open(result.contactInfo.linkedin, "_blank")}
                               >
                                 <Linkedin className="w-4 h-4 mr-2" />
@@ -1271,24 +1259,23 @@ if (!saveTitle?.trim?.() || !onSaveResume) {
         />
       )}
 
-      {selectedPortfolio && (
+      {selectedPortfolio && showPortfolioEditor && (
         <PortfolioEditorDialog
-          open={showPortfolioEditor}
-          onOpenChange={setShowPortfolioEditor}
           portfolio={selectedPortfolio}
-          onSave={(updatedPortfolio) => {
-            setPortfolios(portfolios.map((p) => (p.id === updatedPortfolio.id ? updatedPortfolio : p)))
+          onPortfolioUpdated={() => {
+            fetchPortfolios()
             setSelectedPortfolio(null)
+            setShowPortfolioEditor(false)
           }}
-        />
+        >
+          <div />
+        </PortfolioEditorDialog>
       )}
 
-      {selectedPortfolio && (
-        <PortfolioAnalyticsDialog 
-          open={showAnalytics} 
-          onOpenChange={setShowAnalytics} 
-          portfolio={selectedPortfolio} 
-        />
+      {selectedPortfolio && showAnalytics && (
+        <PortfolioAnalyticsDialog portfolioId={selectedPortfolio.id} portfolioTitle={selectedPortfolio.title}>
+          <div />
+        </PortfolioAnalyticsDialog>
       )}
     </div>
   )
