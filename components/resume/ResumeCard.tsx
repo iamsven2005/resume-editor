@@ -12,8 +12,8 @@ import {
   Plus,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { ResumeNameEditorDialog } from "../resume-name-editor-dialog"
-//import { PortfolioCreatorDialog } from "../portfolio-creator-dialog"
+//import { ResumeNameEditorDialog } from "../resume-name-editor-dialog"
+import { PortfolioCreatorDialog } from "../portfolio-creator-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -198,7 +198,7 @@ export function ResumeCard({
             <CardTitle className="text-lg truncate flex-1">
               {safeString(resume.title) || "Untitled Resume"}
             </CardTitle>
-           <ResumeNameEditorDialog
+          {/* <ResumeNameEditorDialog
                             resume={resume}
                             onSave={(updatedResume) => {
                               setResumes(resumes.map((r) => (r.id === updatedResume.id ? updatedResume : r)))
@@ -211,7 +211,7 @@ export function ResumeCard({
                             >
                               <Edit2 className="h-3 w-3" />
                             </Button>
-                          </ResumeNameEditorDialog>
+                          </ResumeNameEditorDialog>*/}
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -253,7 +253,7 @@ export function ResumeCard({
                 Load
               </Button>
             )}
-                                    { /* *<PortfolioCreatorDialog
+                                    <PortfolioCreatorDialog
                             resume={resume}
                             onSuccess={(newPortfolio) => {
                               setPortfolios([...portfolios, newPortfolio])
@@ -263,7 +263,7 @@ export function ResumeCard({
                               <Plus className="h-3 w-3 mr-1" />
                               Portfolio
                             </Button>
-                          </PortfolioCreatorDialog>**/}
+                          </PortfolioCreatorDialog>
             <Button
               variant="ghost"
               size="sm"
