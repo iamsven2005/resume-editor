@@ -57,25 +57,29 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-interface Resume {
-  id: number
-  name: string
-  data: any
+interface SavedResume {
+  id: string
+  title: string
+  resume_data: any
+  is_favorite: boolean
   created_at: string
   updated_at: string
-  is_favorite?: boolean
 }
 
 interface Portfolio {
-  id: number
-  name: string
-  slug: string
+  id: string
+  title: string
+  description?: string
   theme: string
-  resume_id: number
-  is_public: boolean
+  resume_data: any
+  is_published: boolean
+  portfolio_url: string
+  total_views: number
+  unique_visitors: number
+  views_last_7_days: number
+  views_last_30_days: number
   created_at: string
   updated_at: string
-  resume?: Resume
 }
 
 interface ResumeAnalysis {
@@ -109,11 +113,11 @@ export function ResumeGallery({
   onSaveResume 
 }: ResumeGalleryProps = {}) {
   const { user, token } = useAuth()
-  const [resumes, setResumes] = useState<Resume[]>([])
+  const [resumes, setResumes] = useState<SavedResume[]>([])
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedResume, setSelectedResume] = useState<Resume | null>(null)
+  const [selectedResume, setSelectedResume] = useState<SavedResume | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [showResumeEditor, setShowResumeEditor] = useState(false)
   const [showPortfolioCreator, setShowPortfolioCreator] = useState(false)

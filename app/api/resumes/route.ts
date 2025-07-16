@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
 
-const sql = neon(process.env.NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
