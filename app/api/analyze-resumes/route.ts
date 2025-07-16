@@ -1,9 +1,9 @@
-//for ranker
 import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 
 interface ResumeAnalysis {
+  resumeId: number
   fileName: string
   score: number
   strengths: string[]
@@ -17,6 +17,12 @@ interface ResumeAnalysis {
     name?: string
     linkedin?: string
   }
+}
+
+interface ResumeData {
+  id: number
+  name: string
+  data: any
 }
 
 // Mock resume data for demonstration
@@ -98,14 +104,77 @@ const mockResumeData: Record<string, string> = {
   `,
 }
 
-function createFallbackAnalysis(fileName: string, jobDescription: string): ResumeAnalysis {
+function extractResumeText(resumeData: any): string {
+  if (!resumeData) return ""
+
+  let text = ""
+
+  // Extract personal info
+  if (resumeData.personalInfo) {
+    const info = resumeData.personalInfo
+    if (info.name) text += `${info.name}\n`
+    if (info.title) text += `${info.title}\n`
+    if (info.email) text += `Email: ${info.email}\n`
+    if (info.phone) text += `Phone: ${info.phone}\n`
+    if (info.linkedin) text += `LinkedIn: ${info.linkedin}\n`
+    if (info.location) text += `Location: ${info.location}\n`
+    text += "\n"
+  }
+
+  // Extract experience
+  if (resumeData.experience && Array.isArray(resumeData.experience)) {
+    text += "EXPERIENCE:\n"
+    resumeData.experience.forEach((exp: any) => {
+      if (exp.title) text += `${exp.title}`
+      if (exp.company) text += ` at ${exp.company}`
+      if (exp.startDate || exp.endDate) {
+        text += ` (${exp.startDate || ""}-${exp.endDate || "Present"})`
+      }
+      text += "\n"
+      if (exp.description) text += `${exp.description}\n`
+      if (exp.achievements && Array.isArray(exp.achievements)) {
+        exp.achievements.forEach((achievement: string) => {
+          text += `- ${achievement}\n`
+        })
+      }
+      text += "\n"
+    })
+  }
+
+  // Extract skills
+  if (resumeData.skills) {
+    text += "SKILLS:\n"
+    if (Array.isArray(resumeData.skills)) {
+      text += resumeData.skills.join(", ") + "\n"
+    } else if (typeof resumeData.skills === "string") {
+      text += resumeData.skills + "\n"
+    }
+    text += "\n"
+  }
+
+  // Extract education
+  if (resumeData.education && Array.isArray(resumeData.education)) {
+    text += "EDUCATION:\n"
+    resumeData.education.forEach((edu: any) => {
+      if (edu.degree) text += `${edu.degree}`
+      if (edu.school) text += ` - ${edu.school}`
+      if (edu.year) text += ` (${edu.year})`
+      text += "\n"
+    })
+  }
+
+  return text
+}
+
+function createFallbackAnalysis(resumeData: ResumeData, jobDescription: string): ResumeAnalysis {
   // Simple keyword matching for fallback
   const jobKeywords = jobDescription.toLowerCase().split(/\s+/)
   const commonTechSkills = ["javascript", "react", "node.js", "python", "aws", "docker", "sql"]
   const foundSkills = commonTechSkills.filter((skill) => jobKeywords.some((keyword) => keyword.includes(skill)))
 
   return {
-    fileName,
+    resumeId: resumeData.id,
+    fileName: resumeData.name,
     score: Math.floor(Math.random() * 40) + 50,
     strengths: ["Relevant technical experience", "Strong educational background", "Good communication skills"],
     weaknesses: [
@@ -118,56 +187,71 @@ function createFallbackAnalysis(fileName: string, jobDescription: string): Resum
     contactInfo: {
       email: "contact@example.com",
       phone: "(555) 123-4567",
-      name: fileName.replace(/[-_]/g, " ").replace(/\.(pdf|doc|docx)$/i, ""),
+      name: resumeData.name.replace(/[-_]/g, " ").replace(/\.(pdf|doc|docx)$/i, ""),
     },
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { jobDescription, fileNames } = await request.json()
+    const body = await request.json()
+    const { jobDescription, resumes } = body
 
-    if (!jobDescription || !fileNames || fileNames.length === 0) {
-      return NextResponse.json({ error: "Job description and file names are required" }, { status: 400 })
-    }
+    console.log("Received request:", { jobDescription: !!jobDescription, resumesCount: resumes?.length })
 
-    // Simulate resume content extraction
-    const resumeContents = fileNames.map((fileName: string) => {
-      const mockKey = Object.keys(mockResumeData).find(
-        (key) =>
-          key.toLowerCase().includes(fileName.toLowerCase().split(".")[0]) ||
-          fileName.toLowerCase().includes(key.split("-")[0]),
+    if (!jobDescription || !resumes || !Array.isArray(resumes) || resumes.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Job description and resumes array are required",
+          received: { jobDescription: !!jobDescription, resumes: resumes?.length || 0 },
+        },
+        { status: 400 },
       )
-
-      return mockKey
-        ? mockResumeData[mockKey]
-        : `
-        Resume content for ${fileName}
-        
-        EXPERIENCE:
-        Software Developer (2020-2024)
-        - Developed web applications
-        - Worked with various technologies
-        - Collaborated with team members
-        
-        SKILLS:
-        JavaScript, HTML, CSS, React, Node.js
-        
-        EDUCATION:
-        Bachelor's Degree in Computer Science
-      `
-    })
+    }
 
     const analyses: ResumeAnalysis[] = []
 
     // Process each resume individually for better error handling
-    for (let i = 0; i < fileNames.length; i++) {
+    for (let i = 0; i < resumes.length; i++) {
+      const resume = resumes[i]
+
       try {
+        // Extract resume content
+        let resumeContent = extractResumeText(resume.data)
+
+        // If no content extracted, try mock data or create basic content
+        if (!resumeContent.trim()) {
+          const mockKey = Object.keys(mockResumeData).find(
+            (key) =>
+              key.toLowerCase().includes(resume.name.toLowerCase().split(".")[0]) ||
+              resume.name.toLowerCase().includes(key.split("-")[0]),
+          )
+
+          resumeContent = mockKey
+            ? mockResumeData[mockKey]
+            : `
+            Resume: ${resume.name}
+            
+            EXPERIENCE:
+            Software Developer (2020-2024)
+            - Developed web applications
+            - Worked with various technologies
+            - Collaborated with team members
+            
+            SKILLS:
+            JavaScript, HTML, CSS, React, Node.js
+            
+            EDUCATION:
+            Bachelor's Degree in Computer Science
+          `
+        }
+
         const prompt = `
 You are an expert HR recruiter. Analyze this resume against the job description and respond with ONLY a valid JSON object in this exact format:
 
 {
-  "fileName": "${fileNames[i]}",
+  "resumeId": ${resume.id},
+  "fileName": "${resume.name}",
   "score": 85,
   "strengths": ["strength1", "strength2", "strength3"],
   "weaknesses": ["weakness1", "weakness2"],
@@ -186,7 +270,7 @@ JOB DESCRIPTION:
 ${jobDescription}
 
 RESUME TO ANALYZE:
-${resumeContents[i]}
+${resumeContent}
 
 Extract ALL contact information including email addresses, phone numbers, full name, and LinkedIn profiles. Provide a score from 0-100, list 3-5 strengths, 2-4 weaknesses, key skills found, experience assessment, and a brief summary. Respond with ONLY the JSON object, no other text.`
 
@@ -213,25 +297,36 @@ Extract ALL contact information including email addresses, phone numbers, full n
 
           analysis = parsed as ResumeAnalysis
         } catch (parseError) {
-          console.warn(`Failed to parse AI response for ${fileNames[i]}, using fallback:`, parseError)
-          analysis = createFallbackAnalysis(fileNames[i], jobDescription)
+          console.warn(`Failed to parse AI response for ${resume.name}, using fallback:`, parseError)
+          analysis = createFallbackAnalysis(resume, jobDescription)
         }
 
         analyses.push(analysis)
       } catch (error) {
-        console.warn(`Error analyzing ${fileNames[i]}, using fallback:`, error)
-        analyses.push(createFallbackAnalysis(fileNames[i], jobDescription))
+        console.warn(`Error analyzing ${resume.name}, using fallback:`, error)
+        analyses.push(createFallbackAnalysis(resume, jobDescription))
       }
     }
 
-    return NextResponse.json(analyses)
+    return NextResponse.json({ results: analyses })
   } catch (error) {
     console.error("Resume analysis error:", error)
 
     // Return fallback analyses if everything fails
-    const { jobDescription, fileNames } = await request.json().catch(() => ({ jobDescription: "", fileNames: [] }))
-    const fallbackAnalyses = fileNames.map((fileName: string) => createFallbackAnalysis(fileName, jobDescription))
-
-    return NextResponse.json(fallbackAnalyses)
+    try {
+      const body = await request.json()
+      const { jobDescription, resumes } = body
+      const fallbackAnalyses =
+        resumes?.map((resume: ResumeData) => createFallbackAnalysis(resume, jobDescription)) || []
+      return NextResponse.json({ results: fallbackAnalyses })
+    } catch {
+      return NextResponse.json(
+        {
+          error: "Internal server error",
+          results: [],
+        },
+        { status: 500 },
+      )
+    }
   }
 }

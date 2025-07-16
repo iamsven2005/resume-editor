@@ -2,17 +2,16 @@ import { notFound } from "next/navigation"
 import { PortfolioViewer } from "@/components/portfolio-viewer"
 import { neon } from "@neondatabase/serverless"
 
-interface PortfolioPageProps {
+interface PageProps {
   params: {
     slug: string
   }
 }
 
-export default async function PortfolioPage({ params }: PortfolioPageProps) {
-  const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
-
+async function getPortfolio(slug: string) {
   try {
-    // Fetch portfolio data
+    const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+
     const portfolios = await sql`
       SELECT 
         id,
@@ -25,72 +24,60 @@ export default async function PortfolioPage({ params }: PortfolioPageProps) {
         created_at,
         updated_at
       FROM portfolios 
-      WHERE portfolio_url = ${params.slug}
-      LIMIT 1
+      WHERE portfolio_url = ${slug} AND is_published = true
     `
 
     if (portfolios.length === 0) {
-      notFound()
+      return null
     }
 
     const portfolio = portfolios[0]
-
-    // Check if portfolio is published
-    if (!portfolio.is_published) {
-      notFound()
-    }
 
     // Track portfolio view
     try {
       await sql`
-        INSERT INTO portfolio_analytics (portfolio_id, event_type, timestamp, ip_address, user_agent)
-        VALUES (${portfolio.id}, 'view', NOW(), '', '')
+        INSERT INTO portfolio_analytics (portfolio_id, event_type, timestamp)
+        VALUES (${portfolio.id}, 'view', NOW())
       `
     } catch (error) {
       console.error("Failed to track portfolio view:", error)
-      // Don't fail the page load if analytics fails
     }
 
-    return (
-      <div className="min-h-screen">
-        <PortfolioViewer
-          data={portfolio.resume_data}
-          theme={portfolio.theme as "modern" | "classic" | "minimal" | "creative"}
-        />
-      </div>
-    )
+    return portfolio
   } catch (error) {
     console.error("Error fetching portfolio:", error)
-    notFound()
+    return null
   }
 }
 
-export async function generateMetadata({ params }: PortfolioPageProps) {
-  const sql = neon(process.env.NEON_DATABASE_URL!)
+export default async function PortfolioPage({ params }: PageProps) {
+  const portfolio = await getPortfolio(params.slug)
 
-  try {
-    const portfolios = await sql`
-      SELECT title, description 
-      FROM portfolios 
-      WHERE portfolio_url = ${params.slug} AND is_published = true
-      LIMIT 1
-    `
+  if (!portfolio) {
+    notFound()
+  }
 
-    if (portfolios.length === 0) {
-      return {
-        title: "Portfolio Not Found",
-      }
-    }
+  return (
+    <div className="min-h-screen">
+      <PortfolioViewer resumeData={portfolio.resume_data} theme={portfolio.theme || "modern"} />
+    </div>
+  )
+}
 
-    const portfolio = portfolios[0]
+export async function generateMetadata({ params }: PageProps) {
+  const portfolio = await getPortfolio(params.slug)
 
+  if (!portfolio) {
     return {
-      title: portfolio.title || "Professional Portfolio",
-      description: portfolio.description || "View this professional portfolio",
+      title: "Portfolio Not Found",
     }
-  } catch (error) {
-    return {
-      title: "Portfolio",
-    }
+  }
+
+  const name = portfolio.resume_data?.personalInfo?.name || "Professional"
+  const title = portfolio.resume_data?.personalInfo?.title || "Portfolio"
+
+  return {
+    title: `${name} - ${title}`,
+    description: portfolio.description || `Professional portfolio of ${name}`,
   }
 }
