@@ -87,6 +87,18 @@ export const PDFPreviewPanel = ({ parsedData, isExporting, onExportPDF }: PDFPre
                             {descriptionKey && (
                               <p className="text-sm text-gray-800 leading-relaxed">{item[descriptionKey]}</p>
                             )}
+                            {Object.entries(item).map(([key, value]) => {
+  const lowerKey = key.toLowerCase()
+  if (
+    [jobTitleKey, organizationKey, durationKey, descriptionKey].includes(key)
+    || ["title", "position", "organization", "company", "duration", "period", "date", "description", "summary"].some(p => lowerKey.includes(p))
+  ) return null
+  return (
+    <p key={key} className="text-sm text-gray-800">
+      <span className="font-medium text-black">{key}:</span> {value as string}
+    </p>
+  )
+})}
                           </div>
                         )}
 
@@ -102,13 +114,29 @@ export const PDFPreviewPanel = ({ parsedData, isExporting, onExportPDF }: PDFPre
                             {gpaKey && <p className="text-sm text-gray-600">GPA: {item[gpaKey]}</p>}
                           </div>
                         )}
+{categoryKey && skillsKey && !jobTitleKey && !degreeKey && (
+  <div>
+    <h3 className="font-semibold text-black mb-1">{item[categoryKey]}:</h3>
+    <p className="text-sm text-gray-800 mb-1">{item[skillsKey]}</p>
+    <div className="text-sm text-gray-800 space-y-1">
+      {Object.entries(item).map(([key, value]) => {
+        const keyLower = key.toLowerCase()
+        if (
+          keyLower.includes("category") ||
+          keyLower.includes("type") ||
+          keyLower.includes("skills") ||
+          keyLower.includes("abilities")
+        ) return null // skip already rendered keys
+        return (
+          <div key={key}>
+            <span className="font-medium">{key}:</span> {value as string}
+          </div>
+        )
+      })}
+    </div>
+  </div>
+)}
 
-                        {categoryKey && skillsKey && !jobTitleKey && !degreeKey && (
-                          <div>
-                            <h3 className="font-semibold text-black mb-1">{item[categoryKey]}:</h3>
-                            <p className="text-sm text-gray-800">{item[skillsKey]}</p>
-                          </div>
-                        )}
 
                         {/* Generic fallback for other field types */}
                         {!jobTitleKey && !degreeKey && !categoryKey && (

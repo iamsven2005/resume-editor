@@ -158,9 +158,7 @@ Return the email in this JSON format:
     let result
     try {
       const aiResponse = await generateText({
-        model: openai("gpt-4o", {
-          apiKey: "sk-proj-sDtKKyK65CABt9mRtL5wT3BlbkFJpg1ODkGHlhS0wqV1ma4T",
-        }),
+        model: openai("gpt-4o"),
         prompt: emailPrompt,
         temperature: 0.7, // Slightly higher for more creative and personalized emails
       })
