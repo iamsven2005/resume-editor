@@ -10,14 +10,26 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
     reader.onload = async (e) => {
       try {
         const arrayBuffer = e.target?.result as ArrayBuffer
-        const uint8Array = new Uint8Array(arrayBuffer)
+        console.log("PDF file size:", arrayBuffer.byteLength, "bytes")
 
-        // Convert to string for processing
+        // Try advanced extraction first
+        try {
+          const text = await extractWithAdvancedParser(arrayBuffer)
+          if (text && text.trim().length > 10) {
+            console.log("Advanced extraction successful, text length:", text.length)
+            console.log("Text preview:", text.substring(0, 200))
+            resolve(text)
+            return
+          }
+        } catch (advancedError) {
+          console.log("Advanced extraction failed, trying basic method:", advancedError)
+        }
+
+        // Fallback to basic extraction
+        const uint8Array = new Uint8Array(arrayBuffer)
         const pdfString = Array.from(uint8Array)
           .map((byte) => String.fromCharCode(byte))
           .join("")
-
-        console.log("PDF file size:", arrayBuffer.byteLength, "bytes")
 
         // Validate PDF header
         if (!pdfString.startsWith("%PDF-")) {
@@ -26,56 +38,40 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
 
         let extractedText = ""
 
-        // Method 1: Extract text from text objects (Tj, TJ operators)
-        const textObjectRegex = /\((.*?)\)\s*Tj/g
-        const textArrayRegex = /\[(.*?)\]\s*TJ/g
-        const quotedTextRegex = /'(.*?)'/g
-        const doubleQuotedTextRegex = /"(.*?)"/g
+        // Extract all readable text content
+        const textPatterns = [
+          // Standard text operators
+          /\(((?:[^()\\]|\\.|\\[0-7]{1,3})*)\)\s*Tj/g,
+          /\[((?:[^\[\]\\]|\\.|\\[0-7]{1,3})*)\]\s*TJ/g,
+          // Direct parenthesized strings
+          /\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g,
+          // Hex strings
+          /<([0-9A-Fa-f\s]+)>/g,
+        ]
 
-        let match
-
-        // Extract text from Tj operators
-        while ((match = textObjectRegex.exec(pdfString)) !== null) {
-          const text = match[1]
-          if (text && text.trim().length > 0) {
-            extractedText += decodePDFText(text) + " "
+        textPatterns.forEach((pattern) => {
+          let match
+          while ((match = pattern.exec(pdfString)) !== null) {
+            let text = match[1]
+            
+            // Handle hex strings
+            if (pattern.source.includes("A-Fa-f")) {
+              text = hexToString(text)
+            } else {
+              text = decodePDFText(text)
+            }
+            
+            if (text && text.trim().length > 0) {
+              extractedText += text + " "
+            }
           }
-        }
+        })
 
-        // Extract text from TJ operators (text arrays)
-        while ((match = textArrayRegex.exec(pdfString)) !== null) {
-          const textArray = match[1]
-          // Parse the array content
-          const arrayContent = textArray.match(/\((.*?)\)/g)
-          if (arrayContent) {
-            arrayContent.forEach((item) => {
-              const text = item.replace(/[()]/g, "")
-              if (text && text.trim().length > 0) {
-                extractedText += decodePDFText(text) + " "
-              }
-            })
-          }
-        }
-
-        // Extract text from quoted strings
-        while ((match = quotedTextRegex.exec(pdfString)) !== null) {
-          const text = match[1]
-          if (text && text.trim().length > 0) {
-            extractedText += decodePDFText(text) + " "
-          }
-        }
-
-        while ((match = doubleQuotedTextRegex.exec(pdfString)) !== null) {
-          const text = match[1]
-          if (text && text.trim().length > 0) {
-            extractedText += decodePDFText(text) + " "
-          }
-        }
-
-        // Method 2: Extract from stream objects
-        const streamRegex = /stream\s*(.*?)\s*endstream/gs
-        while ((match = streamRegex.exec(pdfString)) !== null) {
-          const streamContent = match[1]
+        // Extract from content streams
+        const streamRegex = /stream\s*([\s\S]*?)\s*endstream/g
+        let streamMatch
+        while ((streamMatch = streamRegex.exec(pdfString)) !== null) {
+          const streamContent = streamMatch[1]
           const streamText = extractTextFromStream(streamContent)
           if (streamText) {
             extractedText += streamText + " "
@@ -95,7 +91,13 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
         resolve(extractedText)
       } catch (error) {
         console.error("PDF extraction error:", error)
-        reject(error)
+        // Try the advanced method as final fallback
+        try {
+          const fallbackText = await extractTextFromPDFAdvanced(file)
+          resolve(fallbackText)
+        } catch {
+          reject(error)
+        }
       }
     }
 
@@ -105,6 +107,72 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
 
     reader.readAsArrayBuffer(file)
   })
+}
+
+// New advanced parser for better text extraction
+async function extractWithAdvancedParser(arrayBuffer: ArrayBuffer): Promise<string> {
+  const uint8Array = new Uint8Array(arrayBuffer)
+  let pdfContent = ""
+  
+  // Convert to string with better encoding handling
+  for (let i = 0; i < uint8Array.length; i++) {
+    pdfContent += String.fromCharCode(uint8Array[i])
+  }
+
+  let extractedText = ""
+  
+  // Look for font mappings and character encodings
+  const fontMappings = new Map<string, Map<string, string>>()
+  
+  // Extract font information
+  const fontRegex = /\/Type\s*\/Font[^<]*?\/Encoding[^<]*?(?:<([^>]+)>)?/g
+  let fontMatch
+  while ((fontMatch = fontRegex.exec(pdfContent)) !== null) {
+    // This would contain font encoding info
+    console.log("Found font encoding information")
+  }
+
+  // Extract text with better Unicode handling
+  const betterTextPatterns = [
+    // Text in parentheses with proper escaping
+    /\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*(?:Tj|TJ)/g,
+    // Hex encoded text
+    /<([0-9A-Fa-f\s]+)>\s*(?:Tj|TJ)/g,
+    // Text arrays
+    /\[([^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*)\]\s*TJ/g,
+  ]
+
+  betterTextPatterns.forEach((pattern) => {
+    let match
+    while ((match = pattern.exec(pdfContent)) !== null) {
+      let text = match[1]
+      
+      if (pattern.source.includes("A-Fa-f")) {
+        // Handle hex encoded text
+        text = hexToString(text)
+      } else if (pattern.source.includes("[")) {
+        // Handle text arrays
+        const textParts = text.match(/\(([^()]*)\)/g) || []
+        text = textParts.map(part => part.slice(1, -1)).join("")
+      }
+      
+      text = decodePDFText(text)
+      
+      if (text && text.trim().length > 0 && isReadableText(text)) {
+        extractedText += text + " "
+      }
+    }
+  })
+
+  return cleanExtractedText(extractedText)
+}
+
+// Helper to check if text is readable
+function isReadableText(text: string): boolean {
+  // Check if text contains mostly printable ASCII characters
+  const printableChars = text.replace(/[^\x20-\x7E]/g, "").length
+  const totalChars = text.length
+  return totalChars > 0 && (printableChars / totalChars) > 0.7
 }
 
 // Advanced PDF extraction method as fallback
