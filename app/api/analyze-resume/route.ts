@@ -103,11 +103,8 @@ Return ONLY the JSON object with no additional formatting or text.
     let result
     try {
       const aiResponse = await generateText({
-        model: openai("gpt-4o", {
-          apiKey: "sk-proj-sDtKKyK65CABt9mRtL5wT3BlbkFJpg1ODkGHlhS0wqV1ma4T",
-        }),
-        prompt,
-        temperature: 0.3, // Slightly higher for more nuanced analysis
+        model: openai("gpt-4o"),
+        prompt
       })
       result = aiResponse.text
     } catch (aiError) {

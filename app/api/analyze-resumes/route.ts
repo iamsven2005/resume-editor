@@ -276,8 +276,7 @@ Extract ALL contact information including email addresses, phone numbers, full n
 
         const { text } = await generateText({
           model: openai("gpt-4o"),
-          prompt,
-          maxTokens: 1000,
+          prompt
         })
 
         // Try to parse the JSON response
