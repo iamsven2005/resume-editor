@@ -27,7 +27,7 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
         let extractedText = ""
 
         // Method 1: Extract text from text objects (Tj, TJ operators)
-        const textObjectRegex = /$$(.*?)$$\s*Tj/g
+        const textObjectRegex = /\((.*?)\)\s*Tj/g
         const textArrayRegex = /\[(.*?)\]\s*TJ/g
         const quotedTextRegex = /'(.*?)'/g
         const doubleQuotedTextRegex = /"(.*?)"/g
@@ -46,7 +46,7 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
         while ((match = textArrayRegex.exec(pdfString)) !== null) {
           const textArray = match[1]
           // Parse the array content
-          const arrayContent = textArray.match(/$$(.*?)$$/g)
+          const arrayContent = textArray.match(/\((.*?)\)/g)
           if (arrayContent) {
             arrayContent.forEach((item) => {
               const text = item.replace(/[()]/g, "")
@@ -137,7 +137,7 @@ export const extractTextFromPDFAdvanced = async (file: File): Promise<string> =>
           // Text showing operators
           /BT\s*(.*?)\s*ET/gs,
           // Direct text content
-          /$$(?:[^()\\]|\\.|\\[0-7]{1,3})*$$/g,
+          /\((?:[^()\\]|\\.|\\[0-7]{1,3})*\)/g,
           // Hex strings
           /<([0-9A-Fa-f\s]+)>/g,
           // Text in content streams
@@ -216,7 +216,7 @@ function extractTextFromStream(streamContent: string): string {
   let text = ""
 
   // Look for text operators in the stream
-  const textPatterns = [/$$(.*?)$$\s*Tj/g, /\[(.*?)\]\s*TJ/g, /'(.*?)'\s*Tj/g, /"(.*?)"\s*Tj/g]
+  const textPatterns = [/\((.*?)\)\s*Tj/g, /\[(.*?)\]\s*TJ/g, /'(.*?)'\s*Tj/g, /"(.*?)"\s*Tj/g]
 
   textPatterns.forEach((pattern) => {
     let match
@@ -236,7 +236,7 @@ function extractTextFromContent(content: string): string {
   let text = ""
 
   // Extract text from various PDF text operators
-  const patterns = [/$$(.*?)$$/g, /<([0-9A-Fa-f\s]+)>/g]
+  const patterns = [/\((.*?)\)/g, /<([0-9A-Fa-f\s]+)>/g]
 
   patterns.forEach((pattern) => {
     let match
