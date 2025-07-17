@@ -7,13 +7,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckCircle, XCircle, AlertTriangle, TrendingUp, Target } from "lucide-react"
 import type { ResumeAnalysis } from "../types/analysis"
+import { EmailGeneratorPanel } from "./email-generator-panel"
 
 interface ResumeAnalysisPanelProps {
   analysis: ResumeAnalysis | null
   isLoading: boolean
+  resumeData?: any
+  jobRequirements?: string
 }
 
-export const ResumeAnalysisPanel = ({ analysis, isLoading }: ResumeAnalysisPanelProps) => {
+export const ResumeAnalysisPanel = ({ analysis, isLoading, resumeData, jobRequirements }: ResumeAnalysisPanelProps) => {
   if (isLoading) {
     return (
       <Card>
@@ -90,11 +93,12 @@ export const ResumeAnalysisPanel = ({ analysis, isLoading }: ResumeAnalysisPanel
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="missing">Missing</TabsTrigger>
             <TabsTrigger value="keywords">Keywords</TabsTrigger>
             <TabsTrigger value="sections">Sections</TabsTrigger>
+            <TabsTrigger value="email">Email</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -196,6 +200,9 @@ export const ResumeAnalysisPanel = ({ analysis, isLoading }: ResumeAnalysisPanel
                 <p className="text-sm text-muted-foreground">{analysis.sectionAnalysis.other}</p>
               </div>
             </div>
+          </TabsContent>
+          <TabsContent value="email" className="space-y-4">
+            <EmailGeneratorPanel analysis={analysis} resumeData={resumeData} jobRequirements={jobRequirements || ""} />
           </TabsContent>
         </Tabs>
       </CardContent>

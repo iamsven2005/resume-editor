@@ -144,19 +144,21 @@ export function ResumeList({
     <div className="space-y-4">
       {renderResultsSummary()}
       <ScrollArea className="h-[600px] w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+        <div className="flex flex-wrap gap-4 p-1">
           {filteredAndSortedResumes.map((resume) => (
-            <ResumeCard
-              key={resume.id}
-              resume={resume}
-              token={token}
-              onLoadResume={onLoadResume}
-              onResumeUpdated={onResumeUpdated}
-              onResumeDeleted={onResumeDeleted}
-              onPortfolioCreated={onPortfolioCreated}
-            />
+            <div key={resume.id} className="w-full md:w-1/2 lg:w-1/3">
+              <ResumeCard
+                resume={resume}
+                token={token}
+                onLoadResume={onLoadResume}
+                onResumeUpdated={onResumeUpdated}
+                onResumeDeleted={onResumeDeleted}
+                onPortfolioCreated={onPortfolioCreated}
+              />
+            </div>
           ))}
         </div>
+
       </ScrollArea>
     </div>
   )

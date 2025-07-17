@@ -17,7 +17,7 @@ import { PanelLayoutManager, type PanelConfig } from "./components/panel-layout-
 import { useAuth } from "./contexts/auth-context"
 import type { Section, ContentItem, TabType, ResumeData } from "./types/resume"
 import type { ResumeAnalysis } from "./types/analysis"
-import{Footer}from "@/components/footer"
+import { Footer } from "@/components/footer"
 
 import {
   FileText,
@@ -749,7 +749,14 @@ export default function JsonTextareaEditor() {
       id: "resume-analysis",
       title: "Resume Analysis",
       icon: <BarChart3 className="h-4 w-4" />,
-      component: <ResumeAnalysisPanel analysis={resumeAnalysis} isLoading={isAnalyzing} />,
+      component: (
+        <ResumeAnalysisPanel
+          analysis={resumeAnalysis}
+          isLoading={isAnalyzing}
+          resumeData={parsedData}
+          jobRequirements={jobRequirements}
+        />
+      ),
       headerActions: resumeAnalysis && (
         <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Re-analyze" onClick={analyzeResume}>
           <Target className="h-3 w-3" />
@@ -836,7 +843,7 @@ export default function JsonTextareaEditor() {
 
         <PanelLayoutManager panels={panels} />
       </div>
-      <Footer/>
+      <Footer />
     </div>
   )
 }
