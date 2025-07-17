@@ -213,12 +213,12 @@ export function ResumeRanker({ resumes, token }: ResumeRankerProps) {
             </div>
           ) : (
             <ScrollArea className="h-[300px] w-full">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+              <div className="flex flex-wrap gap-4 p-1">
                 {resumes.map((resume) => (
                   <Card
                     key={resume.id}
                     className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedResumeIds.has(resume.id) ? "ring-2 ring-blue-500 bg-blue-50" : ""
+                      selectedResumeIds.has(resume.id) ? "ring-2 ring-blue-500" : ""
                     }`}
                     onClick={() => handleResumeSelection(resume.id, !selectedResumeIds.has(resume.id))}
                   >

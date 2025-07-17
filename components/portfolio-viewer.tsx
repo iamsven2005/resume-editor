@@ -92,8 +92,8 @@ export function PortfolioViewer({ resumeData, theme = 'modern' }: PortfolioViewe
 
   const renderPersonalInfo = () => {
     const personalInfo = resumeData.personalInfo || {}
-    const name = personalInfo.name || 'Professional Portfolio'
-    const title = personalInfo.title || resumeData.title || ''
+    const title = personalInfo.title || 'Professional Portfolio'
+    const description = personalInfo.description|| resumeData.title || ''
 
     return (
       <div className={`${themeClasses.header} px-8 py-12`}>
@@ -102,9 +102,9 @@ export function PortfolioViewer({ resumeData, theme = 'modern' }: PortfolioViewe
             <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
               {name}
             </h1>
-            {title && (
+            {description && (
               <p className={`text-xl md:text-2xl ${themeClasses.accent} font-medium mb-6`}>
-                {title}
+                {description}
               </p>
             )}
             {personalInfo.summary && (

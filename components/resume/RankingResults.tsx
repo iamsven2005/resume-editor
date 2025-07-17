@@ -73,7 +73,7 @@ export function RankingResults({ analysisResults, isAnalyzing, onReset }: Rankin
       {isAnalyzing ? (
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <TrendingUp className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
+            <TrendingUp className="h-12 w-12 mx-auto mb-4 animate-spin" />
             <p className="text-lg font-medium">Analyzing Resumes...</p>
             <p className="text-muted-foreground">This may take a moment</p>
           </div>
@@ -85,8 +85,8 @@ export function RankingResults({ analysisResults, isAnalyzing, onReset }: Rankin
               <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="bg-white p-2 rounded-full">
-                      <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                    <div className="p-2 rounded-full">
+                      <div className="w-6 h-6 bg-blue-500  rounded-full flex items-center justify-center text-sm font-bold">
                         {index + 1}
                       </div>
                     </div>
