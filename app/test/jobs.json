@@ -1,0 +1,56 @@
+[
+  {
+    "role": "IT Executive",
+    "organization": "YWL Engineering",
+    "period": "March 2025 – Oct 2025 6mths",
+    "description": "Assisted in Devops Operations including tech support, physical troubleshooting, and development of internal automation tooling."
+  },
+  {
+    "role": "IT Apprenticeship",
+    "organization": "Virage-Cybersecurity",
+    "period": "Oct 2024 – March 2025 5mths",
+    "description": "Managed and led development of automated AWS AI email service, uptime monitoring tool and handling email workflows."
+  },
+    {
+    "role": "Tech Founder",
+    "organization": "Bihance",
+    "period": "June 2024 – March 2025 9mths",
+    "description": "Built marketing pipeline and managed 3 employees in creating and maintaining a hr based SAAS startup."
+  },
+    {
+    "role": "Full-Stack Developer",
+    "organization": "ICPHH",
+    "period": "April 2024 – June 2024 3mths",
+    "description": "Worked on multi-media crypto platforms including, discord, telegram, mobile, blockchain and k8s for a multi-tenant crypto marketplace"
+  },
+    {
+    "role": "IT intern",
+    "organization": "Agegracefully",
+    "period": "April 2023 – April 2024 12mths",
+    "description": "Developed custom workflows using shopify api and webhooks to create immersive shopping experiences. Helped in daily stocktake and delivery operations. Created marketing videos and materials"
+  },
+    {
+    "role": "Student Volunteer",
+    "organization": "Eduhope",
+    "period": "Oct 2022 – April 2023 6mths",
+    "description": "DNS management, nextjs and django development. Helped in hosting operations on digital ocean."
+  },
+    {
+    "role": "Full-Stack Contract",
+    "organization": "Convohearts",
+    "period": "June 2022 – Sept 2022 3mths",
+    "description": "Flutter developement for dating app"
+  },
+    {
+    "role": "Full-Stack Contract",
+    "organization": "Pronto SG",
+    "period": "March 2022 – May 2022 3mths",
+    "description": "Developed MVP with E2E testing and Soc3 compliance"
+  },
+    {
+    "role": "Sales Associate",
+    "organization": "Metro",
+    "period": "Nov 2021 – March 2022 5mths",
+    "description": "Manage to work under Metro Orchard to do sales, delivery and packing work, learn the flow of market and conpany during black friday through chinese new year."
+  }
+]
