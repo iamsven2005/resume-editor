@@ -7,8 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Upload, FileText, AlertCircle, CheckCircle2, X, File, Info, Lock } from "lucide-react"
-import { extractTextFromPDF, extractTextFromPDFAdvanced, parseResumeWithAI } from "../utils/pdf-parser"
-import { extractFormattedTextFromWord, parseWordResumeWithAI } from "../utils/word-parser"
+import { parseDocumentWithBase64, validateDocumentFile, getFileTypeInfo } from "../utils/base64-parser"
 import type { ResumeData } from "../types/resume"
 import { useAuth } from "../contexts/auth-context"
 
@@ -17,67 +16,16 @@ interface DocumentUploadProps {
   onClose: () => void
 }
 
-type FileType = "pdf" | "docx"
+type FileType = "pdf" | "docx" | "doc"
 
 const processDocumentFile = async (
   file: File,
   setProgress: (progress: number) => void,
   setCurrentStep: (step: string) => void,
 ): Promise<ResumeData> => {
-  console.log("Processing file:", file.name, "Type:", file.type)
+  console.log("Processing file with base64 method:", file.name, "Type:", file.type)
 
-  const fileType = getFileType(file)
-  let extractedText: string
-
-  if (fileType === "pdf") {
-    setCurrentStep("Analyzing PDF structure...")
-    setProgress(30)
-
-    try {
-      console.log("Attempting primary PDF extraction...")
-      extractedText = await extractTextFromPDF(file)
-      console.log("PDF extraction successful, text length:", extractedText.length)
-      setCurrentStep("PDF text extraction successful!")
-      setProgress(60)
-    } catch (primaryError) {
-      console.warn("Primary PDF extraction failed:", primaryError)
-      setCurrentStep("Trying advanced PDF extraction method...")
-      setProgress(45)
-
-      try {
-        extractedText = await extractTextFromPDFAdvanced(file)
-        console.log("Advanced PDF extraction successful, text length:", extractedText.length)
-        setCurrentStep("Advanced PDF extraction successful!")
-        setProgress(60)
-      } catch (advancedError) {
-        console.error("Both PDF extraction methods failed:", advancedError)
-        throw new Error("Failed to extract text from PDF. This might be a scanned document or image-based PDF.")
-      }
-    }
-
-    setCurrentStep("Processing extracted text with AI...")
-    setProgress(75)
-    return parseResumeWithAI(extractedText)
-  } else if (fileType === "docx") {
-    setCurrentStep("Processing Word document...")
-    setProgress(40)
-
-    try {
-      extractedText = await extractFormattedTextFromWord(file)
-      console.log("Word extraction successful, text length:", extractedText.length)
-      setCurrentStep("Word document processed successfully!")
-      setProgress(60)
-
-      setCurrentStep("Processing extracted text with AI...")
-      setProgress(75)
-      return parseWordResumeWithAI(extractedText)
-    } catch (error) {
-      console.error("Word processing failed:", error)
-      throw new Error("Failed to process Word document. Please ensure it's a valid .docx file.")
-    }
-  } else {
-    throw new Error("Unsupported file type. Please upload a PDF or Word document (.docx).")
-  }
+  return parseDocumentWithBase64(file, setProgress, setCurrentStep)
 }
 
 const getFileType = (file: File): FileType => {
@@ -108,27 +56,7 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const validateFile = (file: File): string | null => {
-    console.log("Validating file:", file.name, "Size:", file.size, "Type:", file.type)
-
-    const isPDF = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
-    const isDocx =
-      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      file.name.toLowerCase().endsWith(".docx")
-
-    if (!isPDF && !isDocx) {
-      return `Unsupported file type: ${file.type || "unknown"}. Please upload a PDF or Word document (.docx) only.`
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      // 10MB limit
-      return "File size must be less than 10MB."
-    }
-
-    if (file.size === 0) {
-      return "The file appears to be empty. Please select a valid document."
-    }
-
-    return null
+    return validateDocumentFile(file)
   }
 
   const processFile = async (file: File) => {
@@ -308,9 +236,15 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
   }
 
   const getFileIcon = () => {
+    if (!fileType) {
+      return <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+    }
+
+    const fileInfo = getFileTypeInfo({ name: `file.${fileType}`, type: "", size: 0 } as File)
+
     if (fileType === "pdf") {
       return <FileText className="h-12 w-12 mx-auto mb-4 text-red-500" />
-    } else if (fileType === "docx") {
+    } else if (fileType === "docx" || fileType === "doc") {
       return <File className="h-12 w-12 mx-auto mb-4 text-blue-500" />
     }
     return <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -383,7 +317,7 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
             onChange={handleFileInput}
             className="hidden"
           />
@@ -392,9 +326,9 @@ export const DocumentUpload = ({ onResumeExtracted, onClose }: DocumentUploadPro
           </Button>
           <div className="mt-4 space-y-1">
             <p className="text-xs text-muted-foreground">Supported formats:</p>
-            <p className="text-xs text-muted-foreground">• Word documents (.docx) - recommended</p>
+            <p className="text-xs text-muted-foreground">• Word documents (.docx, .doc)</p>
             <p className="text-xs text-muted-foreground">• PDF documents (.pdf) - text-based only</p>
-            <p className="text-xs text-muted-foreground">Maximum file size: 10MB</p>
+            <p className="text-xs text-muted-foreground">Maximum file size: 25MB</p>
           </div>
         </div>
       )}
