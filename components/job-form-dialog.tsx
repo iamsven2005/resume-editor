@@ -3,26 +3,43 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { X, Plus } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, X } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 import type { Job, CreateJobData } from "@/types/job"
 
 interface JobFormDialogProps {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (data: CreateJobData) => Promise<void>
-  job?: Job | null
-  mode: "create" | "edit"
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  job?: Job
+  onSuccess: () => void
 }
 
-export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDialogProps) {
+const jobTypes = [
+  { value: "full-time", label: "Full-time" },
+  { value: "part-time", label: "Part-time" },
+  { value: "contract", label: "Contract" },
+  { value: "freelance", label: "Freelance" },
+  { value: "internship", label: "Internship" },
+] as const
+
+const currencies = [
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
+  { value: "GBP", label: "GBP" },
+  { value: "CAD", label: "CAD" },
+  { value: "AUD", label: "AUD" },
+] as const
+
+export function JobFormDialog({ open, onOpenChange, job, onSuccess }: JobFormDialogProps) {
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<CreateJobData>({
     title: "",
     description: "",
@@ -34,13 +51,11 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
     currency: "USD",
     is_remote: false,
     required_skills: [],
-    is_active: true,
   })
   const [newSkill, setNewSkill] = useState("")
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (job && mode === "edit") {
+    if (job) {
       setFormData({
         title: job.title,
         description: job.description,
@@ -52,7 +67,6 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
         currency: job.currency,
         is_remote: job.is_remote,
         required_skills: job.required_skills || [],
-        is_active: job.is_active,
       })
     } else {
       setFormData({
@@ -66,29 +80,59 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
         currency: "USD",
         is_remote: false,
         required_skills: [],
-        is_active: true,
       })
     }
-  }, [job, mode, isOpen])
+  }, [job, open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+
     try {
-      await onSave(formData)
-      onClose()
+      const url = job ? `/api/jobs/${job.id}` : "/api/jobs"
+      const method = job ? "PUT" : "POST"
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save job")
+      }
+
+      if (data.success) {
+        toast({
+          title: job ? "Job updated" : "Job created",
+          description: job ? "Job has been updated successfully." : "Job has been created successfully.",
+        })
+        onSuccess()
+        onOpenChange(false)
+      } else {
+        throw new Error(data.error || "Failed to save job")
+      }
     } catch (error) {
       console.error("Error saving job:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save job",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
   const addSkill = () => {
-    if (newSkill.trim() && !formData.required_skills?.includes(newSkill.trim())) {
+    if (newSkill.trim() && !formData.required_skills.includes(newSkill.trim())) {
       setFormData((prev) => ({
         ...prev,
-        required_skills: [...(prev.required_skills || []), newSkill.trim()],
+        required_skills: [...prev.required_skills, newSkill.trim()],
       }))
       setNewSkill("")
     }
@@ -97,7 +141,7 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
   const removeSkill = (skillToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      required_skills: prev.required_skills?.filter((skill) => skill !== skillToRemove) || [],
+      required_skills: prev.required_skills.filter((skill) => skill !== skillToRemove),
     }))
   }
 
@@ -109,10 +153,10 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Post New Job" : "Edit Job"}</DialogTitle>
+          <DialogTitle>{job ? "Edit Job" : "Create New Job"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -134,7 +178,7 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
                 id="company"
                 value={formData.company}
                 onChange={(e) => setFormData((prev) => ({ ...prev, company: e.target.value }))}
-                placeholder="e.g. Tech Corp"
+                placeholder="e.g. Acme Corp"
                 required
               />
             </div>
@@ -171,14 +215,14 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
                 onValueChange={(value: any) => setFormData((prev) => ({ ...prev, job_type: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select job type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="full-time">Full-time</SelectItem>
-                  <SelectItem value="part-time">Part-time</SelectItem>
-                  <SelectItem value="contract">Contract</SelectItem>
-                  <SelectItem value="freelance">Freelance</SelectItem>
-                  <SelectItem value="internship">Internship</SelectItem>
+                  {jobTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -224,15 +268,45 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, currency: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Currency" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
-                  <SelectItem value="CAD">CAD</SelectItem>
+                  {currencies.map((currency) => (
+                    <SelectItem key={currency.value} value={currency.value}>
+                      {currency.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Required Skills</Label>
+            <div className="flex gap-2">
+              <Input
+                value={newSkill}
+                onChange={(e) => setNewSkill(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Add a skill..."
+              />
+              <Button type="button" onClick={addSkill} size="sm">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.required_skills.map((skill, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                  {skill}
+                  <button
+                    type="button"
+                    onClick={() => removeSkill(skill)}
+                    className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
             </div>
           </div>
 
@@ -245,48 +319,12 @@ export function JobFormDialog({ isOpen, onClose, onSave, job, mode }: JobFormDia
             <Label htmlFor="is_remote">Remote work available</Label>
           </div>
 
-          {mode === "edit" && (
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="is_active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: checked }))}
-              />
-              <Label htmlFor="is_active">Job is active</Label>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label>Required Skills</Label>
-            <div className="flex gap-2">
-              <Input
-                value={newSkill}
-                onChange={(e) => setNewSkill(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Add a skill..."
-              />
-              <Button type="button" onClick={addSkill} size="sm">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.required_skills?.map((skill, index) => (
-                <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                  {skill}
-                  <button type="button" onClick={() => removeSkill(skill)} className="ml-1 hover:text-destructive">
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          </div>
-
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : mode === "create" ? "Post Job" : "Update Job"}
+              {loading ? "Saving..." : job ? "Update Job" : "Create Job"}
             </Button>
           </DialogFooter>
         </form>

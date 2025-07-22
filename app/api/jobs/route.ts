@@ -3,61 +3,55 @@ import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
 import type { CreateJobData } from "@/types/job"
 
-// Initialize the database connection
-let sql: any = null
-
-try {
-  sql = neon(process.env.NEON_DATABASE_URL!)
-} catch (error) {
-  console.error("Failed to initialize database connection:", error)
-}
+const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
-    if (!sql) {
-      console.error("Database connection not initialized")
-      return NextResponse.json({ success: false, error: "Database connection failed" }, { status: 500 })
-    }
-
     const { searchParams } = new URL(request.url)
     const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "10")
+    const limit = Math.min(Number.parseInt(searchParams.get("limit") || "10"), 50)
     const search = searchParams.get("search") || ""
     const jobType = searchParams.get("job_type") || ""
     const isRemote = searchParams.get("is_remote")
     const userId = searchParams.get("user_id")
     const offset = (page - 1) * limit
 
-    // Build the WHERE clause
-    let whereClause = "WHERE 1=1"
+    // Build the WHERE clause and parameters
+    const whereConditions = ["1=1"]
     const queryParams: any[] = []
-    let paramIndex = 1
 
     if (search) {
-      whereClause += ` AND (j.title ILIKE $${paramIndex} OR j.description ILIKE $${paramIndex} OR j.company ILIKE $${paramIndex})`
+      whereConditions.push(
+        "(j.title ILIKE $" +
+          (queryParams.length + 1) +
+          " OR j.description ILIKE $" +
+          (queryParams.length + 1) +
+          " OR j.company ILIKE $" +
+          (queryParams.length + 1) +
+          ")",
+      )
       queryParams.push(`%${search}%`)
-      paramIndex++
     }
 
     if (jobType && jobType !== "all") {
-      whereClause += ` AND j.job_type = $${paramIndex}`
+      whereConditions.push("j.job_type = $" + (queryParams.length + 1))
       queryParams.push(jobType)
-      paramIndex++
     }
 
     if (isRemote === "true") {
-      whereClause += " AND j.is_remote = true"
+      whereConditions.push("j.is_remote = true")
     } else if (isRemote === "false") {
-      whereClause += " AND j.is_remote = false"
+      whereConditions.push("j.is_remote = false")
     }
 
     if (userId) {
-      whereClause += ` AND j.user_id = $${paramIndex}`
+      whereConditions.push("j.user_id = $" + (queryParams.length + 1))
       queryParams.push(Number.parseInt(userId))
-      paramIndex++
     } else {
-      whereClause += " AND j.is_active = true"
+      whereConditions.push("j.is_active = true")
     }
+
+    const whereClause = "WHERE " + whereConditions.join(" AND ")
 
     // Get total count
     const countQuery = `
@@ -66,9 +60,8 @@ export async function GET(request: NextRequest) {
       ${whereClause}
     `
 
-    console.log("Count query:", countQuery, "Params:", queryParams)
-    const countResult = await sql(countQuery, queryParams)
-    const total = Number.parseInt(countResult[0].total)
+    const countResult = await sql.query(countQuery, queryParams)
+    const total = Number.parseInt(countResult.rows[0].total)
 
     // Get jobs with pagination
     const jobsQuery = `
@@ -94,11 +87,11 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON j.user_id = u.id
       ${whereClause}
       ORDER BY j.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `
 
-    console.log("Jobs query:", jobsQuery, "Params:", [...queryParams, limit, offset])
-    const jobs = await sql(jobsQuery, [...queryParams, limit, offset])
+    const jobsResult = await sql.query(jobsQuery, [...queryParams, limit, offset])
+    const jobs = jobsResult.rows
 
     const processedJobs = jobs.map((job: any) => ({
       ...job,
@@ -134,10 +127,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!sql) {
-      return NextResponse.json({ success: false, error: "Database connection failed" }, { status: 500 })
-    }
-
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 })
@@ -150,30 +139,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
     }
 
-    console.log("Creating job with data:", data)
+    // Validate job_type
+    const validJobTypes = ["full-time", "part-time", "contract", "freelance", "internship"]
+    if (!validJobTypes.includes(data.job_type)) {
+      return NextResponse.json({ success: false, error: "Invalid job type" }, { status: 400 })
+    }
 
-    const result = await sql`
+    const insertQuery = `
       INSERT INTO jobs (
         title, description, company, location, job_type,
-        salary_min, salary_max, currency, is_remote, required_skills, user_id, is_active
+        salary_min, salary_max, currency, is_remote, required_skills, user_id
       ) VALUES (
-        ${data.title}, 
-        ${data.description}, 
-        ${data.company}, 
-        ${data.location}, 
-        ${data.job_type},
-        ${data.salary_min || null}, 
-        ${data.salary_max || null}, 
-        ${data.currency || "USD"}, 
-        ${data.is_remote || false}, 
-        ${JSON.stringify(data.required_skills || [])}, 
-        ${user.id},
-        ${data.is_active !== false}
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
       )
       RETURNING *
     `
 
-    const job = result[0]
+    const result = await sql.query(insertQuery, [
+      data.title,
+      data.description,
+      data.company,
+      data.location,
+      data.job_type,
+      data.salary_min || null,
+      data.salary_max || null,
+      data.currency || "USD",
+      data.is_remote || false,
+      JSON.stringify(data.required_skills || []),
+      user.id,
+    ])
+
+    const job = result.rows[0]
 
     return NextResponse.json({
       success: true,

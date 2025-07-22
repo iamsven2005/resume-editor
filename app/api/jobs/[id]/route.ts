@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
-import type { CreateJobData } from "@/types/job"
+import type { UpdateJobData } from "@/types/job"
 
-const sql = neon(process.env.NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -12,32 +12,44 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, error: "Invalid job ID" }, { status: 400 })
     }
 
-    const result = await sql`
+    const query = `
       SELECT 
         j.*,
         u.name as user_name,
         u.email as user_email
       FROM jobs j
       LEFT JOIN users u ON j.user_id = u.id
-      WHERE j.id = ${jobId}
+      WHERE j.id = $1
     `
 
-    if (result.length === 0) {
+    const result = await sql.query(query, [jobId])
+
+    if (result.rows.length === 0) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
     }
 
-    const job = result[0]
+    const job = result.rows[0]
     return NextResponse.json({
       success: true,
       job: {
         ...job,
-        required_skills:
-          typeof job.required_skills === "string" ? JSON.parse(job.required_skills || "[]") : job.required_skills || [],
+        required_skills: Array.isArray(job.required_skills)
+          ? job.required_skills
+          : typeof job.required_skills === "string"
+            ? JSON.parse(job.required_skills || "[]")
+            : [],
       },
     })
   } catch (error) {
     console.error("Error fetching job:", error)
-    return NextResponse.json({ success: false, error: "Failed to fetch job" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to fetch job",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -53,47 +65,122 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, error: "Invalid job ID" }, { status: 400 })
     }
 
-    // Check if job exists and user owns it
-    const existingJob = await sql`
-      SELECT * FROM jobs WHERE id = ${jobId} AND user_id = ${user.id}
-    `
+    const data: UpdateJobData = await request.json()
 
-    if (existingJob.length === 0) {
-      return NextResponse.json({ success: false, error: "Job not found or unauthorized" }, { status: 404 })
+    // Check if user owns the job
+    const ownershipQuery = "SELECT user_id FROM jobs WHERE id = $1"
+    const ownershipResult = await sql.query(ownershipQuery, [jobId])
+
+    if (ownershipResult.rows.length === 0) {
+      return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
     }
 
-    const data: CreateJobData = await request.json()
+    if (ownershipResult.rows[0].user_id !== user.id) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 403 })
+    }
 
-    const result = await sql`
-      UPDATE jobs SET
-        title = ${data.title || existingJob[0].title},
-        description = ${data.description || existingJob[0].description},
-        company = ${data.company || existingJob[0].company},
-        location = ${data.location || existingJob[0].location},
-        job_type = ${data.job_type || existingJob[0].job_type},
-        salary_min = ${data.salary_min !== undefined ? data.salary_min : existingJob[0].salary_min},
-        salary_max = ${data.salary_max !== undefined ? data.salary_max : existingJob[0].salary_max},
-        currency = ${data.currency || existingJob[0].currency},
-        is_remote = ${data.is_remote !== undefined ? data.is_remote : existingJob[0].is_remote},
-        required_skills = ${JSON.stringify(data.required_skills || existingJob[0].required_skills || [])},
-        is_active = ${data.is_active !== undefined ? data.is_active : existingJob[0].is_active},
-        updated_at = NOW()
-      WHERE id = ${jobId}
+    // Build update query dynamically
+    const updateFields: string[] = []
+    const updateValues: any[] = []
+    let paramIndex = 1
+
+    if (data.title !== undefined) {
+      updateFields.push(`title = $${paramIndex}`)
+      updateValues.push(data.title)
+      paramIndex++
+    }
+    if (data.description !== undefined) {
+      updateFields.push(`description = $${paramIndex}`)
+      updateValues.push(data.description)
+      paramIndex++
+    }
+    if (data.company !== undefined) {
+      updateFields.push(`company = $${paramIndex}`)
+      updateValues.push(data.company)
+      paramIndex++
+    }
+    if (data.location !== undefined) {
+      updateFields.push(`location = $${paramIndex}`)
+      updateValues.push(data.location)
+      paramIndex++
+    }
+    if (data.job_type !== undefined) {
+      updateFields.push(`job_type = $${paramIndex}`)
+      updateValues.push(data.job_type)
+      paramIndex++
+    }
+    if (data.salary_min !== undefined) {
+      updateFields.push(`salary_min = $${paramIndex}`)
+      updateValues.push(data.salary_min)
+      paramIndex++
+    }
+    if (data.salary_max !== undefined) {
+      updateFields.push(`salary_max = $${paramIndex}`)
+      updateValues.push(data.salary_max)
+      paramIndex++
+    }
+    if (data.currency !== undefined) {
+      updateFields.push(`currency = $${paramIndex}`)
+      updateValues.push(data.currency)
+      paramIndex++
+    }
+    if (data.is_remote !== undefined) {
+      updateFields.push(`is_remote = $${paramIndex}`)
+      updateValues.push(data.is_remote)
+      paramIndex++
+    }
+    if (data.required_skills !== undefined) {
+      updateFields.push(`required_skills = $${paramIndex}`)
+      updateValues.push(JSON.stringify(data.required_skills))
+      paramIndex++
+    }
+    if (data.is_active !== undefined) {
+      updateFields.push(`is_active = $${paramIndex}`)
+      updateValues.push(data.is_active)
+      paramIndex++
+    }
+
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`)
+
+    if (updateFields.length === 1) {
+      return NextResponse.json({ success: false, error: "No fields to update" }, { status: 400 })
+    }
+
+    const updateQuery = `
+      UPDATE jobs 
+      SET ${updateFields.join(", ")}
+      WHERE id = $${paramIndex}
       RETURNING *
     `
 
-    const job = result[0]
+    const result = await sql.query(updateQuery, [...updateValues, jobId])
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ success: false, error: "Failed to update job" }, { status: 500 })
+    }
+
+    const job = result.rows[0]
     return NextResponse.json({
       success: true,
       job: {
         ...job,
-        required_skills:
-          typeof job.required_skills === "string" ? JSON.parse(job.required_skills) : job.required_skills || [],
+        required_skills: Array.isArray(job.required_skills)
+          ? job.required_skills
+          : typeof job.required_skills === "string"
+            ? JSON.parse(job.required_skills || "[]")
+            : [],
       },
     })
   } catch (error) {
     console.error("Error updating job:", error)
-    return NextResponse.json({ success: false, error: "Failed to update job" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to update job",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -109,19 +196,31 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ success: false, error: "Invalid job ID" }, { status: 400 })
     }
 
-    const result = await sql`
-      DELETE FROM jobs 
-      WHERE id = ${jobId} AND user_id = ${user.id}
-      RETURNING id
-    `
+    // Check if user owns the job
+    const ownershipQuery = "SELECT user_id FROM jobs WHERE id = $1"
+    const ownershipResult = await sql.query(ownershipQuery, [jobId])
 
-    if (result.length === 0) {
-      return NextResponse.json({ success: false, error: "Job not found or unauthorized" }, { status: 404 })
+    if (ownershipResult.rows.length === 0) {
+      return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, message: "Job deleted successfully" })
+    if (ownershipResult.rows[0].user_id !== user.id) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 403 })
+    }
+
+    const deleteQuery = "DELETE FROM jobs WHERE id = $1"
+    await sql.query(deleteQuery, [jobId])
+
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error deleting job:", error)
-    return NextResponse.json({ success: false, error: "Failed to delete job" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to delete job",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
