@@ -7,7 +7,7 @@ export default function Page() {
         Patches and updates
       </h1>
       <p className="mb-4">
-        {`Here is my personal experience in development  that I will continue to update over time.`}
+        {`Patch Notes and Updates`}
       </p>
       <div className="my-8">
         <BlogPosts/>

@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { BugReportDialog } from "./bug-report-dialog"
 import { FeatureRequestDialog } from "./feature-request-dialog"
-
+import {Button} from "@/components/ui/button"
 export function Footer() {
   return (
     <footer className="border-t bg-background">
@@ -38,6 +38,20 @@ export function Footer() {
               </div>
               <div>
                 <FeatureRequestDialog />
+              </div>
+              <div>
+              <Button variant="outline" size="sm">
+              <Link href="/topics">
+              Topics
+              </Link>
+              </Button>
+              </div>
+              <div>
+              <Button variant="outline" size="sm">
+              <Link href="/patch">
+              Patches
+              </Link>
+              </Button>
               </div>
             </div>
           </div>
