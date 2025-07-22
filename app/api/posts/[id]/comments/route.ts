@@ -1,57 +1,77 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
 const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
-
-    // Get all comments for this post
     const comments = await sql`
-      SELECT * FROM comments 
-      WHERE post_id = ${id}
+      SELECT 
+        id,
+        post_id,
+        parent_comment_id,
+        content,
+        author_name,
+        vote_score,
+        created_at
+      FROM comments 
+      WHERE post_id = ${params.id}
       ORDER BY created_at ASC
     `
 
     // Organize comments with replies
-    const topLevelComments = comments.filter((comment) => !comment.parent_comment_id)
-    const repliesMap = new Map()
+    const commentMap = new Map()
+    const topLevelComments = []
 
-    comments
-      .filter((comment) => comment.parent_comment_id)
-      .forEach((reply) => {
-        const parentId = reply.parent_comment_id
-        if (!repliesMap.has(parentId)) {
-          repliesMap.set(parentId, [])
+    // First pass: create all comment objects
+    comments.forEach((comment) => {
+      const formattedComment = {
+        id: comment.id,
+        post_id: comment.post_id,
+        parent_comment_id: comment.parent_comment_id || undefined,
+        content: comment.content,
+        author_name: comment.author_name || "unknown",
+        vote_score: comment.vote_score || 0,
+        created_at: comment.created_at,
+        replies: [],
+      }
+      commentMap.set(comment.id, formattedComment)
+    })
+
+    // Second pass: organize hierarchy
+    comments.forEach((comment) => {
+      const formattedComment = commentMap.get(comment.id)
+      if (comment.parent_comment_id) {
+        const parent = commentMap.get(comment.parent_comment_id)
+        if (parent) {
+          parent.replies.push(formattedComment)
         }
-        repliesMap.get(parentId).push(reply)
-      })
+      } else {
+        topLevelComments.push(formattedComment)
+      }
+    })
 
-    const organizedComments = topLevelComments.map((comment) => ({
-      ...comment,
-      replies: repliesMap.get(comment.id) || [],
-    }))
-
-    return NextResponse.json({ comments: organizedComments })
+    return NextResponse.json(topLevelComments)
   } catch (error) {
     console.error("Error fetching comments:", error)
     return NextResponse.json({ error: "Failed to fetch comments" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
-    const { id } = params
-    const { content, author_name, parent_comment_id } = await request.json()
+    const { content, parent_comment_id } = await request.json()
 
-    if (!content || !author_name) {
-      return NextResponse.json({ error: "Content and author name are required" }, { status: 400 })
+    if (!content) {
+      return NextResponse.json({ error: "Content is required" }, { status: 400 })
     }
 
+    // TODO: Get current user from auth context
+    const authorName = "unknown" // Default for now
+
     const [comment] = await sql`
-      INSERT INTO comments (post_id, content, author_name, parent_comment_id)
-      VALUES (${id}, ${content}, ${author_name}, ${parent_comment_id})
+      INSERT INTO comments (post_id, parent_comment_id, content, author_name)
+      VALUES (${params.id}, ${parent_comment_id || null}, ${content}, ${authorName})
       RETURNING *
     `
 
@@ -59,10 +79,19 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     await sql`
       UPDATE posts 
       SET comment_count = comment_count + 1 
-      WHERE id = ${id}
+      WHERE id = ${params.id}
     `
 
-    return NextResponse.json({ comment })
+    return NextResponse.json({
+      id: comment.id,
+      post_id: comment.post_id,
+      parent_comment_id: comment.parent_comment_id || undefined,
+      content: comment.content,
+      author_name: comment.author_name || "unknown",
+      vote_score: comment.vote_score || 0,
+      created_at: comment.created_at,
+      replies: [],
+    })
   } catch (error) {
     console.error("Error creating comment:", error)
     return NextResponse.json({ error: "Failed to create comment" }, { status: 500 })

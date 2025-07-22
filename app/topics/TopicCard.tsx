@@ -1,63 +1,47 @@
-import Link from "next/link"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Users, MessageSquare, Calendar } from "lucide-react"
-import type { Topic } from "@/types/database"
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Users, Calendar } from 'lucide-react';
+import Link from 'next/link';
+import type { Topic } from '@/data/mockData';
 
 interface TopicCardProps {
-  topic: Topic
+  topic: Topic;
 }
 
-export function TopicCard({ topic }: TopicCardProps) {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-  }
-
+export const TopicCard = ({ topic }: TopicCardProps) => {
   return (
-    <Link href={`/topics/${topic.slug}`}>
-      <Card className="p-6 hover:shadow-md transition-all duration-200 hover:border-primary/20 cursor-pointer group">
-        <div className="space-y-4">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="space-y-1 flex-1">
-              <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors">
-                topics/{topic.name}
-              </h3>
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {topic.description || "No description available"}
-              </p>
+    <Link href={`/topics/${topic.slug}`} passHref>
+      <a className="block">
+        <Card className="p-6 hover:bg-secondary/50 transition-colors border border-border">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-foreground hover:text-primary transition-colors">
+                  r/{topic.name}
+                </h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {topic.description}
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* Stats */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Users className="w-4 h-4" />
-              <span>{topic.post_count || 0} posts</span>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                <span>{topic.memberCount.toLocaleString()} members</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                <span>Created {new Date(topic.created_at).getFullYear()}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <MessageSquare className="w-4 h-4" />
-              <span>{topic.total_comments || 0} comments</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
-              <span>Created {formatDate(topic.created_at)}</span>
-            </div>
-          </div>
 
-          {/* Activity indicator */}
-          <div className="flex items-center justify-between">
-            <Badge variant="secondary" className="text-xs">
-              {(topic.post_count || 0) > 10 ? "Active" : "Growing"}
+            <Badge variant="secondary" className="w-fit">
+              Community
             </Badge>
-            <span className="text-xs text-muted-foreground">Updated {formatDate(topic.updated_at)}</span>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </a>
     </Link>
-  )
-}
+  );
+};

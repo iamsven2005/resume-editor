@@ -1,70 +1,94 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
 const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
-export async function GET(request: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(request: Request, { params }: { params: { slug: string } }) {
   try {
-    const { slug } = params
-    const { searchParams } = new URL(request.url)
-    const sortBy = searchParams.get("sort") || "created_at"
-    const order = searchParams.get("order") || "desc"
-
-    // First get the topic
+    // First get the topic ID
     const [topic] = await sql`
-      SELECT id FROM topics WHERE slug = ${slug}
+      SELECT id FROM topics WHERE slug = ${params.slug}
     `
 
     if (!topic) {
       return NextResponse.json({ error: "Topic not found" }, { status: 404 })
     }
 
-    // Get posts for this topic
-    let orderClause = "ORDER BY created_at DESC"
-    if (sortBy === "vote_score") {
-      orderClause = `ORDER BY vote_score ${order.toUpperCase()}, created_at DESC`
-    } else if (sortBy === "comment_count") {
-      orderClause = `ORDER BY comment_count ${order.toUpperCase()}, created_at DESC`
-    }
-
     const posts = await sql`
-      SELECT * FROM posts 
+      SELECT 
+        id,
+        topic_id,
+        title,
+        content,
+        url,
+        post_type,
+        author_name,
+        vote_score,
+        comment_count,
+        created_at
+      FROM posts 
       WHERE topic_id = ${topic.id}
-      ${sql.unsafe(orderClause)}
+      ORDER BY created_at DESC
     `
 
-    return NextResponse.json({ posts })
+    const formattedPosts = posts.map((post) => ({
+      id: post.id,
+      topic_id: post.topic_id,
+      title: post.title,
+      content: post.content || undefined,
+      url: post.url || undefined,
+      post_type: post.post_type || "text",
+      author_name: post.author_name || "unknown",
+      vote_score: post.vote_score || 0,
+      comment_count: post.comment_count || 0,
+      created_at: post.created_at,
+    }))
+
+    return NextResponse.json(formattedPosts)
   } catch (error) {
     console.error("Error fetching posts:", error)
     return NextResponse.json({ error: "Failed to fetch posts" }, { status: 500 })
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { slug: string } }) {
+export async function POST(request: Request, { params }: { params: { slug: string } }) {
   try {
-    const { slug } = params
-    const { title, content, url, post_type, author_name } = await request.json()
+    const { title, content, url, post_type } = await request.json()
 
-    if (!title || !author_name) {
-      return NextResponse.json({ error: "Title and author name are required" }, { status: 400 })
+    if (!title) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
     // Get topic ID
     const [topic] = await sql`
-      SELECT id FROM topics WHERE slug = ${slug}
+      SELECT id FROM topics WHERE slug = ${params.slug}
     `
 
     if (!topic) {
       return NextResponse.json({ error: "Topic not found" }, { status: 404 })
     }
 
+    // TODO: Get current user from auth context
+    const authorName = "unknown" // Default for now
+
     const [post] = await sql`
       INSERT INTO posts (topic_id, title, content, url, post_type, author_name)
-      VALUES (${topic.id}, ${title}, ${content}, ${url}, ${post_type || "text"}, ${author_name})
+      VALUES (${topic.id}, ${title}, ${content || null}, ${url || null}, ${post_type || "text"}, ${authorName})
       RETURNING *
     `
 
-    return NextResponse.json({ post })
+    return NextResponse.json({
+      id: post.id,
+      topic_id: post.topic_id,
+      title: post.title,
+      content: post.content || undefined,
+      url: post.url || undefined,
+      post_type: post.post_type || "text",
+      author_name: post.author_name || "unknown",
+      vote_score: post.vote_score || 0,
+      comment_count: post.comment_count || 0,
+      created_at: post.created_at,
+    })
   } catch (error) {
     console.error("Error creating post:", error)
     return NextResponse.json({ error: "Failed to create post" }, { status: 500 })
