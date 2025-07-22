@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import TopicsPage from '@/components/TopicsPage'
+import TopicsPage from './TopicsPage'
 
 export default function TopicsPageWrapper() {
   return (
