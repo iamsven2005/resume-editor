@@ -1,32 +1,29 @@
-'use client'
+"use client"
+import Link from "next/link"
+import { useState, useMemo } from "react"
+import { Suspense } from "react"
 
-import { useParams } from 'next/navigation'
-import Link from 'next/link'
-import { useState, useMemo } from 'react'
+import { PostCard } from "../PostCard"
+import { CommentCard } from "../CommentCard"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
+import { Users, Calendar, Plus, MessageSquare, TrendingUp, ArrowLeft } from "lucide-react"
 
-import { PostCard } from '../PostCard'
-import { CommentCard } from '../CommentCard'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Users, Calendar, Plus, MessageSquare, TrendingUp, ArrowLeft } from 'lucide-react'
+import { getTopicBySlug, getPostsByTopicId, getCommentsByPostId, mockPosts } from "@/data/mockData"
 
-import {
-  getTopicBySlug,
-  getPostsByTopicId,
-  getCommentsByPostId,
-  mockPosts
-} from '@/data/mockData'
+interface TopicDetailPageProps {
+  slug: string
+}
 
-const TopicDetailPage = () => {
-  const { slug } = useParams()
+const TopicDetailPage = ({ slug }: TopicDetailPageProps) => {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null)
-  const [commentText, setCommentText] = useState('')
+  const [commentText, setCommentText] = useState("")
 
-  const topic = useMemo(() => slug && typeof slug === 'string' ? getTopicBySlug(slug) : null, [slug])
+  const topic = useMemo(() => (slug && typeof slug === "string" ? getTopicBySlug(slug) : null), [slug])
   const posts = topic ? getPostsByTopicId(topic.id) : []
-  const selectedPost = selectedPostId ? mockPosts.find(p => p.id === selectedPostId) : null
+  const selectedPost = selectedPostId ? mockPosts.find((p) => p.id === selectedPostId) : null
   const comments = selectedPostId ? getCommentsByPostId(selectedPostId) : []
 
   if (!topic) {
@@ -119,14 +116,10 @@ const TopicDetailPage = () => {
                 </Card>
               ) : (
                 <div className="space-y-4">
-                  {posts.map(post => (
+                  {posts.map((post) => (
                     <div key={post.id} className="space-y-4">
                       <div className="cursor-pointer" onClick={() => handlePostClick(post.id)}>
-                        <PostCard
-                          post={post}
-                          topic={topic}
-                          isDetailView={selectedPostId === post.id}
-                        />
+                        <PostCard post={post} topic={topic} isDetailView={selectedPostId === post.id} />
                       </div>
 
                       {selectedPostId === post.id && (
@@ -148,9 +141,7 @@ const TopicDetailPage = () => {
                             </div>
 
                             <div className="space-y-6">
-                              <h4 className="font-medium text-foreground">
-                                Comments ({comments.length})
-                              </h4>
+                              <h4 className="font-medium text-foreground">Comments ({comments.length})</h4>
 
                               {comments.length === 0 ? (
                                 <p className="text-muted-foreground text-center py-8">
@@ -158,7 +149,7 @@ const TopicDetailPage = () => {
                                 </p>
                               ) : (
                                 <div className="space-y-6">
-                                  {comments.map(comment => (
+                                  {comments.map((comment) => (
                                     <CommentCard key={comment.id} comment={comment} />
                                   ))}
                                 </div>
@@ -179,9 +170,7 @@ const TopicDetailPage = () => {
             <Card className="p-6">
               <h3 className="font-semibold text-foreground mb-4">About Community</h3>
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {topic.description}
-                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{topic.description}</p>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Members</span>
@@ -221,4 +210,19 @@ const TopicDetailPage = () => {
   )
 }
 
-export default TopicDetailPage
+export default function TopicPage({ params }: { params: { slug: string } }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading topic...</p>
+          </div>
+        </div>
+      }
+    >
+      <TopicDetailPage slug={params.slug} />
+    </Suspense>
+  )
+}
