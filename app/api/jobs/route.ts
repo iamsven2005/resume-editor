@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
-import type { CreateJobData } from "@/types/job"
+import type { Job, CreateJobData } from "@/types/job"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_NEON_NEON_DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,26 +16,20 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("user_id")
     const offset = (page - 1) * limit
 
-    // Build the WHERE clause and parameters
-    const whereConditions = ["1=1"]
-    const queryParams: any[] = []
+    let whereConditions = ["j.is_active = true"]
+
+    if (userId) {
+      whereConditions = [`j.user_id = ${Number.parseInt(userId)}`]
+    }
 
     if (search) {
       whereConditions.push(
-        "(j.title ILIKE $" +
-          (queryParams.length + 1) +
-          " OR j.description ILIKE $" +
-          (queryParams.length + 1) +
-          " OR j.company ILIKE $" +
-          (queryParams.length + 1) +
-          ")",
+        `(j.title ILIKE '%${search}%' OR j.description ILIKE '%${search}%' OR j.company ILIKE '%${search}%')`,
       )
-      queryParams.push(`%${search}%`)
     }
 
     if (jobType && jobType !== "all") {
-      whereConditions.push("j.job_type = $" + (queryParams.length + 1))
-      queryParams.push(jobType)
+      whereConditions.push(`j.job_type = '${jobType}'`)
     }
 
     if (isRemote === "true") {
@@ -44,27 +38,18 @@ export async function GET(request: NextRequest) {
       whereConditions.push("j.is_remote = false")
     }
 
-    if (userId) {
-      whereConditions.push("j.user_id = $" + (queryParams.length + 1))
-      queryParams.push(Number.parseInt(userId))
-    } else {
-      whereConditions.push("j.is_active = true")
-    }
-
-    const whereClause = "WHERE " + whereConditions.join(" AND ")
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : ""
 
     // Get total count
-    const countQuery = `
+    const countResult = await sql`
       SELECT COUNT(*) as total
       FROM jobs j
-      ${whereClause}
+      ${sql.unsafe(whereClause)}
     `
-
-    const countResult = await sql.query(countQuery, queryParams)
-    const total = Number.parseInt(countResult.rows[0].total)
+    const total = Number.parseInt(countResult[0].total)
 
     // Get jobs with pagination
-    const jobsQuery = `
+    const jobs = await sql`
       SELECT 
         j.id,
         j.title,
@@ -85,13 +70,10 @@ export async function GET(request: NextRequest) {
         u.email as user_email
       FROM jobs j
       LEFT JOIN users u ON j.user_id = u.id
-      ${whereClause}
+      ${sql.unsafe(whereClause)}
       ORDER BY j.created_at DESC
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+      LIMIT ${limit} OFFSET ${offset}
     `
-
-    const jobsResult = await sql.query(jobsQuery, [...queryParams, limit, offset])
-    const jobs = jobsResult.rows
 
     const processedJobs = jobs.map((job: any) => ({
       ...job,
@@ -99,7 +81,7 @@ export async function GET(request: NextRequest) {
         ? job.required_skills
         : typeof job.required_skills === "string"
           ? JSON.parse(job.required_skills || "[]")
-          : [],
+          : job.required_skills || [],
     }))
 
     return NextResponse.json({
@@ -145,31 +127,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid job type" }, { status: 400 })
     }
 
-    const insertQuery = `
+    const result = await sql`
       INSERT INTO jobs (
         title, description, company, location, job_type,
         salary_min, salary_max, currency, is_remote, required_skills, user_id
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+        ${data.title}, ${data.description}, ${data.company}, ${data.location}, ${data.job_type},
+        ${data.salary_min || null}, ${data.salary_max || null}, ${data.currency || "USD"}, 
+        ${data.is_remote || false}, ${JSON.stringify(data.required_skills || [])}, ${user.id}
       )
       RETURNING *
     `
 
-    const result = await sql.query(insertQuery, [
-      data.title,
-      data.description,
-      data.company,
-      data.location,
-      data.job_type,
-      data.salary_min || null,
-      data.salary_max || null,
-      data.currency || "USD",
-      data.is_remote || false,
-      JSON.stringify(data.required_skills || []),
-      user.id,
-    ])
-
-    const job = result.rows[0]
+    const job = result[0] as Job
 
     return NextResponse.json({
       success: true,
@@ -179,7 +149,7 @@ export async function POST(request: NextRequest) {
           ? job.required_skills
           : typeof job.required_skills === "string"
             ? JSON.parse(job.required_skills || "[]")
-            : [],
+            : job.required_skills || [],
       },
     })
   } catch (error) {

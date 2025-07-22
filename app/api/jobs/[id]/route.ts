@@ -1,34 +1,34 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
-import type { UpdateJobData } from "@/types/job"
+import type { CreateJobData } from "@/types/job"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_NEON_NEON_DATABASE_URL!)
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const jobId = Number.parseInt(params.id)
+
     if (isNaN(jobId)) {
       return NextResponse.json({ success: false, error: "Invalid job ID" }, { status: 400 })
     }
 
-    const query = `
+    const result = await sql`
       SELECT 
         j.*,
         u.name as user_name,
         u.email as user_email
       FROM jobs j
       LEFT JOIN users u ON j.user_id = u.id
-      WHERE j.id = $1
+      WHERE j.id = ${jobId}
     `
 
-    const result = await sql.query(query, [jobId])
-
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
     }
 
-    const job = result.rows[0]
+    const job = result[0]
+
     return NextResponse.json({
       success: true,
       job: {
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           ? job.required_skills
           : typeof job.required_skills === "string"
             ? JSON.parse(job.required_skills || "[]")
-            : [],
+            : job.required_skills || [],
       },
     })
   } catch (error) {
@@ -61,105 +61,97 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const jobId = Number.parseInt(params.id)
+
     if (isNaN(jobId)) {
       return NextResponse.json({ success: false, error: "Invalid job ID" }, { status: 400 })
     }
 
-    const data: UpdateJobData = await request.json()
+    // Check if job exists and user owns it
+    const existingJob = await sql`
+      SELECT * FROM jobs WHERE id = ${jobId} AND user_id = ${user.id}
+    `
 
-    // Check if user owns the job
-    const ownershipQuery = "SELECT user_id FROM jobs WHERE id = $1"
-    const ownershipResult = await sql.query(ownershipQuery, [jobId])
-
-    if (ownershipResult.rows.length === 0) {
-      return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
+    if (existingJob.length === 0) {
+      return NextResponse.json({ success: false, error: "Job not found or access denied" }, { status: 404 })
     }
 
-    if (ownershipResult.rows[0].user_id !== user.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 403 })
-    }
+    const data: Partial<CreateJobData> & { is_active?: boolean } = await request.json()
 
     // Build update query dynamically
     const updateFields: string[] = []
     const updateValues: any[] = []
-    let paramIndex = 1
 
     if (data.title !== undefined) {
-      updateFields.push(`title = $${paramIndex}`)
+      updateFields.push("title = $" + (updateValues.length + 1))
       updateValues.push(data.title)
-      paramIndex++
     }
     if (data.description !== undefined) {
-      updateFields.push(`description = $${paramIndex}`)
+      updateFields.push("description = $" + (updateValues.length + 1))
       updateValues.push(data.description)
-      paramIndex++
     }
     if (data.company !== undefined) {
-      updateFields.push(`company = $${paramIndex}`)
+      updateFields.push("company = $" + (updateValues.length + 1))
       updateValues.push(data.company)
-      paramIndex++
     }
     if (data.location !== undefined) {
-      updateFields.push(`location = $${paramIndex}`)
+      updateFields.push("location = $" + (updateValues.length + 1))
       updateValues.push(data.location)
-      paramIndex++
     }
     if (data.job_type !== undefined) {
-      updateFields.push(`job_type = $${paramIndex}`)
+      const validJobTypes = ["full-time", "part-time", "contract", "freelance", "internship"]
+      if (!validJobTypes.includes(data.job_type)) {
+        return NextResponse.json({ success: false, error: "Invalid job type" }, { status: 400 })
+      }
+      updateFields.push("job_type = $" + (updateValues.length + 1))
       updateValues.push(data.job_type)
-      paramIndex++
     }
     if (data.salary_min !== undefined) {
-      updateFields.push(`salary_min = $${paramIndex}`)
+      updateFields.push("salary_min = $" + (updateValues.length + 1))
       updateValues.push(data.salary_min)
-      paramIndex++
     }
     if (data.salary_max !== undefined) {
-      updateFields.push(`salary_max = $${paramIndex}`)
+      updateFields.push("salary_max = $" + (updateValues.length + 1))
       updateValues.push(data.salary_max)
-      paramIndex++
     }
     if (data.currency !== undefined) {
-      updateFields.push(`currency = $${paramIndex}`)
+      updateFields.push("currency = $" + (updateValues.length + 1))
       updateValues.push(data.currency)
-      paramIndex++
     }
     if (data.is_remote !== undefined) {
-      updateFields.push(`is_remote = $${paramIndex}`)
+      updateFields.push("is_remote = $" + (updateValues.length + 1))
       updateValues.push(data.is_remote)
-      paramIndex++
     }
     if (data.required_skills !== undefined) {
-      updateFields.push(`required_skills = $${paramIndex}`)
+      updateFields.push("required_skills = $" + (updateValues.length + 1))
       updateValues.push(JSON.stringify(data.required_skills))
-      paramIndex++
     }
     if (data.is_active !== undefined) {
-      updateFields.push(`is_active = $${paramIndex}`)
+      updateFields.push("is_active = $" + (updateValues.length + 1))
       updateValues.push(data.is_active)
-      paramIndex++
     }
 
-    updateFields.push(`updated_at = CURRENT_TIMESTAMP`)
-
-    if (updateFields.length === 1) {
+    if (updateFields.length === 0) {
       return NextResponse.json({ success: false, error: "No fields to update" }, { status: 400 })
     }
 
+    updateFields.push("updated_at = CURRENT_TIMESTAMP")
+
+    // Use template literal for the update query
     const updateQuery = `
       UPDATE jobs 
       SET ${updateFields.join(", ")}
-      WHERE id = $${paramIndex}
+      WHERE id = ${jobId} AND user_id = ${user.id}
       RETURNING *
     `
 
-    const result = await sql.query(updateQuery, [...updateValues, jobId])
+    const result = await sql.unsafe(updateQuery, updateValues)
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return NextResponse.json({ success: false, error: "Failed to update job" }, { status: 500 })
     }
 
-    const job = result.rows[0]
+    const job = result[0]
+
     return NextResponse.json({
       success: true,
       job: {
@@ -168,7 +160,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           ? job.required_skills
           : typeof job.required_skills === "string"
             ? JSON.parse(job.required_skills || "[]")
-            : [],
+            : job.required_skills || [],
       },
     })
   } catch (error) {
@@ -192,26 +184,25 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     const jobId = Number.parseInt(params.id)
+
     if (isNaN(jobId)) {
       return NextResponse.json({ success: false, error: "Invalid job ID" }, { status: 400 })
     }
 
-    // Check if user owns the job
-    const ownershipQuery = "SELECT user_id FROM jobs WHERE id = $1"
-    const ownershipResult = await sql.query(ownershipQuery, [jobId])
+    const result = await sql`
+      DELETE FROM jobs 
+      WHERE id = ${jobId} AND user_id = ${user.id}
+      RETURNING id
+    `
 
-    if (ownershipResult.rows.length === 0) {
-      return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
+    if (result.length === 0) {
+      return NextResponse.json({ success: false, error: "Job not found or access denied" }, { status: 404 })
     }
 
-    if (ownershipResult.rows[0].user_id !== user.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 403 })
-    }
-
-    const deleteQuery = "DELETE FROM jobs WHERE id = $1"
-    await sql.query(deleteQuery, [jobId])
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      message: "Job deleted successfully",
+    })
   } catch (error) {
     console.error("Error deleting job:", error)
     return NextResponse.json(
