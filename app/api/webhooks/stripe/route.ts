@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 import Stripe from "stripe"
 
-const sql = neon(process.env.NEON_NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_DATABASE_URL!)
 const stripe = new Stripe(
   process.env.STRIPE_SECRET_KEY ||
     "sk_test_51PP2n4GZumt4oiwzavau2e6hAfiEu4fHk9Sy80AQ3QBgwXwOW5meV280Vn4NvVRsL5Ad4L0zXFDhUalyQn8hbUHv00VxACFgs7",
