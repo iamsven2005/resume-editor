@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { JobFormDialog } from "./job-form-dialog"
 import { MapPin, Building2, DollarSign, Calendar, MoreVertical, Edit, Trash2, Eye, EyeOff, Wifi } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 import type { Job, CreateJobData } from "@/types/job"
 
 interface JobCardProps {
@@ -30,6 +31,7 @@ interface JobCardProps {
 
 export function JobCard({ job, isOwner = false, onEdit, onDelete, onToggleStatus, isLoading = false }: JobCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
 
   const formatSalary = (min?: number, max?: number, currency = "USD") => {
     if (!min && !max) return null
@@ -71,26 +73,72 @@ export function JobCard({ job, isOwner = false, onEdit, onDelete, onToggleStatus
     return colors[jobType as keyof typeof colors] || "bg-gray-100 text-gray-800 border-gray-200"
   }
 
+  const formatJobType = (jobType: string) => {
+    return jobType.charAt(0).toUpperCase() + jobType.slice(1).replace("-", " ")
+  }
+
   const handleEdit = async (data: CreateJobData) => {
     if (onEdit) {
-      await onEdit(job.id, data)
+      try {
+        await onEdit(job.id, data)
+        setShowEditDialog(false)
+        toast({
+          title: "Success",
+          description: "Job updated successfully",
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update job",
+          variant: "destructive",
+        })
+      }
     }
   }
 
   const handleDelete = async () => {
     if (onDelete) {
-      await onDelete(job.id)
-      setShowDeleteDialog(false)
+      try {
+        await onDelete(job.id)
+        setShowDeleteDialog(false)
+        toast({
+          title: "Success",
+          description: "Job deleted successfully",
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete job",
+          variant: "destructive",
+        })
+      }
     }
   }
 
   const handleToggleStatus = async () => {
     if (onToggleStatus) {
-      await onToggleStatus(job.id, !job.is_active)
+      try {
+        await onToggleStatus(job.id, !job.is_active)
+        toast({
+          title: "Success",
+          description: `Job ${!job.is_active ? "activated" : "deactivated"} successfully`,
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update job status",
+          variant: "destructive",
+        })
+      }
     }
   }
 
   const salary = formatSalary(job.salary_min, job.salary_max, job.currency)
+
+  // Ensure required_skills is always an array of strings
+  const skills = Array.isArray(job.required_skills)
+    ? job.required_skills.filter((skill) => typeof skill === "string")
+    : []
 
   return (
     <>
@@ -112,17 +160,10 @@ export function JobCard({ job, isOwner = false, onEdit, onDelete, onToggleStatus
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <JobFormDialog
-                    trigger={
-                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                    }
-                    job={job}
-                    onSubmit={handleEdit}
-                    isLoading={isLoading}
-                  />
+                  <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleToggleStatus} disabled={isLoading}>
                     {job.is_active ? (
                       <>
@@ -167,7 +208,7 @@ export function JobCard({ job, isOwner = false, onEdit, onDelete, onToggleStatus
 
           <div className="flex flex-wrap gap-2 mb-3">
             <Badge className={getJobTypeColor(job.job_type)} variant="outline">
-              {job.job_type.charAt(0).toUpperCase() + job.job_type.slice(1).replace("-", " ")}
+              {formatJobType(job.job_type)}
             </Badge>
             {!job.is_active && (
               <Badge variant="secondary" className="bg-gray-100 text-gray-600">
@@ -183,18 +224,18 @@ export function JobCard({ job, isOwner = false, onEdit, onDelete, onToggleStatus
             </div>
           )}
 
-          {job.required_skills && job.required_skills.length > 0 && (
+          {skills.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Required Skills:</p>
               <div className="flex flex-wrap gap-1">
-                {job.required_skills.slice(0, 4).map((skill) => (
-                  <Badge key={skill} variant="secondary" className="text-xs">
+                {skills.slice(0, 4).map((skill, index) => (
+                  <Badge key={`${skill}-${index}`} variant="secondary" className="text-xs">
                     {skill}
                   </Badge>
                 ))}
-                {job.required_skills.length > 4 && (
+                {skills.length > 4 && (
                   <Badge variant="secondary" className="text-xs">
-                    +{job.required_skills.length - 4} more
+                    +{skills.length - 4} more
                   </Badge>
                 )}
               </div>
@@ -212,6 +253,14 @@ export function JobCard({ job, isOwner = false, onEdit, onDelete, onToggleStatus
           </div>
         </CardFooter>
       </Card>
+
+      <JobFormDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        job={job}
+        onSubmit={handleEdit}
+        isLoading={isLoading}
+      />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

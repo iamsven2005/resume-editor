@@ -23,10 +23,10 @@ export interface CreateJobData {
   description: string
   company: string
   location: string
-  job_type: Job["job_type"]
+  job_type: "full-time" | "part-time" | "contract" | "freelance" | "internship"
   salary_min?: number
   salary_max?: number
-  currency?: string
+  currency: string
   is_remote: boolean
   required_skills: string[]
 }
@@ -36,22 +36,19 @@ export interface UpdateJobData extends Partial<CreateJobData> {
 }
 
 export interface JobFilters {
-  search?: string
-  job_type?: string
-  is_remote?: boolean | string
-  user_id?: number
+  search: string
+  job_type: string
+  is_remote: string
 }
 
-export interface JobPagination {
-  page: number
-  limit: number
-  total: number
-  totalPages: number
-}
-
-export interface JobResponse {
+export interface JobsResponse {
   success: boolean
   jobs: Job[]
-  pagination: JobPagination
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
   error?: string
 }
