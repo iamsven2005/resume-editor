@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
 import type { Job, CreateJobData } from "@/types/job"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_DATABASE_URL!)
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -13,8 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, error: "Invalid job ID" }, { status: 400 })
     }
 
-    const result = await sql(
-      `
+    const query = `
       SELECT 
         j.*,
         u.name as user_name,
@@ -22,9 +21,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       FROM jobs j
       LEFT JOIN users u ON j.user_id = u.id
       WHERE j.id = $1
-    `,
-      [jobId],
-    )
+    `
+
+    const result = await sql.query(query, [jobId])
 
     if (result.length === 0) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
@@ -62,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Check if job exists and user owns it
-    const existingJob = await sql(`SELECT * FROM jobs WHERE id = $1`, [jobId])
+    const existingJob = await sql.query(`SELECT * FROM jobs WHERE id = $1`, [jobId])
 
     if (existingJob.length === 0) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
@@ -166,7 +165,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       RETURNING *
     `
 
-    const result = await sql(updateQuery, values)
+    const result = await sql.query(updateQuery, values)
     const job = result[0] as Job
 
     return NextResponse.json({
@@ -199,7 +198,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Check if job exists and user owns it
-    const existingJob = await sql(`SELECT * FROM jobs WHERE id = $1`, [jobId])
+    const existingJob = await sql.query(`SELECT * FROM jobs WHERE id = $1`, [jobId])
 
     if (existingJob.length === 0) {
       return NextResponse.json({ success: false, error: "Job not found" }, { status: 404 })
@@ -209,7 +208,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 403 })
     }
 
-    await sql(`DELETE FROM jobs WHERE id = $1`, [jobId])
+    await sql.query(`DELETE FROM jobs WHERE id = $1`, [jobId])
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
 import type { Job, CreateJobData } from "@/types/job"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,33 +16,34 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("user_id")
     const offset = (page - 1) * limit
 
-    // Build base query conditions
-    const baseConditions = []
+    // Build WHERE conditions
+    let whereConditions = ["j.is_active = true"]
+    const queryParams: any[] = []
 
     if (userId) {
-      baseConditions.push(`j.user_id = ${Number.parseInt(userId)}`)
-    } else {
-      baseConditions.push("j.is_active = true")
+      whereConditions = [`j.user_id = $${queryParams.length + 1}`]
+      queryParams.push(Number.parseInt(userId))
     }
 
     if (search) {
-      const searchTerm = search.replace(/'/g, "''") // Escape single quotes
-      baseConditions.push(
-        `(j.title ILIKE '%${searchTerm}%' OR j.description ILIKE '%${searchTerm}%' OR j.company ILIKE '%${searchTerm}%')`,
+      whereConditions.push(
+        `(j.title ILIKE $${queryParams.length + 1} OR j.description ILIKE $${queryParams.length + 1} OR j.company ILIKE $${queryParams.length + 1})`,
       )
+      queryParams.push(`%${search}%`)
     }
 
     if (jobType && jobType !== "all") {
-      baseConditions.push(`j.job_type = '${jobType}'`)
+      whereConditions.push(`j.job_type = $${queryParams.length + 1}`)
+      queryParams.push(jobType)
     }
 
     if (isRemote === "true") {
-      baseConditions.push("j.is_remote = true")
+      whereConditions.push("j.is_remote = true")
     } else if (isRemote === "false") {
-      baseConditions.push("j.is_remote = false")
+      whereConditions.push("j.is_remote = false")
     }
 
-    const whereClause = baseConditions.length > 0 ? `WHERE ${baseConditions.join(" AND ")}` : ""
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : ""
 
     // Get total count
     const countQuery = `
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
       ${whereClause}
     `
 
-    const countResult = await sql(countQuery)
+    const countResult = await sql.query(countQuery, queryParams)
     const total = Number.parseInt(countResult[0]?.total || "0")
 
     // Get jobs with pagination
@@ -78,10 +79,10 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON j.user_id = u.id
       ${whereClause}
       ORDER BY j.created_at DESC
-      LIMIT ${limit} OFFSET ${offset}
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `
 
-    const jobs = await sql(jobsQuery)
+    const jobs = await sql.query(jobsQuery, [...queryParams, limit, offset])
 
     const processedJobs = jobs.map((job: any) => ({
       ...job,
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `
 
-    const result = await sql(insertQuery, [
+    const result = await sql.query(insertQuery, [
       data.title,
       data.description,
       data.company,
