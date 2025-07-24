@@ -24,7 +24,7 @@ interface JobFormDialogProps {
 }
 
 export function JobFormDialog({ open, onOpenChange, onSuccess, job }: JobFormDialogProps) {
-  const { user, token } = useAuth()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [newSkill, setNewSkill] = useState("")
   const [formData, setFormData] = useState<CreateJobData>({
@@ -72,9 +72,18 @@ export function JobFormDialog({ open, onOpenChange, onSuccess, job }: JobFormDia
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !token) return
+
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to post a job",
+        variant: "destructive",
+      })
+      return
+    }
 
     setLoading(true)
+
     try {
       const url = job ? `/api/jobs/${job.id}` : "/api/jobs"
       const method = job ? "PUT" : "POST"
@@ -83,7 +92,6 @@ export function JobFormDialog({ open, onOpenChange, onSuccess, job }: JobFormDia
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       })
@@ -151,7 +159,7 @@ export function JobFormDialog({ open, onOpenChange, onSuccess, job }: JobFormDia
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="e.g. Senior Software Engineer"
+                placeholder="e.g. Senior Frontend Developer"
                 required
               />
             </div>
@@ -162,7 +170,7 @@ export function JobFormDialog({ open, onOpenChange, onSuccess, job }: JobFormDia
                 id="company"
                 value={formData.company}
                 onChange={(e) => setFormData((prev) => ({ ...prev, company: e.target.value }))}
-                placeholder="e.g. Tech Corp"
+                placeholder="e.g. Acme Corp"
                 required
               />
             </div>
@@ -196,7 +204,7 @@ export function JobFormDialog({ open, onOpenChange, onSuccess, job }: JobFormDia
               <Label htmlFor="job_type">Job Type *</Label>
               <Select
                 value={formData.job_type}
-                onValueChange={(value: any) => setFormData((prev) => ({ ...prev, job_type: value }))}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, job_type: value as any }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -288,8 +296,8 @@ export function JobFormDialog({ open, onOpenChange, onSuccess, job }: JobFormDia
               </Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
-              {formData.required_skills.map((skill) => (
-                <Badge key={skill} variant="secondary" className="flex items-center gap-1">
+              {formData.required_skills.map((skill, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center gap-1">
                   {skill}
                   <button type="button" onClick={() => removeSkill(skill)} className="ml-1 hover:text-destructive">
                     <X className="h-3 w-3" />
@@ -300,7 +308,7 @@ export function JobFormDialog({ open, onOpenChange, onSuccess, job }: JobFormDia
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

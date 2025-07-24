@@ -15,9 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { MapPin, DollarSign, Clock, Building, MoreVertical, Edit, Trash2, Eye, EyeOff } from "lucide-react"
+import { Building2, MapPin, Clock, DollarSign, MoreVertical, Edit, Trash2, Eye, EyeOff } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { useAuth } from "@/contexts/auth-context"
 import { JobFormDialog } from "./job-form-dialog"
 import type { Job } from "@/types/job"
 
@@ -28,7 +27,6 @@ interface JobCardProps {
 }
 
 export function JobCard({ job, currentUserId, onUpdate }: JobCardProps) {
-  const { token } = useAuth()
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -42,13 +40,12 @@ export function JobCard({ job, currentUserId, onUpdate }: JobCardProps) {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     })
+
     if (min && max) {
       return `${formatter.format(min)} - ${formatter.format(max)}`
-    }
-    if (min) {
+    } else if (min) {
       return `From ${formatter.format(min)}`
-    }
-    if (max) {
+    } else if (max) {
       return `Up to ${formatter.format(max)}`
     }
     return null
@@ -62,33 +59,11 @@ export function JobCard({ job, currentUserId, onUpdate }: JobCardProps) {
     })
   }
 
-  const getJobTypeColor = (jobType: string) => {
-    switch (jobType) {
-      case "full-time":
-        return "bg-green-100 text-green-800 hover:bg-green-200"
-      case "part-time":
-        return "bg-blue-100 text-blue-800 hover:bg-blue-200"
-      case "contract":
-        return "bg-purple-100 text-purple-800 hover:bg-purple-200"
-      case "freelance":
-        return "bg-orange-100 text-orange-800 hover:bg-orange-200"
-      case "internship":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
-    }
-  }
-
   const handleDelete = async () => {
-    if (!token) return
-
     setLoading(true)
     try {
       const response = await fetch(`/api/jobs/${job.id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       })
 
       const data = await response.json()
@@ -116,15 +91,12 @@ export function JobCard({ job, currentUserId, onUpdate }: JobCardProps) {
   }
 
   const handleToggleStatus = async () => {
-    if (!token) return
-
     setLoading(true)
     try {
       const response = await fetch(`/api/jobs/${job.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ is_active: !job.is_active }),
       })
@@ -152,18 +124,33 @@ export function JobCard({ job, currentUserId, onUpdate }: JobCardProps) {
     }
   }
 
-  const salary = formatSalary(job.salary_min, job.salary_max, job.currency)
+  const getJobTypeColor = (jobType: string) => {
+    switch (jobType) {
+      case "full-time":
+        return "bg-green-100 text-green-800 hover:bg-green-200"
+      case "part-time":
+        return "bg-blue-100 text-blue-800 hover:bg-blue-200"
+      case "contract":
+        return "bg-purple-100 text-purple-800 hover:bg-purple-200"
+      case "freelance":
+        return "bg-orange-100 text-orange-800 hover:bg-orange-200"
+      case "internship":
+        return "bg-pink-100 text-pink-800 hover:bg-pink-200"
+      default:
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
+    }
+  }
 
   return (
     <>
       <Card className={`h-full transition-all hover:shadow-md ${!job.is_active ? "opacity-60" : ""}`}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className="font-semibold text-lg leading-tight mb-1">{job.title}</h3>
-              <div className="flex items-center text-muted-foreground text-sm mb-2">
-                <Building className="h-4 w-4 mr-1" />
-                {job.company}
+            <div className="space-y-1 flex-1">
+              <h3 className="font-semibold text-lg leading-tight">{job.title}</h3>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Building2 className="h-4 w-4" />
+                <span>{job.company}</span>
               </div>
             </div>
             {isOwner && (
@@ -191,7 +178,10 @@ export function JobCard({ job, currentUserId, onUpdate }: JobCardProps) {
                       </>
                     )}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-destructive">
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
                   </DropdownMenuItem>
@@ -199,54 +189,62 @@ export function JobCard({ job, currentUserId, onUpdate }: JobCardProps) {
               </DropdownMenu>
             )}
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={getJobTypeColor(job.job_type)}>{job.job_type}</Badge>
-            {job.is_remote && <Badge variant="outline">Remote</Badge>}
-            {!job.is_active && <Badge variant="destructive">Inactive</Badge>}
-          </div>
         </CardHeader>
 
-        <CardContent className="pb-3">
-          <div className="space-y-3">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 mr-1 flex-shrink-0" />
-              <span className="truncate">{job.location}</span>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <MapPin className="h-4 w-4" />
+              <span>{job.location}</span>
+              {job.is_remote && (
+                <Badge variant="outline" className="ml-1">
+                  Remote
+                </Badge>
+              )}
             </div>
+          </div>
 
-            {salary && (
-              <div className="flex items-center text-sm text-muted-foreground">
-                <DollarSign className="h-4 w-4 mr-1 flex-shrink-0" />
-                <span>{salary}</span>
-              </div>
-            )}
+          <div className="flex items-center gap-2">
+            <Badge className={getJobTypeColor(job.job_type)}>
+              {job.job_type.charAt(0).toUpperCase() + job.job_type.slice(1)}
+            </Badge>
+            {!job.is_active && <Badge variant="secondary">Inactive</Badge>}
+          </div>
 
-            <p className="text-sm text-muted-foreground line-clamp-3">{job.description}</p>
+          {formatSalary(job.salary_min, job.salary_max, job.currency) && (
+            <div className="flex items-center gap-1 text-sm font-medium text-green-600">
+              <DollarSign className="h-4 w-4" />
+              <span>{formatSalary(job.salary_min, job.salary_max, job.currency)}</span>
+            </div>
+          )}
 
-            {job.required_skills && job.required_skills.length > 0 && (
+          <p className="text-sm text-muted-foreground line-clamp-3">{job.description}</p>
+
+          {job.required_skills && job.required_skills.length > 0 && (
+            <div className="space-y-2">
               <div className="flex flex-wrap gap-1">
-                {job.required_skills.slice(0, 3).map((skill) => (
-                  <Badge key={skill} variant="secondary" className="text-xs">
+                {job.required_skills.slice(0, 3).map((skill, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
                     {skill}
                   </Badge>
                 ))}
                 {job.required_skills.length > 3 && (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="outline" className="text-xs">
                     +{job.required_skills.length - 3} more
                   </Badge>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </CardContent>
 
-        <CardFooter className="pt-3 border-t">
+        <CardFooter className="pt-0">
           <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-            <div className="flex items-center">
-              <Clock className="h-3 w-3 mr-1" />
-              Posted {formatDate(job.created_at)}
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              <span>Posted {formatDate(job.created_at)}</span>
             </div>
-            {job.user_name && !isOwner && <span>by {job.user_name}</span>}
+            {job.user_name && <span>by {job.user_name}</span>}
           </div>
         </CardFooter>
       </Card>
@@ -263,11 +261,7 @@ export function JobCard({ job, currentUserId, onUpdate }: JobCardProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={loading}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDelete} disabled={loading}>
               {loading ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>

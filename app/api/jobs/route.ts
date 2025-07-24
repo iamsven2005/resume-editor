@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
 import type { Job, CreateJobData } from "@/types/job"
 
-const sql = neon(process.env.NEON_NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,40 +16,46 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("user_id")
     const offset = (page - 1) * limit
 
-    let whereConditions = ["j.is_active = true"]
+    // Build base query conditions
+    const baseConditions = []
 
     if (userId) {
-      whereConditions = [`j.user_id = ${Number.parseInt(userId)}`]
+      baseConditions.push(`j.user_id = ${Number.parseInt(userId)}`)
+    } else {
+      baseConditions.push("j.is_active = true")
     }
 
     if (search) {
-      whereConditions.push(
-        `(j.title ILIKE '%${search}%' OR j.description ILIKE '%${search}%' OR j.company ILIKE '%${search}%')`,
+      const searchTerm = search.replace(/'/g, "''") // Escape single quotes
+      baseConditions.push(
+        `(j.title ILIKE '%${searchTerm}%' OR j.description ILIKE '%${searchTerm}%' OR j.company ILIKE '%${searchTerm}%')`,
       )
     }
 
     if (jobType && jobType !== "all") {
-      whereConditions.push(`j.job_type = '${jobType}'`)
+      baseConditions.push(`j.job_type = '${jobType}'`)
     }
 
     if (isRemote === "true") {
-      whereConditions.push("j.is_remote = true")
+      baseConditions.push("j.is_remote = true")
     } else if (isRemote === "false") {
-      whereConditions.push("j.is_remote = false")
+      baseConditions.push("j.is_remote = false")
     }
 
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : ""
+    const whereClause = baseConditions.length > 0 ? `WHERE ${baseConditions.join(" AND ")}` : ""
 
     // Get total count
-    const countResult = await sql`
+    const countQuery = `
       SELECT COUNT(*) as total
       FROM jobs j
-      ${sql.unsafe(whereClause)}
+      ${whereClause}
     `
-    const total = Number.parseInt(countResult[0].total)
+
+    const countResult = await sql(countQuery)
+    const total = Number.parseInt(countResult[0]?.total || "0")
 
     // Get jobs with pagination
-    const jobs = await sql`
+    const jobsQuery = `
       SELECT 
         j.id,
         j.title,
@@ -70,10 +76,12 @@ export async function GET(request: NextRequest) {
         u.email as user_email
       FROM jobs j
       LEFT JOIN users u ON j.user_id = u.id
-      ${sql.unsafe(whereClause)}
+      ${whereClause}
       ORDER BY j.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `
+
+    const jobs = await sql(jobsQuery)
 
     const processedJobs = jobs.map((job: any) => ({
       ...job,
@@ -127,17 +135,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid job type" }, { status: 400 })
     }
 
-    const result = await sql`
+    const insertQuery = `
       INSERT INTO jobs (
         title, description, company, location, job_type,
         salary_min, salary_max, currency, is_remote, required_skills, user_id
       ) VALUES (
-        ${data.title}, ${data.description}, ${data.company}, ${data.location}, ${data.job_type},
-        ${data.salary_min || null}, ${data.salary_max || null}, ${data.currency || "USD"}, 
-        ${data.is_remote || false}, ${JSON.stringify(data.required_skills || [])}, ${user.id}
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
       )
       RETURNING *
     `
+
+    const result = await sql(insertQuery, [
+      data.title,
+      data.description,
+      data.company,
+      data.location,
+      data.job_type,
+      data.salary_min || null,
+      data.salary_max || null,
+      data.currency || "USD",
+      data.is_remote || false,
+      JSON.stringify(data.required_skills || []),
+      user.id,
+    ])
 
     const job = result[0] as Job
 
