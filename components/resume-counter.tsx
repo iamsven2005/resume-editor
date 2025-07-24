@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CreditCard, Calendar, AlertTriangle, CheckCircle } from "lucide-react"
+import { CreditCard, Calendar, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 interface UserCredits {
@@ -16,24 +16,25 @@ interface UserCredits {
   days_until_reset: number
 }
 
-export function ResumeCounter() {
+interface ResumeCounterProps {
+  onCreditsUpdate?: (credits: UserCredits) => void
+}
+
+export function ResumeCounter({ onCreditsUpdate }: ResumeCounterProps) {
   const { user } = useAuth()
   const [credits, setCredits] = useState<UserCredits | null>(null)
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState(false)
 
-  useEffect(() => {
-    if (user) {
-      fetchCredits()
-    }
-  }, [user])
-
   const fetchCredits = async () => {
+    if (!user) return
+
     try {
       const response = await fetch("/api/user/credits")
       if (response.ok) {
         const data = await response.json()
         setCredits(data)
+        onCreditsUpdate?.(data)
       }
     } catch (error) {
       console.error("Error fetching credits:", error)
@@ -41,6 +42,19 @@ export function ResumeCounter() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (user) {
+      fetchCredits()
+    }
+  }, [user])
+
+  // Expose refresh function globally for other components to use
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      ;(window as any).refreshCredits = fetchCredits
+    }
+  }, [])
 
   const handlePurchaseCredits = async () => {
     setPurchasing(true)
@@ -66,8 +80,21 @@ export function ResumeCounter() {
     }
   }
 
-  if (!user || loading) {
+  if (!user) {
     return null
+  }
+
+  if (loading) {
+    return (
+      <Card className="w-full max-w-4xl mx-auto mb-6">
+        <CardContent className="p-4">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading credits...</span>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (!credits) {

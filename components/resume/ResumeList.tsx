@@ -1,8 +1,22 @@
+"use client"
+
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Plus, Star } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { FileText, Plus, Star, Trash2 } from "lucide-react"
 import { ResumeCard } from "./ResumeCard"
+import { useState } from "react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Resume {
   id: number
@@ -61,6 +75,10 @@ export function ResumeList({
   onPortfolioCreated,
   setSearchQuery,
 }: ResumeListProps) {
+  const [selectedResumes, setSelectedResumes] = useState<number[]>([])
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   // Safe filtering with comprehensive null checks
   const filteredResumes = resumes.filter((resume) => {
     if (!resume || typeof resume !== "object") return false
@@ -82,6 +100,51 @@ export function ResumeList({
 
   const favoriteCount = resumes.filter((resume) => resume && resume.is_favorite).length
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedResumes(filteredAndSortedResumes.map((resume) => resume.id))
+    } else {
+      setSelectedResumes([])
+    }
+  }
+
+  const handleSelectResume = (resumeId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedResumes((prev) => [...prev, resumeId])
+    } else {
+      setSelectedResumes((prev) => prev.filter((id) => id !== resumeId))
+    }
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedResumes.length === 0) return
+
+    setDeleting(true)
+    try {
+      const response = await fetch("/api/resumes", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: selectedResumes }),
+      })
+
+      if (response.ok) {
+        // Remove deleted resumes from the list
+        selectedResumes.forEach((id) => onResumeDeleted(id))
+        setSelectedResumes([])
+        setShowDeleteDialog(false)
+      } else {
+        console.error("Failed to delete resumes")
+      }
+    } catch (error) {
+      console.error("Error deleting resumes:", error)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   // Results Summary
   const renderResultsSummary = () => (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -97,6 +160,15 @@ export function ResumeList({
           </Badge>
         )}
       </div>
+      {selectedResumes.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span>{selectedResumes.length} selected</span>
+          <Button size="sm" variant="destructive" onClick={() => setShowDeleteDialog(true)} className="h-7">
+            <Trash2 className="h-3 w-3 mr-1" />
+            Delete Selected
+          </Button>
+        </div>
+      )}
     </div>
   )
 
@@ -143,10 +215,29 @@ export function ResumeList({
   return (
     <div className="space-y-4">
       {renderResultsSummary()}
+
+      {/* Select All Checkbox */}
+      {filteredAndSortedResumes.length > 0 && (
+        <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/50">
+          <Checkbox
+            checked={selectedResumes.length === filteredAndSortedResumes.length}
+            onCheckedChange={handleSelectAll}
+          />
+          <span className="text-sm">Select all ({filteredAndSortedResumes.length} resumes)</span>
+        </div>
+      )}
+
       <ScrollArea className="h-[600px] w-full">
         <div className="flex flex-wrap gap-4 p-1">
           {filteredAndSortedResumes.map((resume) => (
-            <div key={resume.id} className="w-full md:w-1/2 lg:w-1/3">
+            <div key={resume.id} className="w-full md:w-1/2 lg:w-1/3 relative">
+              <div className="absolute top-2 left-2 z-10">
+                <Checkbox
+                  checked={selectedResumes.includes(resume.id)}
+                  onCheckedChange={(checked) => handleSelectResume(resume.id, checked as boolean)}
+                  className="bg-white border-2"
+                />
+              </div>
               <ResumeCard
                 resume={resume}
                 token={token}
@@ -158,8 +249,30 @@ export function ResumeList({
             </div>
           ))}
         </div>
-
       </ScrollArea>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Selected Resumes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedResumes.length} selected resume
+              {selectedResumes.length !== 1 ? "s" : ""}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSelected}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

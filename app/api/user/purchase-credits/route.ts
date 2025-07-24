@@ -28,19 +28,19 @@ export async function POST(request: NextRequest) {
       line_items: [
         {
           price_data: {
-            currency: "sgd",
+            currency: "usd",
             product_data: {
               name: "Resume Credits",
               description: "20 additional resume credits",
             },
-            unit_amount: 100, // $5.00 in cents
+            unit_amount: 500, // $5.00 in cents
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}?payment=success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}?payment=cancelled`,
       metadata: {
         user_id: user.id.toString(),
         credits: credits.toString(),

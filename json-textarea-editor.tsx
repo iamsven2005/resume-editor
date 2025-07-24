@@ -18,6 +18,8 @@ import { useAuth } from "./contexts/auth-context"
 import type { Section, ContentItem, TabType, ResumeData } from "./types/resume"
 import type { ResumeAnalysis } from "./types/analysis"
 import { Footer } from "@/components/footer"
+import { AuthDialog } from "@/components/auth-dialog"
+import { ResumeCounter } from "@/components/resume-counter"
 
 import {
   FileText,
@@ -71,6 +73,14 @@ export default function JsonTextareaEditor() {
     toast({
       description: "Resume uploaded and processed successfully!",
     })
+  }
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
+
+  const handleResumeCreated = () => {
+    // Refresh credits after resume creation
+    if (typeof window !== "undefined" && (window as any).refreshCredits) {
+      ;(window as any).refreshCredits()
+    }
   }
 
   // Handle creating a new resume
@@ -829,6 +839,7 @@ export default function JsonTextareaEditor() {
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
                 </Button>
+                <ResumeCounter/>
               </div>
             ) : (
               <AuthDialog>
@@ -841,7 +852,9 @@ export default function JsonTextareaEditor() {
           </div>
         </div>
 
-        <PanelLayoutManager panels={panels} />
+        <PanelLayoutManager panels={panels}  onResumeCreated={handleResumeCreated} onAuthRequired={() => setShowAuthDialog(true)}/>
+                <AuthDialog open={showAuthDialog} onOpenChange={setShowAuthDialog} />
+
       </div>
       <Footer />
     </div>
