@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { toast } from "@/components/ui/use-toast"
 import { useResumeEditor } from "./hooks/use-resume-editor"
 import { generatePDFFromMarkdown } from "./utils/pdf-generator"
@@ -12,14 +12,26 @@ import { PDFPreviewPanel } from "./components/pdf-preview-panel"
 import { ResumeAnalysisPanel } from "./components/resume-analysis-panel"
 import { ResumeImprovementPanel } from "./components/resume-improvement-panel"
 import { ResumeGallery } from "./components/resume/resume-gallery"
+import { AuthDialog } from "./components/auth-dialog"
 import { PanelLayoutManager, type PanelConfig } from "./components/panel-layout-manager"
 import { useAuth } from "./contexts/auth-context"
 import type { Section, ContentItem, TabType, ResumeData } from "./types/resume"
 import type { ResumeAnalysis } from "./types/analysis"
 import { Footer } from "@/components/footer"
-import { ResumeCounter } from "@/components/resume-counter"
 
-import { FileText, Edit3, BarChart3, Eye, Upload, Download, Target, Sparkles, FolderOpen, LogOut } from "lucide-react"
+import {
+  FileText,
+  Edit3,
+  BarChart3,
+  Eye,
+  Upload,
+  Download,
+  Target,
+  Sparkles,
+  FolderOpen,
+  User,
+  LogOut,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function JsonTextareaEditor() {
@@ -50,24 +62,7 @@ export default function JsonTextareaEditor() {
   const [resumeAnalysis, setResumeAnalysis] = useState<ResumeAnalysis | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
-  const { user, loading, logout } = useAuth()
-
-  useEffect(() => {
-    if (!loading && !user) {
-      // Redirect to login page or show login dialog if user is not logged in
-    }
-  }, [loading, user])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
-  }
+  const { user, logout } = useAuth()
 
   // Handle resume upload from PDF
   const handleResumeUploaded = (data: ResumeData) => {
@@ -817,9 +812,35 @@ export default function JsonTextareaEditor() {
   ]
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6">
-        {user && <ResumeCounter />}
+    <div className="min-h-screen w-full overflow-x-hidden">
+      <div className="container mx-auto p-6 max-w-full">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">SparkJob</h1>
+            <p className="text-muted-foreground">
+              Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Welcome, {user.name || user.email}</span>
+                <Button variant="outline" size="sm" onClick={logout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <AuthDialog>
+                <Button variant="outline" size="sm">
+                  <User className="h-4 w-4 mr-2" />
+                  Login / Sign Up
+                </Button>
+              </AuthDialog>
+            )}
+          </div>
+        </div>
+
         <PanelLayoutManager panels={panels} />
       </div>
       <Footer />
