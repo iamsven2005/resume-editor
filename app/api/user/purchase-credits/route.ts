@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency: "sgd",
             product_data: {
               name: "Resume Credits",
               description: "20 additional resume credits",
