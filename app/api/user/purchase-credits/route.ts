@@ -2,9 +2,13 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder_key", {
-  apiVersion: "2024-06-20",
-})
+const stripe = new Stripe(
+  process.env.STRIPE_SECRET_KEY ||
+    "sk_test_51PP2n4GZumt4oiwzavau2e6hAfiEu4fHk9Sy80AQ3QBgwXwOW5meV280Vn4NvVRsL5Ad4L0zXFDhUalyQn8hbUHv00VxACFgs7",
+  {
+    apiVersion: "2024-12-18.acacia",
+  },
+)
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,9 +17,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { credits = 20 } = await request.json()
+    const { credits } = await request.json()
 
-    // Create Stripe checkout session
+    if (!credits || credits !== 20) {
+      return NextResponse.json({ error: "Invalid credits amount" }, { status: 400 })
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -23,8 +30,8 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: "usd",
             product_data: {
-              name: `${credits} Resume Credits`,
-              description: `Purchase ${credits} additional resume credits`,
+              name: "Resume Credits",
+              description: "20 additional resume credits",
             },
             unit_amount: 500, // $5.00 in cents
           },
@@ -32,8 +39,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}?payment=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}?payment=cancelled`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}?success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}?canceled=true`,
       metadata: {
         user_id: user.id.toString(),
         credits: credits.toString(),

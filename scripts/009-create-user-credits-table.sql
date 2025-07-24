@@ -1,20 +1,18 @@
 CREATE TABLE IF NOT EXISTS user_credits (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  remaining_credits INTEGER DEFAULT 20,
-  used_credits INTEGER DEFAULT 0,
-  purchased_credits INTEGER DEFAULT 0,
-  reset_date TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 month'),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id)
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    remaining_credits INTEGER NOT NULL DEFAULT 20,
+    used_credits INTEGER NOT NULL DEFAULT 0,
+    purchased_credits INTEGER NOT NULL DEFAULT 0,
+    reset_date TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 month'),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_user_credits_user_id ON user_credits(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_credits_reset_date ON user_credits(reset_date);
 
--- Insert default credits for existing users
+-- Insert sample data for existing users
 INSERT INTO user_credits (user_id, remaining_credits, reset_date)
 SELECT id, 20, (CURRENT_TIMESTAMP + INTERVAL '1 month')
 FROM users
