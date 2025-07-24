@@ -7,31 +7,46 @@ const sql = neon(process.env.NEON_DATABASE_URL!)
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
+
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
     const resumes = await sql`
-      SELECT id, name, data, created_at, updated_at
-      FROM resumes
+      SELECT id, title, resume_data, is_favorite, created_at, updated_at
+      FROM resumes 
       WHERE user_id = ${user.id}
       ORDER BY updated_at DESC
     `
 
-    return NextResponse.json({ resumes })
+    return NextResponse.json({
+      success: true,
+      resumes: resumes,
+    })
   } catch (error) {
     console.error("Error fetching resumes:", error)
-    return NextResponse.json({ error: "Failed to fetch resumes" }, { status: 500 })
+    return NextResponse.json({ success: false, error: "Failed to fetch resumes" }, { status: 500 })
   }
 }
-
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
+    const body = await request.json()
+    const { title, resumeData } = body
+
+    if (!title || !resumeData) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Title and resume data are required",
+        },
+        { status: 400 },
+      )
+    }
     // Check if user has credits
     const credits = await sql`
       SELECT remaining_credits FROM user_credits WHERE user_id = ${user.id}
@@ -46,29 +61,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { name, data } = await request.json()
-
-    if (!name || !data) {
-      return NextResponse.json({ error: "Name and data are required" }, { status: 400 })
-    }
-
-    // Create resume
-    const resume = await sql`
-      INSERT INTO resumes (user_id, name, data)
-      VALUES (${user.id}, ${name}, ${JSON.stringify(data)})
-      RETURNING id, name, data, created_at, updated_at
+    const result = await sql`
+      INSERT INTO resumes (user_id, title, resume_data, is_favorite, created_at, updated_at)
+      VALUES (${user.id}, ${title}, ${JSON.stringify(resumeData)}, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      RETURNING id, title, resume_data, is_favorite, created_at, updated_at
     `
 
-    // Consume credit
-    await sql`
-      UPDATE user_credits
-      SET remaining_credits = remaining_credits - 1,
-          used_credits = used_credits + 1,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE user_id = ${user.id}
-    `
-
-    return NextResponse.json({ resume: resume[0] })
+    return NextResponse.json({
+      success: true,
+      resume: result[0],
+    })
   } catch (error) {
     console.error("Error creating resume:", error)
     return NextResponse.json({ error: "Failed to create resume" }, { status: 500 })
