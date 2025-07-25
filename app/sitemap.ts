@@ -1,6 +1,6 @@
 import { getBlogPosts } from "./patch/utils"
 
-export const baseUrl = 'https://sparkjob.app'
+export const baseUrl = 'https://www.sparkjob.app'
 
 export default async function sitemap() {
   let blogs = getBlogPosts().map((post) => ({
