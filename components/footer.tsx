@@ -41,6 +41,11 @@ export function Footer() {
               </div>
               <div>
               <Button variant="outline" size="sm">
+              <Link href="/jobs">
+          Job-board
+              </Link>
+              </Button>
+              <Button variant="outline" size="sm">
               <Link href="/topics">
               Topics
               </Link>

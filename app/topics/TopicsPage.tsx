@@ -76,6 +76,11 @@ const TopicsPage = () => {
         <div className="max-w-6xl mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-6">
             <div>
+            <Button variant="outline" size="sm">
+              <Link href="/">
+              Home
+              </Link>
+              </Button>
               <h1 className="text-3xl font-bold text-foreground mb-2">Communities</h1>
               <p className="text-muted-foreground">
                 Discover and join communities around topics you're passionate about
