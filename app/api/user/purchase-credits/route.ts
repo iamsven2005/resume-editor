@@ -28,12 +28,12 @@ export async function POST(request: NextRequest) {
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency: "sgd",
             product_data: {
               name: "Resume Credits",
               description: "20 additional resume credits",
             },
-            unit_amount: 500, // $5.00 in cents
+            unit_amount: 10, // $5.00 in cents
           },
           quantity: 1,
         },
