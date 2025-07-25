@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
+import { getCurrentUser } from "@/lib/auth"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_DATABASE_URL!)
 
 export async function POST(request: Request) {
   try {
@@ -11,8 +12,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid vote data" }, { status: 400 })
     }
 
-    // TODO: Get actual user identifier from auth context
-    const userIdentifier = "anonymous" // Default for now
+    // Get current user
+    const currentUser = await getCurrentUser()
+    const userIdentifier = currentUser ? `user_${currentUser.id}` : "anonymous"
 
     // Check if user has already voted
     const [existingVote] = await sql`

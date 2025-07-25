@@ -12,7 +12,7 @@ import { JobFormDialog } from "@/components/job-form-dialog"
 import { useAuth } from "@/contexts/auth-context"
 import { Search, Plus, Briefcase, Filter } from "lucide-react"
 import type { Job, CreateJobData } from "@/types/job"
-import { Button } from "@/components/ui/button"
+ import Link from 'next/link'
 
 interface JobsResponse {
   success: boolean

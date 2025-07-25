@@ -1,15 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import {
-  FileText,
-  Globe,
-  TrendingUp,
-  Download,
-  Star,
-} from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FileText, Globe, TrendingUp, Download, Star } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import { QuickActions } from "./QuickActions"
@@ -70,6 +65,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState("resumes")
 
   // Quick Actions state
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
@@ -198,6 +194,33 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
   const favoriteCount = resumes.filter((resume) => resume && resume.is_favorite).length
 
+  // Tab options for the dropdown
+  const tabOptions = [
+    {
+      value: "resumes",
+      label: "Resumes",
+      icon: FileText,
+      count: filteredResumes.length,
+      badge: favoriteCount > 0 ? favoriteCount : null,
+    },
+    {
+      value: "portfolios",
+      label: "Portfolios",
+      icon: Globe,
+      count: filteredPortfolios.length,
+    },
+    {
+      value: "ranker",
+      label: "Ranker",
+      icon: TrendingUp,
+    },
+    {
+      value: "files",
+      label: "Files",
+      icon: Download,
+    },
+  ]
+
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -221,33 +244,37 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       {/* Search Bar */}
       <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
-      {/* Tabs */}
-      <Tabs defaultValue="resumes" className="w-full">
-        <TabsList className="flex w-full flex-wrap">
-          <TabsTrigger value="resumes" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Resumes ({filteredResumes.length})
-            {favoriteCount > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs">
-                <Star className="h-3 w-3 mr-1 fill-current" />
-                {favoriteCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="portfolios" className="flex items-center gap-2">
-            <Globe className="h-4 w-4" />
-            Portfolios ({filteredPortfolios.length})
-          </TabsTrigger>
-          <TabsTrigger value="ranker" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Ranker
-          </TabsTrigger>
-          <TabsTrigger value="files" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Files
-          </TabsTrigger>
-        </TabsList>
+      {/* Dropdown Tab Selector */}
+      <div className="flex items-center gap-4">
+        <Select value={activeTab} onValueChange={setActiveTab}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Select view" />
+          </SelectTrigger>
+          <SelectContent>
+            {tabOptions.map((option) => {
+              const Icon = option.icon
+              return (
+                <SelectItem key={option.value} value={option.value}>
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    <span>{option.label}</span>
+                    {option.count !== undefined && <span className="text-muted-foreground">({option.count})</span>}
+                    {option.badge && (
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        <Star className="h-3 w-3 mr-1 fill-current" />
+                        {option.badge}
+                      </Badge>
+                    )}
+                  </div>
+                </SelectItem>
+              )
+            })}
+          </SelectContent>
+        </Select>
+      </div>
 
+      {/* Tabs Content */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Resumes Tab */}
         <TabsContent value="resumes" className="space-y-4">
           <ResumeList
@@ -282,7 +309,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
 
         {/* Files Tab */}
         <TabsContent value="files">
-          <FileUploadManager searchQuery={searchQuery}/>
+          <FileUploadManager searchQuery={searchQuery} />
         </TabsContent>
       </Tabs>
     </div>

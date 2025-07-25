@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
+import { getCurrentUser } from "@/lib/auth"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_DATABASE_URL!)
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -66,8 +67,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: "Content is required" }, { status: 400 })
     }
 
-    // TODO: Get current user from auth context
-    const authorName = "unknown" // Default for now
+    // Get current user
+    const currentUser = await getCurrentUser()
+    const authorName = currentUser ? currentUser.name || currentUser.email : "anonymous"
 
     const [comment] = await sql`
       INSERT INTO comments (post_id, parent_comment_id, content, author_name)

@@ -832,7 +832,7 @@ export default function JsonTextareaEditor() {
           </div>
           <div className="flex items-center gap-2">
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-muted-foreground">Welcome, {user.name || user.email}</span>
                 <Button variant="outline" size="sm" onClick={logout}>
                   <LogOut className="h-4 w-4 mr-2" />

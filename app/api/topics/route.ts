@@ -1,33 +1,32 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
+import { getCurrentUser } from "@/lib/auth"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_DATABASE_URL!)
 
 export async function GET() {
   try {
     const topics = await sql`
       SELECT 
         id,
-        slug,
         name,
+        slug,
         description,
+        created_by,
         created_at,
-        (
-          SELECT COUNT(*)::int 
-          FROM posts 
-          WHERE posts.topic_id = topics.id
-        ) as member_count
+        (SELECT COUNT(*) FROM posts WHERE topic_id = topics.id) as post_count
       FROM topics 
       ORDER BY created_at DESC
     `
 
     const formattedTopics = topics.map((topic) => ({
       id: topic.id,
-      slug: topic.slug,
       name: topic.name,
-      description: topic.description || "",
-      memberCount: topic.member_count || 0,
+      slug: topic.slug,
+      description: topic.description,
+      created_by: topic.created_by,
       created_at: topic.created_at,
+      post_count: Number(topic.post_count) || 0,
     }))
 
     return NextResponse.json(formattedTopics)
@@ -39,25 +38,36 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { name, slug, description } = await request.json()
+    const { name, description } = await request.json()
 
-    if (!name || !slug) {
-      return NextResponse.json({ error: "Name and slug are required" }, { status: 400 })
+    if (!name) {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
 
+    // Get current user
+    const currentUser = await getCurrentUser()
+    const createdBy = currentUser ? currentUser.name || currentUser.email : "anonymous"
+
+    // Create slug from name
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+
     const [topic] = await sql`
-      INSERT INTO topics (name, slug, description)
-      VALUES (${name}, ${slug}, ${description || ""})
+      INSERT INTO topics (name, slug, description, created_by)
+      VALUES (${name}, ${slug}, ${description || null}, ${createdBy})
       RETURNING *
     `
 
     return NextResponse.json({
       id: topic.id,
-      slug: topic.slug,
       name: topic.name,
-      description: topic.description || "",
-      memberCount: 0,
+      slug: topic.slug,
+      description: topic.description,
+      created_by: topic.created_by,
       created_at: topic.created_at,
+      post_count: 0,
     })
   } catch (error) {
     console.error("Error creating topic:", error)

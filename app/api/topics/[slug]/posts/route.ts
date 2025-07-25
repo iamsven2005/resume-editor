@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
+import { getCurrentUser } from "@/lib/auth"
 
-const sql = neon(process.env.NEON_NEON_DATABASE_URL!)
+const sql = neon(process.env.NEON_DATABASE_URL!)
 
 export async function GET(request: Request, { params }: { params: { slug: string } }) {
   try {
@@ -68,8 +69,9 @@ export async function POST(request: Request, { params }: { params: { slug: strin
       return NextResponse.json({ error: "Topic not found" }, { status: 404 })
     }
 
-    // TODO: Get current user from auth context
-    const authorName = "unknown" // Default for now
+    // Get current user
+    const currentUser = await getCurrentUser()
+    const authorName = currentUser ? currentUser.name || currentUser.email : "anonymous"
 
     const [post] = await sql`
       INSERT INTO posts (topic_id, title, content, url, post_type, author_name)
