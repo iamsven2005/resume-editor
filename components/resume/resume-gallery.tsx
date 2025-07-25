@@ -228,7 +228,18 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
       </div>
     )
   }
-
+const handleStartCall = () => {
+    const callWindow = window.open(
+      `https://meet.bihance.app/rooms/${token}`,
+      'callWindow',
+      'width=1200,height=800,left=200,top=100'
+    );
+    if (callWindow) {
+      callWindow.focus();
+    } else {
+      toast.error("Unable to open call window. Please check your popup settings.");
+    }
+  };
   return (
     <div className="space-y-6">
       {/* Quick Actions */}
@@ -269,7 +280,12 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
                 </SelectItem>
               )
             })}
-          </SelectContent>
+                            <SelectItem onClick={handleStartCall} >
+          <VideoIcon className="w-4 h-4 mr-2" />
+          Start Call
+
+ </SelectItem>
+          </SelectContent>  
         </Select>
       </div>
 
