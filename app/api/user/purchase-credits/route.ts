@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
               name: "Resume Credits",
               description: "20 additional resume credits",
             },
-            unit_amount: 100, // $5.00 in cents
+            unit_amount: 500, // $5.00 in cents
           },
           quantity: 1,
         },

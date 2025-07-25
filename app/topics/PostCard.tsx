@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ChevronUp, ChevronDown, MessageSquare, ExternalLink, Clock, User, Send } from "lucide-react"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect  } from "react"
 import { getCommentsByPostId, vote } from "@/lib/api"
 import { CommentCard } from "./CommentCard"
 import { ShareButton } from "@/components/share-button"
@@ -27,7 +27,55 @@ export const PostCard = ({ post, topic, isDetailView = false }: PostCardProps) =
   const [loadingComments, setLoadingComments] = useState(false)
   const [newComment, setNewComment] = useState("")
   const [submittingComment, setSubmittingComment] = useState(false)
+    const [linkPreviews, setLinkPreviews] = useState<any[]>([]);
+  const [isLoadingPreviews, setIsLoadingPreviews] = useState(false);
+const [isExpanded, setIsExpanded] = useState(isDetailView);
 
+const renderContentWithLinks = (content: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = content.split(urlRegex);
+
+  return parts.map((part, index) =>
+    urlRegex.test(part) ? (
+      <a
+        key={index}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-500 underline break-words"
+      >
+        {part}
+      </a>
+    ) : (
+      <span key={index}>{part}</span>
+    )
+  );
+};
+
+  useEffect(() => {
+    if (isExpanded && post.content) {
+      const urls = post.content.match(/(https?:\/\/[^\s]+)/g) || [];
+      if (urls.length > 0) {
+        setIsLoadingPreviews(true);
+        Promise.all(
+          urls.map(async (url) => {
+            // Mock link preview for demo
+            const domain = new URL(url).hostname;
+            return {
+              title: `Link Preview - ${domain}`,
+              description: `Preview for ${url}`,
+              url,
+              domain,
+              image: domain.includes('react') ? 'https://react.dev/favicon.ico' : undefined
+            };
+          })
+        ).then((previews) => {
+          setLinkPreviews(previews);
+          setIsLoadingPreviews(false);
+        });
+      }
+    }
+  }, [isExpanded, post.content]);
   const handleVote = async (voteType: "up" | "down") => {
     try {
       const voteValue = voteType === "up" ? 1 : -1
@@ -184,12 +232,24 @@ export const PostCard = ({ post, topic, isDetailView = false }: PostCardProps) =
               {post.title}
             </h2>
 
-            {/* Post content */}
-            {post.content && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {isDetailView ? post.content : `${post.content.slice(0, 200)}${post.content.length > 200 ? "..." : ""}`}
-              </p>
-            )}
+{post.content && (
+  <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+    {isExpanded
+      ? renderContentWithLinks(post.content)
+      : renderContentWithLinks(
+          post.content.length > 200 ? post.content.slice(0, 200) + "..." : post.content
+        )}
+    {post.content.length > 200 && (
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="text-primary hover:underline ml-2"
+      >
+        {isExpanded ? "Show less" : "Read more"}
+      </button>
+    )}
+  </div>
+)}
+
 
             {/* External link */}
             {post.url && (

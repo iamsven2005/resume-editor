@@ -8,19 +8,28 @@ export interface Topic {
   memberCount: number
   created_at: string
 }
-
 export interface Post {
-  id: string
-  topic_id: string
-  title: string
-  content?: string
-  url?: string
-  post_type: "text" | "link" | "image"
-  author_name: string
-  vote_score: number
-  comment_count: number
-  created_at: string
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  created_at: string;
+  upvotes: number;
+  downvotes: number;
+  comments: number;
+  url?: string;
+  domain?: string;
+  linkPreview?: LinkPreview;
 }
+
+export interface LinkPreview {
+  title: string;
+  description: string;
+  image?: string;
+  url: string;
+  domain: string;
+}
+
 
 export interface Comment {
   id: string
@@ -44,7 +53,10 @@ export const getTopicBySlug = async (slug: string): Promise<Topic> => {
   if (!response.ok) throw new Error("Failed to fetch topic")
   return response.json()
 }
-
+export const detectUrls = (text: string): string[] => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.match(urlRegex) || [];
+};
 export const getPostsByTopicSlug = async (slug: string): Promise<Post[]> => {
   const response = await fetch(`/api/topics/${slug}/posts`)
   if (!response.ok) throw new Error("Failed to fetch posts")

@@ -12,6 +12,7 @@ import { JobFormDialog } from "@/components/job-form-dialog"
 import { useAuth } from "@/contexts/auth-context"
 import { Search, Plus, Briefcase, Filter } from "lucide-react"
 import type { Job, CreateJobData } from "@/types/job"
+import { Button } from "@/components/ui/button"
 
 interface JobsResponse {
   success: boolean
@@ -186,6 +187,11 @@ export default function JobsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
+                    <Button variant="outline" size="sm">
+              <Link href="/">
+              Home
+              </Link>
+              </Button>
           <h1 className="text-3xl font-bold mb-2">Job Board</h1>
           <p className="text-muted-foreground">Discover opportunities and find your next career move</p>
         </div>

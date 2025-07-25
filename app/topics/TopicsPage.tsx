@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Filter, Users, TrendingUp, Calendar } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 const TopicsPage = () => {
   const [topics, setTopics] = useState<Topic[]>([])
