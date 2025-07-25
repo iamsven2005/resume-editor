@@ -52,7 +52,7 @@ export default function Blog({ params }: any) {
         <CustomMDX source={post.content} />
         <Button variant={"link"}>
           <Link href={"/patch"}>
-            Back to blogs
+            Back 
           </Link>
         </Button>
       </article>
