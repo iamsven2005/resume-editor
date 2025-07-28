@@ -1,6 +1,13 @@
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Globe } from "lucide-react"
+"use client"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Plus, Globe, Search } from "lucide-react"
 import { PortfolioCard } from "./PortfolioCard"
+import { PortfolioCreatorDialog } from "./PortfolioCreatorDialog"
+import { toast } from "@/hooks/use-toast"
 
 interface Portfolio {
   id: string
@@ -20,59 +27,150 @@ interface Portfolio {
 
 interface PortfolioListProps {
   portfolios: Portfolio[]
+  loading: boolean
   searchQuery: string
   token: string
   onPortfolioDeleted: (portfolioId: string) => void
   onPortfolioUpdated: () => void
 }
 
-// Helper function to safely get string value
-const safeString = (value: any): string => {
-  if (value === null || value === undefined) return ""
-  if (typeof value === "string") return value
-  return String(value)
-}
-
 export function PortfolioList({
   portfolios,
+  loading,
   searchQuery,
   token,
   onPortfolioDeleted,
   onPortfolioUpdated,
 }: PortfolioListProps) {
+  const [saving, setSaving] = useState<string | null>(null)
+
+  const handleSavePortfolio = async (portfolioId: string, updatedData: any) => {
+    setSaving(portfolioId)
+    try {
+      const response = await fetch(`/api/portfolios/${portfolioId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedData),
+      })
+
+      if (response.ok) {
+        onPortfolioUpdated()
+        toast({
+          description: "Portfolio saved successfully",
+        })
+      } else {
+        throw new Error("Failed to save portfolio")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save portfolio",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(null)
+    }
+  }
+
   const filteredPortfolios = portfolios.filter((portfolio) => {
-    if (!portfolio || typeof portfolio !== "object") return false
-    const title = safeString(portfolio.title)
-    const query = safeString(searchQuery).toLowerCase()
-    return title.toLowerCase().includes(query)
+    const title = portfolio.title?.toLowerCase() || ""
+    const query = searchQuery.toLowerCase()
+    return title.includes(query)
   })
 
-  if (filteredPortfolios.length === 0) {
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <Globe className="h-16 w-16 text-muted-foreground mb-4" />
-        {searchQuery ? (
-          <p className="text-muted-foreground">No portfolios found for "{searchQuery}"</p>
-        ) : (
-          <p className="text-muted-foreground">No portfolios yet. Create one from a resume!</p>
-        )}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-10 w-40" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <div className="flex gap-2 mt-4">
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
-    <ScrollArea className="h-[600px] w-full">
-      <div className="flex flex-wrap gap-4 p-1">
-        {filteredPortfolios.map((portfolio) => (
-          <PortfolioCard
-            key={portfolio.id}
-            portfolio={portfolio}
-            token={token}
-            onPortfolioDeleted={onPortfolioDeleted}
-            onPortfolioUpdated={onPortfolioUpdated}
-          />
-        ))}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Globe className="h-5 w-5" />
+          <h2 className="text-xl font-semibold">Portfolios ({filteredPortfolios.length})</h2>
+        </div>
+        <PortfolioCreatorDialog onPortfolioCreated={onPortfolioUpdated}>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Portfolio
+          </Button>
+        </PortfolioCreatorDialog>
       </div>
-    </ScrollArea>
+
+      {filteredPortfolios.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="flex flex-col items-center gap-4">
+            {searchQuery ? (
+              <>
+                <Search className="h-12 w-12 text-muted-foreground" />
+                <div>
+                  <h3 className="text-lg font-medium">No portfolios found</h3>
+                  <p className="text-muted-foreground">No portfolios match your search for "{searchQuery}"</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <Globe className="h-12 w-12 text-muted-foreground" />
+                <div>
+                  <h3 className="text-lg font-medium">No portfolios yet</h3>
+                  <p className="text-muted-foreground">Create your first portfolio to showcase your resume online</p>
+                </div>
+                <PortfolioCreatorDialog onPortfolioCreated={onPortfolioUpdated}>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Portfolio
+                  </Button>
+                </PortfolioCreatorDialog>
+              </>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredPortfolios.map((portfolio) => (
+            <PortfolioCard
+              key={portfolio.id}
+              portfolio={portfolio}
+              token={token}
+              onPortfolioDeleted={onPortfolioDeleted}
+              onPortfolioUpdated={onPortfolioUpdated}
+              onSavePortfolio={handleSavePortfolio}
+              saving={saving === portfolio.id}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

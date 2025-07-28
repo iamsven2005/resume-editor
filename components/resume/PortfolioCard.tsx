@@ -4,16 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PortfolioAnalyticsDialog } from "./PortfolioAnalyticsDialog"
 import { PortfolioEditorDialog } from "./portfolio-editor-dialog"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 
-import {
-  Calendar,
-  Edit,
-  Eye,
-  Share,
-  BarChart3,
-  Trash2,
-} from "lucide-react"
+import { Calendar, Edit, Eye, Share, BarChart3, Trash2, Save, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -48,6 +41,8 @@ interface PortfolioCardProps {
   token: string
   onPortfolioDeleted: (portfolioId: string) => void
   onPortfolioUpdated: () => void
+  onSavePortfolio?: (portfolioId: string, data: any) => Promise<void>
+  saving?: boolean
 }
 
 // Helper function to safely get string value
@@ -62,9 +57,12 @@ export function PortfolioCard({
   token,
   onPortfolioDeleted,
   onPortfolioUpdated,
+  onSavePortfolio,
+  saving = false,
 }: PortfolioCardProps) {
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-const [showAnalytics, setShowAnalytics] = useState(false)
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
@@ -78,6 +76,7 @@ const [showAnalytics, setShowAnalytics] = useState(false)
   }
 
   const handleDeletePortfolio = async (portfolioId: string) => {
+    setIsDeleting(true)
     try {
       const response = await fetch(`/api/portfolios/${portfolioId}`, {
         method: "DELETE",
@@ -100,6 +99,24 @@ const [showAnalytics, setShowAnalytics] = useState(false)
         description: "Failed to delete portfolio",
         variant: "destructive",
       })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleSavePortfolio = async () => {
+    if (!onSavePortfolio) return
+
+    try {
+      await onSavePortfolio(portfolio.id, {
+        title: portfolio.title,
+        description: portfolio.description,
+        theme: portfolio.theme,
+        isPublished: portfolio.is_published,
+        resumeData: portfolio.resume_data,
+      })
+    } catch (error) {
+      // Error handling is done in the parent component
     }
   }
 
@@ -153,17 +170,18 @@ const [showAnalytics, setShowAnalytics] = useState(false)
               <Eye className="h-3 w-3 mr-1" />
               View
             </Button>
-                                      <PortfolioEditorDialog
-                            portfolio={portfolio}
-                            onPortfolioUpdated={() => {
-                              fetchPortfolios()
-                            }}
-                          >
-                            <Button variant="ghost" size="sm" className="h-8 px-2">
-                              <Edit className="h-3 w-3 mr-1" />
-                              Edit
-                            </Button>
-                          </PortfolioEditorDialog>
+            <PortfolioEditorDialog portfolio={portfolio} onPortfolioUpdated={onPortfolioUpdated}>
+              <Button variant="ghost" size="sm" className="h-8 px-2">
+                <Edit className="h-3 w-3 mr-1" />
+                Edit
+              </Button>
+            </PortfolioEditorDialog>
+            {onSavePortfolio && (
+              <Button variant="ghost" size="sm" onClick={handleSavePortfolio} disabled={saving} className="h-8 px-2">
+                {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                Save
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -175,23 +193,22 @@ const [showAnalytics, setShowAnalytics] = useState(false)
             </Button>
           </div>
           <div className="flex items-center gap-1">
-                          <PortfolioAnalyticsDialog portfolioId={portfolio.id} portfolioTitle={portfolio.title}>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <BarChart3 className="h-3 w-3" />
-                            </Button>
-                          </PortfolioAnalyticsDialog>
+            <PortfolioAnalyticsDialog portfolioId={portfolio.id} portfolioTitle={portfolio.title}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <BarChart3 className="h-3 w-3" />
+              </Button>
+            </PortfolioAnalyticsDialog>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive">
-                  <Trash2 className="h-3 w-3" />
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Portfolio</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete "{safeString(portfolio.title)}"? This action cannot be
-                    undone.
+                    Are you sure you want to delete "{safeString(portfolio.title)}"? This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -199,8 +216,16 @@ const [showAnalytics, setShowAnalytics] = useState(false)
                   <AlertDialogAction
                     onClick={() => handleDeletePortfolio(portfolio.id)}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={isDeleting}
                   >
-                    Delete
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      "Delete"
+                    )}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
