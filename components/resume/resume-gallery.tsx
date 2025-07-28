@@ -1,331 +1,319 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText, Globe, TrendingUp, Download, VideoIcon, Star } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
-import { useAuth } from "@/contexts/auth-context"
-import { QuickActions } from "./QuickActions"
-import { SearchBar } from "./SearchBar"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { toast } from "@/components/ui/use-toast"
 import { ResumeList } from "./ResumeList"
 import { PortfolioList } from "./PortfolioList"
+import { RankingResults } from "./RankingResults"
 import { ResumeRanker } from "./ResumeRanker"
 import { FileUploadManager } from "./file-upload-manager"
-
-interface Resume {
-  id: number
-  title: string
-  resume_data: any
-  created_at: string
-  updated_at: string
-  is_favorite?: boolean
-}
-
-interface Portfolio {
-  id: string
-  title: string
-  description?: string
-  theme: string
-  resume_data: any
-  is_published: boolean
-  portfolio_url: string
-  total_views: number
-  unique_visitors: number
-  views_last_7_days: number
-  views_last_30_days: number
-  created_at: string
-  updated_at: string
-}
+import { useAuth } from "@/contexts/auth-context"
+import type { ResumeData } from "@/types/resume"
+import { FileText, Globe, TrendingUp, Download, Search, Plus, Video, GraduationCap, Star } from "lucide-react"
 
 interface ResumeGalleryProps {
-  onLoadResume?: (resumeData: any) => void
-  onCreateNew?: () => void
-  currentResumeData?: any
-  onSaveResume?: (title: string) => Promise<void>
+  onLoadResume: (data: ResumeData) => void
+  onCreateNew: () => void
+  currentResumeData: ResumeData | null
+  onSaveResume: (title: string) => Promise<void>
 }
 
-// Helper function to safely get string value
-const safeString = (value: any): string => {
-  if (value === null || value === undefined) return ""
-  if (typeof value === "string") return value
-  return String(value)
-}
-
-// Helper function to safely trim string
-const safeTrim = (value: any): string => {
-  const str = safeString(value)
-  return str.trim()
-}
-
-export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, onSaveResume }: ResumeGalleryProps = {}) {
-  const { user, token } = useAuth()
-  const [resumes, setResumes] = useState<Resume[]>([])
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
+export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, onSaveResume }: ResumeGalleryProps) {
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState("resumes")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [resumes, setResumes] = useState([])
+  const [portfolios, setPortfolios] = useState([])
+  const [rankingResults, setRankingResults] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [resumeCount, setResumeCount] = useState(0)
+  const [portfolioCount, setPortfolioCount] = useState(0)
+  const [favoriteCount, setFavoriteCount] = useState(0)
 
-  // Quick Actions state
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-
+  // Load data when component mounts or user changes
   useEffect(() => {
-    if (user && token) {
-      fetchResumes()
-      fetchPortfolios()
+    if (user) {
+      loadResumes()
+      loadPortfolios()
     }
-  }, [user, token])
+  }, [user])
 
-  // Auto-save functionality
-  useEffect(() => {
-    if (!autoSaveEnabled || !currentResumeData || !user || !onSaveResume) return
+  const loadResumes = async () => {
+    if (!user) return
 
-    const autoSaveTimer = setTimeout(async () => {
-      if (currentResumeData && safeTrim(currentResumeData.title)) {
-        try {
-          await handleAutoSave()
-        } catch (error) {
-          console.error("Auto-save failed:", error)
-        }
-      }
-    }, 30000) // Auto-save every 30 seconds
-
-    return () => clearTimeout(autoSaveTimer)
-  }, [currentResumeData, autoSaveEnabled, user, onSaveResume])
-
-  const fetchResumes = async () => {
+    setIsLoading(true)
     try {
       const response = await fetch("/api/resumes", {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       })
 
       if (response.ok) {
         const data = await response.json()
-        console.log("Fetched resumes:", data.resumes)
-        setResumes(Array.isArray(data.resumes) ? data.resumes : [])
-      } else {
-        console.error("Failed to fetch resumes:", response.status)
-        setResumes([])
+        setResumes(data.resumes || [])
+        setResumeCount(data.resumes?.length || 0)
+        setFavoriteCount(data.resumes?.filter((r: any) => r.is_favorite)?.length || 0)
       }
     } catch (error) {
-      console.error("Error fetching resumes:", error)
-      setResumes([])
+      console.error("Error loading resumes:", error)
       toast({
         title: "Error",
         description: "Failed to load resumes",
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const fetchPortfolios = async () => {
+  const loadPortfolios = async () => {
+    if (!user) return
+
     try {
       const response = await fetch("/api/portfolios", {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       })
 
       if (response.ok) {
         const data = await response.json()
-        console.log("Fetched portfolios:", data.portfolios)
-        setPortfolios(Array.isArray(data.portfolios) ? data.portfolios : [])
-      } else {
-        console.error("Failed to fetch portfolios:", response.status)
-        setPortfolios([])
+        setPortfolios(data.portfolios || [])
+        setPortfolioCount(data.portfolios?.length || 0)
       }
     } catch (error) {
-      console.error("Error fetching portfolios:", error)
-      setPortfolios([])
+      console.error("Error loading portfolios:", error)
     }
   }
 
-  const handleAutoSave = async () => {
-    if (!currentResumeData?.title || !onSaveResume) return
-
+  const handleVideoCall = () => {
     try {
-      await onSaveResume(safeTrim(currentResumeData.title))
-      setLastSaved(new Date())
-      toast({
-        description: "Auto-saved successfully",
-        duration: 2000,
-      })
+      const videoCallUrl = "https://cal.com/sparkjob/15min"
+      window.open(videoCallUrl, "_blank", "noopener,noreferrer")
     } catch (error) {
-      console.error("Auto-save failed:", error)
+      console.error("Error opening video call:", error)
+      toast({
+        title: "Error",
+        description: "Unable to open video call. Please try again later.",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleResumeUpdated = (updatedResume: Resume) => {
-    setResumes(resumes.map((r) => (r.id === updatedResume.id ? updatedResume : r)))
+  const handleBeginTutorial = () => {
+    // Switch to resumes tab first
+    setActiveTab("resumes")
+
+    // Trigger the tutorial/onboarding
+    if (window.startTutorial) {
+      window.startTutorial()
+    } else {
+      toast({
+        title: "Tutorial",
+        description: "Tutorial feature will be available soon!",
+      })
+    }
   }
 
-  const handleResumeDeleted = (resumeId: number) => {
-    setResumes(resumes.filter((r) => r.id !== resumeId))
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+
+    // Handle special actions
+    if (value === "video-call") {
+      handleVideoCall()
+      return
+    }
+
+    if (value === "tutorial") {
+      handleBeginTutorial()
+      return
+    }
   }
 
-  const handlePortfolioCreated = (newPortfolio: Portfolio) => {
-    setPortfolios([...portfolios, newPortfolio])
+  const getTabIcon = (tabValue: string) => {
+    switch (tabValue) {
+      case "resumes":
+        return <FileText className="h-4 w-4" />
+      case "portfolios":
+        return <Globe className="h-4 w-4" />
+      case "ranking":
+        return <TrendingUp className="h-4 w-4" />
+      case "downloads":
+        return <Download className="h-4 w-4" />
+      case "video-call":
+        return <Video className="h-4 w-4" />
+      case "tutorial":
+        return <GraduationCap className="h-4 w-4" />
+      default:
+        return <FileText className="h-4 w-4" />
+    }
   }
 
-  const handlePortfolioDeleted = (portfolioId: string) => {
-    setPortfolios(portfolios.filter((p) => p.id !== portfolioId))
+  const getTabLabel = (tabValue: string) => {
+    switch (tabValue) {
+      case "resumes":
+        return (
+          <div className="flex items-center gap-2">
+            <span>Resumes</span>
+            {resumeCount > 0 && <Badge variant="secondary">{resumeCount}</Badge>}
+            {favoriteCount > 0 && (
+              <div className="flex items-center gap-1">
+                <Star className="h-3 w-3 fill-current text-yellow-500" />
+                <span className="text-xs">{favoriteCount}</span>
+              </div>
+            )}
+          </div>
+        )
+      case "portfolios":
+        return (
+          <div className="flex items-center gap-2">
+            <span>Portfolios</span>
+            {portfolioCount > 0 && <Badge variant="secondary">{portfolioCount}</Badge>}
+          </div>
+        )
+      case "ranking":
+        return "Resume Ranking"
+      case "downloads":
+        return "Downloads"
+      case "video-call":
+        return "Video Call"
+      case "tutorial":
+        return "Begin Tutorial"
+      default:
+        return tabValue
+    }
   }
-
-  // Safe filtering with comprehensive null checks
-  const filteredResumes = resumes.filter((resume) => {
-    if (!resume || typeof resume !== "object") return false
-    const title = safeString(resume.title)
-    const query = safeString(searchQuery).toLowerCase()
-    return title.toLowerCase().includes(query)
-  })
-
-  const filteredPortfolios = portfolios.filter((portfolio) => {
-    if (!portfolio || typeof portfolio !== "object") return false
-    const title = safeString(portfolio.title)
-    const query = safeString(searchQuery).toLowerCase()
-    return title.toLowerCase().includes(query)
-  })
-
-  const favoriteCount = resumes.filter((resume) => resume && resume.is_favorite).length
-
-  // Tab options for the dropdown
-  const tabOptions = [
-    {
-      value: "resumes",
-      label: "Resumes",
-      icon: FileText,
-      count: filteredResumes.length,
-      badge: favoriteCount > 0 ? favoriteCount : null,
-    },
-    {
-      value: "portfolios",
-      label: "Portfolios",
-      icon: Globe,
-      count: filteredPortfolios.length,
-    },
-    {
-      value: "ranker",
-      label: "Ranker",
-      icon: TrendingUp,
-    },
-    {
-      value: "files",
-      label: "Files",
-      icon: Download,
-    },
-  ]
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Please log in to view your resumes and portfolios.</p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Resume Gallery</CardTitle>
+          <CardDescription>Please log in to access your resumes and portfolios.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">Sign in to create, manage, and share your professional documents.</p>
+        </CardContent>
+      </Card>
     )
   }
-const handleStartCall = () => {
-    const callWindow = window.open(
-      `https://meet.bihance.app/rooms/${token}`,
-      'callWindow',
-      'width=1200,height=800,left=200,top=100'
-    );
-    if (callWindow) {
-      callWindow.focus();
-    } else {
-      toast.error("Unable to open call window. Please check your popup settings.");
-    }
-  };
+
   return (
-    <div className="space-y-6">
-      {/* Quick Actions */}
-      <QuickActions
-        onCreateNew={onCreateNew}
-        onSaveResume={onSaveResume}
-        currentResumeData={currentResumeData}
-        autoSaveEnabled={autoSaveEnabled}
-        setAutoSaveEnabled={setAutoSaveEnabled}
-        lastSaved={lastSaved}
-      />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Select value={activeTab} onValueChange={handleTabChange}>
+            <SelectTrigger className="w-[200px]">
+              <div className="flex items-center gap-2">
+                {getTabIcon(activeTab)}
+                <SelectValue />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="resumes">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span>Resumes</span>
+                  {resumeCount > 0 && <Badge variant="secondary">{resumeCount}</Badge>}
+                  {favoriteCount > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-current text-yellow-500" />
+                      <span className="text-xs">{favoriteCount}</span>
+                    </div>
+                  )}
+                </div>
+              </SelectItem>
+              <SelectItem value="portfolios">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  <span>Portfolios</span>
+                  {portfolioCount > 0 && <Badge variant="secondary">{portfolioCount}</Badge>}
+                </div>
+              </SelectItem>
+              <SelectItem value="ranking">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>Resume Ranking</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="downloads">
+                <div className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  <span>Downloads</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="video-call">
+                <div className="flex items-center gap-2">
+                  <Video className="h-4 w-4" />
+                  <span>Video Call</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="tutorial">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  <span>Begin Tutorial</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
 
-      {/* Search Bar */}
-      <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 w-64"
+            />
+          </div>
+        </div>
 
-      {/* Dropdown Tab Selector */}
-      <div className="flex items-center gap-4">
-        <Select value={activeTab} onValueChange={setActiveTab}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select view" />
-          </SelectTrigger>
-          <SelectContent>
-            {tabOptions.map((option) => {
-              const Icon = option.icon
-              return (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    <span>{option.label}</span>
-                    {option.count !== undefined && <span className="text-muted-foreground">({option.count})</span>}
-                    {option.badge && (
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        <Star className="h-3 w-3 mr-1 fill-current" />
-                        {option.badge}
-                      </Badge>
-                    )}
-                  </div>
-                </SelectItem>
-              )
-            })}
-                            <SelectItem onClick={handleStartCall} >
-          <VideoIcon className="w-4 h-4 mr-2" />
-          Start Call
-
- </SelectItem>
-          </SelectContent>  
-        </Select>
+        <Button onClick={onCreateNew} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          New Resume
+        </Button>
       </div>
 
-      {/* Tabs Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* Resumes Tab */}
         <TabsContent value="resumes" className="space-y-4">
           <ResumeList
             resumes={resumes}
-            loading={loading}
             searchQuery={searchQuery}
-            token={token}
             onLoadResume={onLoadResume}
-            onCreateNew={onCreateNew}
-            onResumeUpdated={handleResumeUpdated}
-            onResumeDeleted={handleResumeDeleted}
-            onPortfolioCreated={handlePortfolioCreated}
-            setSearchQuery={setSearchQuery}
+            onResumeUpdated={loadResumes}
+            isLoading={isLoading}
           />
         </TabsContent>
 
-        {/* Portfolios Tab */}
         <TabsContent value="portfolios" className="space-y-4">
           <PortfolioList
             portfolios={portfolios}
             searchQuery={searchQuery}
-            token={token}
-            onPortfolioDeleted={handlePortfolioDeleted}
-            onPortfolioUpdated={fetchPortfolios}
+            onPortfolioUpdated={loadPortfolios}
+            isLoading={isLoading}
           />
         </TabsContent>
 
-        {/* Ranker Tab */}
-        <TabsContent value="ranker" className="space-y-6">
-          <ResumeRanker resumes={resumes} token={token} />
+        <TabsContent value="ranking" className="space-y-4">
+          <div className="grid gap-4">
+            <ResumeRanker resumes={resumes} onRankingComplete={setRankingResults} />
+            {rankingResults && <RankingResults results={rankingResults} />}
+          </div>
         </TabsContent>
 
-        {/* Files Tab */}
-        <TabsContent value="files">
-          <FileUploadManager searchQuery={searchQuery} />
+        <TabsContent value="downloads" className="space-y-4">
+          <FileUploadManager
+            onResumeUploaded={onLoadResume}
+            currentResumeData={currentResumeData}
+            onSaveResume={onSaveResume}
+          />
         </TabsContent>
       </Tabs>
     </div>

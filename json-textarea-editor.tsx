@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "@/components/ui/use-toast"
 import { useResumeEditor } from "./hooks/use-resume-editor"
 import { generatePDFFromMarkdown } from "./utils/pdf-generator"
@@ -19,6 +19,8 @@ import type { ResumeAnalysis } from "./types/analysis"
 import { Footer } from "@/components/footer"
 import { AuthDialog } from "@/components/auth-dialog"
 import { ResumeCounter } from "@/components/resume-counter"
+import { LandingModal } from "@/components/landing-modal"
+import { OnboardingModal } from "@/components/onboarding-modal"
 
 import {
   FileText,
@@ -63,7 +65,124 @@ export default function JsonTextareaEditor() {
   const [resumeAnalysis, setResumeAnalysis] = useState<ResumeAnalysis | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
-  const { user, logout } = useAuth()
+  const { user, logout, loading } = useAuth()
+  const [showLandingModal, setShowLandingModal] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false)
+
+  // Check if user has seen onboarding
+  useEffect(() => {
+    if (user && !loading) {
+      const hasSeenKey = `onboarding_seen_${user.id}`
+      const seen = localStorage.getItem(hasSeenKey)
+
+      if (!seen) {
+        // Check if user has any resumes
+        checkUserResumes()
+      } else {
+        setHasSeenOnboarding(true)
+      }
+    }
+  }, [user, loading])
+
+  // Expose tutorial function globally
+  useEffect(() => {
+    window.startTutorial = () => {
+      setShowOnboarding(true)
+    }
+
+    return () => {
+      delete window.startTutorial
+    }
+  }, [])
+
+  const checkUserResumes = async () => {
+    try {
+      const response = await fetch("/api/resumes", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const resumes = data.resumes || []
+
+        if (resumes.length === 0) {
+          // First time user - show landing modal
+          setShowLandingModal(true)
+        } else {
+          setHasSeenOnboarding(true)
+        }
+      }
+    } catch (error) {
+      console.error("Error checking user resumes:", error)
+      setHasSeenOnboarding(true)
+    }
+  }
+
+  const handleOnboardingComplete = async (newResumeData: any) => {
+    try {
+      // Save the resume
+      const response = await fetch("/api/resumes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          title: newResumeData.title,
+          resume_data: newResumeData,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        updateJsonFromData(newResumeData)
+
+        // Mark onboarding as seen
+        const hasSeenKey = `onboarding_seen_${user?.id}`
+        localStorage.setItem(hasSeenKey, "true")
+        setHasSeenOnboarding(true)
+        setShowLandingModal(false)
+        setShowOnboarding(false)
+
+        toast({
+          title: "Welcome! 🎉",
+          description: "Your first resume has been created successfully.",
+        })
+
+        // Refresh credits
+        if (window.refreshCredits) {
+          window.refreshCredits()
+        }
+      } else {
+        throw new Error("Failed to create resume")
+      }
+    } catch (error) {
+      console.error("Error creating resume:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create your resume. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleGetStarted = () => {
+    setShowOnboarding(true)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Handle resume upload from PDF
   const handleResumeUploaded = (data: ResumeData) => {
@@ -72,14 +191,6 @@ export default function JsonTextareaEditor() {
     toast({
       description: "Resume uploaded and processed successfully!",
     })
-  }
-  const [showAuthDialog, setShowAuthDialog] = useState(false)
-
-  const handleResumeCreated = () => {
-    // Refresh credits after resume creation
-    if (typeof window !== "undefined" && (window as any).refreshCredits) {
-      ;(window as any).refreshCredits()
-    }
   }
 
   // Handle creating a new resume
@@ -838,7 +949,7 @@ export default function JsonTextareaEditor() {
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
                 </Button>
-                <ResumeCounter/>
+                <ResumeCounter />
               </div>
             ) : (
               <AuthDialog>
@@ -851,11 +962,22 @@ export default function JsonTextareaEditor() {
           </div>
         </div>
 
-        <PanelLayoutManager panels={panels}  onResumeCreated={handleResumeCreated} onAuthRequired={() => setShowAuthDialog(true)}/>
-                <AuthDialog open={showAuthDialog} onOpenChange={setShowAuthDialog} />
-
+        <PanelLayoutManager panels={panels} />
       </div>
       <Footer />
+
+      {/* Modals */}
+      <LandingModal
+        isOpen={showLandingModal}
+        onClose={() => setShowLandingModal(false)}
+        onGetStarted={handleGetStarted}
+      />
+
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={handleOnboardingComplete}
+      />
     </div>
   )
 }

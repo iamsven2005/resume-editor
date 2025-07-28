@@ -1,258 +1,325 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { DragDropContext, Droppable } from "@hello-pangea/dnd"
+import { useState, useEffect, useCallback } from "react"
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Maximize2, Minimize2, RotateCcw } from "lucide-react"
-import { DraggablePanel } from "./draggable-panel"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { cn } from "@/lib/utils"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  FileText,
+  Eye,
+  Upload,
+  Save,
+  Plus,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sparkles,
+  TrendingUp,
+  Mail,
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/auth-context"
 
-export interface PanelConfig {
-  id: string
-  title: string
-  icon?: React.ReactNode
-  component: React.ReactNode
-  headerActions?: React.ReactNode
-  defaultCollapsed?: boolean
-}
+// Import all the panel components
+import { FormEditorPanel } from "./form-editor-panel"
+import { PDFPreviewPanel } from "./pdf-preview-panel"
+import { ResumeGallery } from "./resume/resume-gallery"
+import { ResumeAnalysisPanel } from "./resume-analysis-panel"
+import { ResumeImprovementPanel } from "./resume-improvement-panel"
+import { EmailGeneratorPanel } from "./email-generator-panel"
+import { DocumentUpload } from "./document-upload"
+
+// Types
+import type { ResumeData } from "@/types/resume"
 
 interface PanelLayoutManagerProps {
-  panels: PanelConfig[]
-  className?: string
+  onStartTutorial?: () => void
 }
 
-export const PanelLayoutManager = ({ panels, className }: PanelLayoutManagerProps) => {
-  const isMobile = useIsMobile()
-  const [panelOrder, setPanelOrder] = useState<string[]>(panels.map((p) => p.id))
+export function PanelLayoutManager({ onStartTutorial }: PanelLayoutManagerProps) {
+  const { user, token } = useAuth()
+  const [resumeData, setResumeData] = useState<ResumeData | null>(null)
+  const [activePanel, setActivePanel] = useState("editor")
+  const [isGalleryVisible, setIsGalleryVisible] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  // Close all panels by default
-  const [collapsedPanels, setCollapsedPanels] = useState<Set<string>>(
-    new Set(panels.filter((p) => p.defaultCollapsed !== false).map((p) => p.id)),
-  )
-
-  // Determine if we should use vertical layout based on screen size
-  const [isVerticalLayout, setIsVerticalLayout] = useState(false)
-
+  // Initialize with default resume data
   useEffect(() => {
-    const checkScreenSize = () => {
-      // Use vertical layout on screens smaller than 1280px (xl breakpoint)
-      setIsVerticalLayout(window.innerWidth < 1280)
+    if (!resumeData) {
+      setResumeData({
+        title: "My Resume",
+        personalInfo: {
+          name: "",
+          email: "",
+          phone: "",
+          location: "",
+          title: "",
+        },
+        summary: "",
+        experience: [],
+        education: [],
+        skills: [],
+        projects: [],
+        certifications: [],
+      })
     }
+  }, [resumeData])
 
-    checkScreenSize()
-    window.addEventListener("resize", checkScreenSize)
-    return () => window.removeEventListener("resize", checkScreenSize)
+  const handleResumeDataChange = useCallback((newData: ResumeData) => {
+    setResumeData(newData)
+    setHasUnsavedChanges(true)
   }, [])
 
-  // Reset panel order when panels change
-  useEffect(() => {
-    setPanelOrder(panels.map((p) => p.id))
-  }, [panels])
+  const handleLoadResume = useCallback((loadedData: any) => {
+    setResumeData(loadedData)
+    setHasUnsavedChanges(false)
+    toast({
+      title: "Resume Loaded",
+      description: "Resume has been loaded successfully.",
+    })
+  }, [])
 
-  // Update collapsed panels when panels change (keep all collapsed by default)
-  useEffect(() => {
-    // Only add new panels as collapsed, don't reset existing panel states
-    setCollapsedPanels((prev) => {
-      const newSet = new Set(prev)
-      panels.forEach((panel) => {
-        // Only add new panels that aren't already tracked
-        if (!prev.has(panel.id) && panel.defaultCollapsed !== false) {
-          newSet.add(panel.id)
+  const handleCreateNew = useCallback(() => {
+    const newResumeData: ResumeData = {
+      title: "New Resume",
+      personalInfo: {
+        name: "",
+        email: user?.email || "",
+        phone: "",
+        location: "",
+        title: "",
+      },
+      summary: "",
+      experience: [],
+      education: [],
+      skills: [],
+      projects: [],
+      certifications: [],
+    }
+    setResumeData(newResumeData)
+    setHasUnsavedChanges(true)
+    toast({
+      title: "New Resume Created",
+      description: "Started with a blank resume template.",
+    })
+  }, [user])
+
+  const handleSaveResume = useCallback(
+    async (title?: string) => {
+      if (!resumeData || !user || !token) {
+        toast({
+          title: "Error",
+          description: "Please log in to save your resume.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      try {
+        const saveData = {
+          ...resumeData,
+          title: title || resumeData.title || "Untitled Resume",
         }
-      })
-      return newSet
-    })
-  }, [panels])
 
-  const handleDragEnd = (result: any) => {
-    if (!result.destination) return
+        const response = await fetch("/api/resumes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: saveData.title,
+            resume_data: saveData,
+          }),
+        })
 
-    const newOrder = Array.from(panelOrder)
-    const [reorderedPanel] = newOrder.splice(result.source.index, 1)
-    newOrder.splice(result.destination.index, 0, reorderedPanel)
+        if (response.ok) {
+          setLastSaved(new Date())
+          setHasUnsavedChanges(false)
+          toast({
+            title: "Resume Saved",
+            description: "Your resume has been saved successfully.",
+          })
 
-    setPanelOrder(newOrder)
-  }
-
-  const togglePanelCollapse = (panelId: string) => {
-    setCollapsedPanels((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(panelId)) {
-        newSet.delete(panelId)
-      } else {
-        newSet.add(panelId)
+          // Refresh credits
+          if (window.refreshCredits) {
+            window.refreshCredits()
+          }
+        } else {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to save resume")
+        }
+      } catch (error: any) {
+        console.error("Error saving resume:", error)
+        toast({
+          title: "Save Failed",
+          description: error.message || "Failed to save resume. Please try again.",
+          variant: "destructive",
+        })
       }
-      return newSet
-    })
+    },
+    [resumeData, user, token],
+  )
+
+  const toggleGallery = () => {
+    setIsGalleryVisible(!isGalleryVisible)
   }
 
-  const expandAllPanels = () => {
-    setCollapsedPanels(new Set())
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen)
   }
 
-  const collapseAllPanels = () => {
-    setCollapsedPanels(new Set(panels.map((p) => p.id)))
+  const resetLayout = () => {
+    setIsGalleryVisible(true)
+    setIsFullscreen(false)
+    setActivePanel("editor")
   }
 
-  const resetPanelOrder = () => {
-    setPanelOrder(panels.map((p) => p.id))
-  }
+  const renderActivePanel = () => {
+    if (!resumeData) return null
 
-  const orderedPanels = panelOrder
-    .map((id) => panels.find((p) => p.id === id))
-    .filter((p): p is PanelConfig => p !== undefined)
-
-  const collapsedCount = collapsedPanels.size
-  const totalPanels = panels.length
-  const expandedCount = totalPanels - collapsedCount
-
-  // Calculate dynamic grid columns for desktop horizontal layout
-  const getGridTemplateColumns = () => {
-    if (isVerticalLayout || isMobile) return undefined
-
-    const collapsedWidth = "60px"
-    const expandedPanels = orderedPanels.filter((panel) => !collapsedPanels.has(panel.id))
-
-    if (expandedPanels.length === 0) {
-      return `repeat(${totalPanels}, ${collapsedWidth})`
+    switch (activePanel) {
+      case "editor":
+        return <FormEditorPanel resumeData={resumeData} onResumeDataChange={handleResumeDataChange} />
+      case "preview":
+        return (
+          <PdfPreviewPanel
+            resumeData={resumeData}
+            onDownload={() => {
+              toast({
+                title: "Download Started",
+                description: "Your resume PDF is being generated.",
+              })
+            }}
+          />
+        )
+      case "analysis":
+        return <ResumeAnalysisPanel resumeData={resumeData} />
+      case "improvement":
+        return <ResumeImprovementPanel resumeData={resumeData} onApplyImprovement={handleResumeDataChange} />
+      case "email":
+        return <EmailGeneratorPanel resumeData={resumeData} />
+      case "upload":
+        return <DocumentUpload onResumeDataExtracted={handleLoadResume} />
+      default:
+        return null
     }
+  }
 
-    // Calculate minimum width for expanded panels to prevent overflow
-    // Account for gaps between panels (gap-4 = 16px * (panels - 1))
-    const gapWidth = (totalPanels - 1) * 16
-    const collapsedTotalWidth = collapsedCount * 60
-    const availableWidth = `calc(100vw - ${collapsedTotalWidth + gapWidth + 96}px)` // 96px for container padding
-
-    // Set minimum width for expanded panels to prevent them from being too narrow
-    const minExpandedWidth = "280px"
-
-    // If we have too many expanded panels, some should be collapsed automatically
-    if (expandedCount > 4) {
-      // Force collapse some panels if there are too many expanded
-      const maxExpanded = Math.floor((window.innerWidth - 400) / 300) // Rough calculation
-      if (expandedCount > maxExpanded) {
-        // This is handled by the UI, but we can suggest it
-      }
-    }
-
-    const columns = orderedPanels.map((panel) => {
-      if (collapsedPanels.has(panel.id)) {
-        return collapsedWidth
-      } else {
-        // Use minmax to ensure panels don't get too small but can grow
-        return `minmax(${minExpandedWidth}, 1fr)`
-      }
-    })
-
-    return columns.join(" ")
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Please log in to use the resume builder.</p>
+      </div>
+    )
   }
 
   return (
-    <div className={cn("w-full overflow-hidden", className)}>
-      {/* Panel Controls */}
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            {expandedCount} of {totalPanels} expanded
-          </Badge>
-          {collapsedCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {collapsedCount} collapsed
-            </Badge>
-          )}
-          {expandedCount > 3 && !isVerticalLayout && (
-            <Badge variant="destructive" className="text-xs">
-              Consider collapsing some panels
-            </Badge>
-          )}
-        </div>
+    <div className="h-screen flex flex-col">
+      {/* Header */}
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-semibold">Resume Builder</h1>
+            {hasUnsavedChanges && (
+              <Badge variant="secondary" className="text-xs">
+                Unsaved Changes
+              </Badge>
+            )}
+            {lastSaved && (
+              <span className="text-xs text-muted-foreground">Last saved: {lastSaved.toLocaleTimeString()}</span>
+            )}
+          </div>
 
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={expandAllPanels}
-            disabled={collapsedCount === 0}
-            className="h-7 px-2 text-xs bg-transparent"
-          >
-            <Maximize2 className="h-3 w-3 mr-1" />
-            Expand All
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={collapseAllPanels}
-            disabled={collapsedCount === totalPanels}
-            className="h-7 px-2 text-xs bg-transparent"
-          >
-            <Minimize2 className="h-3 w-3 mr-1" />
-            Collapse All
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={resetPanelOrder}
-            className="h-7 px-2 text-xs bg-transparent"
-            title="Reset panel order"
-          >
-            <RotateCcw className="h-3 w-3" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleCreateNew}>
+              <Plus className="w-4 h-4 mr-2" />
+              New
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleSaveResume()} disabled={!hasUnsavedChanges}>
+              <Save className="w-4 h-4 mr-2" />
+              Save
+            </Button>
+            <Button variant="outline" size="sm" onClick={toggleGallery}>
+              {isGalleryVisible ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+            </Button>
+            <Button variant="outline" size="sm" onClick={toggleFullscreen}>
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </Button>
+            <Button variant="outline" size="sm" onClick={resetLayout}>
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Draggable Panels */}
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="panels" direction={isVerticalLayout || isMobile ? "vertical" : "horizontal"}>
-          {(provided, snapshot) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className={cn(
-                "transition-colors duration-200 w-full",
-                // Vertical layout for mobile and smaller screens
-                isVerticalLayout || isMobile ? "flex flex-col gap-4" : "grid gap-4 overflow-x-auto",
-                snapshot.isDraggingOver && "bg-accent/10 rounded-lg p-2",
-              )}
-              style={
-                !isVerticalLayout && !isMobile
-                  ? {
-                      gridTemplateColumns: getGridTemplateColumns(),
-                      maxWidth: "100vw",
-                      width: "100%",
-                    }
-                  : undefined
-              }
-            >
-              {orderedPanels.map((panel, index) => (
-                <DraggablePanel
-                  key={panel.id}
-                  id={panel.id}
-                  index={index}
-                  title={panel.title}
-                  icon={panel.icon}
-                  isCollapsed={collapsedPanels.has(panel.id)}
-                  onToggleCollapse={() => togglePanelCollapse(panel.id)}
-                  headerActions={panel.headerActions}
-                  isVerticalLayout={isVerticalLayout || isMobile}
-                  className={cn(
-                    // Ensure minimum height for collapsed panels on desktop horizontal layout
-                    !isVerticalLayout && !isMobile && collapsedPanels.has(panel.id) && "min-h-[600px]",
-                    // Prevent individual panels from overflowing
-                    !isVerticalLayout && !isMobile && "min-w-0 overflow-hidden",
-                  )}
-                >
-                  {panel.component}
-                </DraggablePanel>
-              ))}
-              {provided.placeholder}
-            </div>
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Gallery Panel */}
+          {isGalleryVisible && !isFullscreen && (
+            <>
+              <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+                <div className="h-full overflow-auto p-4">
+                  <ResumeGallery
+                    onLoadResume={handleLoadResume}
+                    onCreateNew={handleCreateNew}
+                    currentResumeData={resumeData}
+                    onSaveResume={handleSaveResume}
+                    onStartTutorial={onStartTutorial}
+                  />
+                </div>
+              </ResizablePanel>
+              <ResizableHandle />
+            </>
           )}
-        </Droppable>
-      </DragDropContext>
+
+          {/* Main Panel */}
+          <ResizablePanel defaultSize={isGalleryVisible && !isFullscreen ? 75 : 100}>
+            <div className="h-full flex flex-col">
+              {/* Panel Tabs */}
+              <div className="border-b">
+                <Tabs value={activePanel} onValueChange={setActivePanel}>
+                  <TabsList className="w-full justify-start rounded-none border-0 bg-transparent p-0">
+                    <TabsTrigger value="editor" className="flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Editor
+                    </TabsTrigger>
+                    <TabsTrigger value="preview" className="flex items-center gap-2">
+                      <Eye className="w-4 h-4" />
+                      Preview
+                    </TabsTrigger>
+                    <TabsTrigger value="analysis" className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Analysis
+                    </TabsTrigger>
+                    <TabsTrigger value="improvement" className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      AI Improve
+                    </TabsTrigger>
+                    <TabsTrigger value="email" className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      Email Gen
+                    </TabsTrigger>
+                    <TabsTrigger value="upload" className="flex items-center gap-2">
+                      <Upload className="w-4 h-4" />
+                      Upload
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+
+              {/* Panel Content */}
+              <div className="flex-1 overflow-auto">{renderActivePanel()}</div>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     </div>
   )
 }
