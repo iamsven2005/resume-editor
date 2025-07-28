@@ -25,6 +25,7 @@ export function ResumeCounter({ onCreditsUpdate }: ResumeCounterProps) {
   const [credits, setCredits] = useState<UserCredits | null>(null)
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState(false)
+const [minimized, setMinimized] = useState(false)
 
   const fetchCredits = async () => {
     if (!user) return
@@ -130,52 +131,66 @@ export function ResumeCounter({ onCreditsUpdate }: ResumeCounterProps) {
   }
 
   return (
-    <Card className="w-full max-w-4xl mx-auto mb-6">
-      <CardContent className="p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold">Resume Credits</h3>
-              {getStatusBadge()}
-            </div>
+<Card className="w-full max-w-4xl mx-auto mb-6">
+  <CardContent className="p-4 space-y-3">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <h3 className="text-lg font-semibold">Resume Credits</h3>
+        {getStatusBadge()}
+      </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>
-                  Remaining: {credits.remaining_credits} / {totalCredits}
-                </span>
-                <span>{progressPercentage.toFixed(0)}%</span>
-              </div>
-              <Progress value={progressPercentage} className="h-2" />
-            </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => setMinimized((prev) => !prev)}
+        className="text-xs"
+      >
+        {minimized ? "Show" : "Hide"}
+      </Button>
+    </div>
 
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                <span>Resets in {credits.days_until_reset} days</span>
-              </div>
-              <div>Used this month: {credits.used_credits}</div>
+    {!minimized && (
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex-1 space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span>
+                Remaining: {credits.remaining_credits} / {totalCredits}
+              </span>
+              <span>{progressPercentage.toFixed(0)}%</span>
             </div>
+            <Progress value={progressPercentage} className="h-2" />
           </div>
 
-          <div className="flex flex-col gap-2">
-            {credits.remaining_credits === 0 && (
-              <p className="text-sm text-muted-foreground text-center">
-                Wait {credits.days_until_reset} days for reset or buy more
-              </p>
-            )}
-            <Button
-              onClick={handlePurchaseCredits}
-              disabled={purchasing}
-              variant={credits.remaining_credits <= 5 ? "default" : "outline"}
-              className="flex items-center gap-2"
-            >
-              <CreditCard className="h-4 w-4" />
-              {purchasing ? "Processing..." : "Buy 20 Credits ($5)"}
-            </Button>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              <span>Resets in {credits.days_until_reset} days</span>
+            </div>
+            <div>Used this month: {credits.used_credits}</div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        <div className="flex flex-col gap-2">
+          {credits.remaining_credits === 0 && (
+            <p className="text-sm text-muted-foreground text-center">
+              Wait {credits.days_until_reset} days for reset or buy more
+            </p>
+          )}
+          <Button
+            onClick={handlePurchaseCredits}
+            disabled={purchasing}
+            variant={credits.remaining_credits <= 5 ? "default" : "outline"}
+            className="flex items-center gap-2"
+          >
+            <CreditCard className="h-4 w-4" />
+            {purchasing ? "Processing..." : "Buy 20 Credits ($5)"}
+          </Button>
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
+
   )
 }
