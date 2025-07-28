@@ -1,347 +1,351 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText, Globe, TrendingUp, Download, VideoIcon, Star } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
-import { useAuth } from "@/contexts/auth-context"
-import { QuickActions } from "./QuickActions"
-import { SearchBar } from "./SearchBar"
-import { ResumeList } from "./ResumeList"
-import { PortfolioList } from "./PortfolioList"
-import { ResumeRanker } from "./ResumeRanker"
-import { FileUploadManager } from "./file-upload-manager"
+import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { toast } from "@/components/ui/use-toast"
 import { OnboardingTutorial } from "../onboarding-tutorial"
+import { ResumeNameEditorDialog } from "./ResumeNameEditorDialog"
+import { DocumentUpload } from "../document-upload"
+import { useAuth } from "../../contexts/auth-context"
+import type { ResumeData } from "../../types/resume"
+import { FileText, Plus, Download, Trash2, Calendar, Search, BookOpen, MoreVertical, Eye, Copy } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
-interface Resume {
-  id: number
-  title: string
-  resume_data: any
-  created_at: string
-  updated_at: string
-  is_favorite?: boolean
-}
-
-interface Portfolio {
+interface SavedResume {
   id: string
   title: string
-  description?: string
-  theme: string
-  resume_data: any
-  is_published: boolean
-  portfolio_url: string
-  total_views: number
-  unique_visitors: number
-  views_last_7_days: number
-  views_last_30_days: number
-  created_at: string
-  updated_at: string
+  resumeData: ResumeData
+  createdAt: string
+  updatedAt: string
 }
 
 interface ResumeGalleryProps {
-  onLoadResume?: (resumeData: any) => void
-  onCreateNew?: () => void
-  currentResumeData?: any
-  onSaveResume?: (title: string) => Promise<void>
+  onLoadResume: (data: ResumeData) => void
+  onCreateNew: () => void
+  currentResumeData?: ResumeData | null
+  onSaveResume: (title: string) => Promise<void>
 }
 
-// Helper function to safely get string value
-const safeString = (value: any): string => {
-  if (value === null || value === undefined) return ""
-  if (typeof value === "string") return value
-  return String(value)
-}
+export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, onSaveResume }: ResumeGalleryProps) {
+  const [savedResumes, setSavedResumes] = useState<SavedResume[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [showNameEditor, setShowNameEditor] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const { user } = useAuth()
 
-// Helper function to safely trim string
-const safeTrim = (value: any): string => {
-  const str = safeString(value)
-  return str.trim()
-}
-
-export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, onSaveResume }: ResumeGalleryProps = {}) {
-  const { user, token } = useAuth()
-  const [resumes, setResumes] = useState<Resume[]>([])
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeTab, setActiveTab] = useState("resumes")
-  const [showTutorial, setShowTutorial] = useState(false)
-
-  // Quick Actions state
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-
-  useEffect(() => {
-    if (user && token) {
-      fetchResumes()
-      fetchPortfolios()
+  // Load saved resumes
+  const loadSavedResumes = async () => {
+    if (!user) {
+      setIsLoading(false)
+      return
     }
-  }, [user, token])
 
-  // Auto-save functionality
-  useEffect(() => {
-    if (!autoSaveEnabled || !currentResumeData || !user || !onSaveResume) return
-
-    const autoSaveTimer = setTimeout(async () => {
-      if (currentResumeData && safeTrim(currentResumeData.title)) {
-        try {
-          await handleAutoSave()
-        } catch (error) {
-          console.error("Auto-save failed:", error)
-        }
-      }
-    }, 30000) // Auto-save every 30 seconds
-
-    return () => clearTimeout(autoSaveTimer)
-  }, [currentResumeData, autoSaveEnabled, user, onSaveResume])
-
-  const fetchResumes = async () => {
     try {
-      const response = await fetch("/api/resumes", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const response = await fetch("/api/resumes")
+      const data = await response.json()
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log("Fetched resumes:", data.resumes)
-        setResumes(Array.isArray(data.resumes) ? data.resumes : [])
+      if (data.success) {
+        setSavedResumes(data.resumes)
       } else {
-        console.error("Failed to fetch resumes:", response.status)
-        setResumes([])
+        console.error("Failed to load resumes:", data.error)
       }
     } catch (error) {
-      console.error("Error fetching resumes:", error)
-      setResumes([])
-      toast({
-        title: "Error",
-        description: "Failed to load resumes",
-        variant: "destructive",
-      })
+      console.error("Error loading resumes:", error)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const fetchPortfolios = async () => {
+  useEffect(() => {
+    loadSavedResumes()
+  }, [user])
+
+  // Filter resumes based on search term
+  const filteredResumes = savedResumes.filter((resume) => resume.title.toLowerCase().includes(searchTerm.toLowerCase()))
+
+  // Handle resume selection
+  const handleResumeSelect = (resume: SavedResume) => {
+    onLoadResume(resume.resumeData)
+    toast({
+      description: `Loaded resume: ${resume.title}`,
+    })
+  }
+
+  // Handle resume deletion
+  const handleDeleteResume = async (resumeId: string) => {
     try {
-      const response = await fetch("/api/portfolios", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch(`/api/resumes/${resumeId}`, {
+        method: "DELETE",
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log("Fetched portfolios:", data.portfolios)
-        setPortfolios(Array.isArray(data.portfolios) ? data.portfolios : [])
+      const data = await response.json()
+
+      if (data.success) {
+        setSavedResumes((prev) => prev.filter((resume) => resume.id !== resumeId))
+        toast({
+          description: "Resume deleted successfully",
+        })
       } else {
-        console.error("Failed to fetch portfolios:", response.status)
-        setPortfolios([])
+        throw new Error(data.error || "Failed to delete resume")
       }
     } catch (error) {
-      console.error("Error fetching portfolios:", error)
-      setPortfolios([])
-    }
-  }
-
-  const handleAutoSave = async () => {
-    if (!currentResumeData?.title || !onSaveResume) return
-
-    try {
-      await onSaveResume(safeTrim(currentResumeData.title))
-      setLastSaved(new Date())
+      console.error("Error deleting resume:", error)
       toast({
-        description: "Auto-saved successfully",
-        duration: 2000,
+        variant: "destructive",
+        description: "Failed to delete resume. Please try again.",
       })
+    }
+  }
+
+  // Handle save current resume
+  const handleSaveCurrentResume = async (title: string) => {
+    try {
+      await onSaveResume(title)
+      await loadSavedResumes() // Refresh the list
+      setShowNameEditor(false)
     } catch (error) {
-      console.error("Auto-save failed:", error)
+      // Error is already handled in the parent component
     }
   }
 
-  const handleResumeUpdated = (updatedResume: Resume) => {
-    setResumes(resumes.map((r) => (r.id === updatedResume.id ? updatedResume : r)))
-  }
+  // Handle duplicate resume
+  const handleDuplicateResume = async (resume: SavedResume) => {
+    try {
+      const duplicatedTitle = `${resume.title} (Copy)`
+      const response = await fetch("/api/resumes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: duplicatedTitle,
+          resumeData: resume.resumeData,
+        }),
+      })
 
-  const handleResumeDeleted = (resumeId: number) => {
-    setResumes(resumes.filter((r) => r.id !== resumeId))
-  }
+      const data = await response.json()
 
-  const handlePortfolioCreated = (newPortfolio: Portfolio) => {
-    setPortfolios([...portfolios, newPortfolio])
-  }
-
-  const handlePortfolioDeleted = (portfolioId: string) => {
-    setPortfolios(portfolios.filter((p) => p.id !== portfolioId))
-  }
-
-  // Safe filtering with comprehensive null checks
-  const filteredResumes = resumes.filter((resume) => {
-    if (!resume || typeof resume !== "object") return false
-    const title = safeString(resume.title)
-    const query = safeString(searchQuery).toLowerCase()
-    return title.toLowerCase().includes(query)
-  })
-
-  const filteredPortfolios = portfolios.filter((portfolio) => {
-    if (!portfolio || typeof portfolio !== "object") return false
-    const title = safeString(portfolio.title)
-    const query = safeString(searchQuery).toLowerCase()
-    return title.toLowerCase().includes(query)
-  })
-  const handleStartCall = () => {
-    const callWindow = window.open(
-      `https://meet.bihance.app/rooms/${token}`,
-      "callWindow",
-      "width=1200,height=800,left=200,top=100",
-    )
-    if (callWindow) {
-      callWindow.focus()
-    } else {
-      toast.error("Unable to open call window. Please check your popup settings.")
+      if (data.success) {
+        await loadSavedResumes()
+        toast({
+          description: `Resume duplicated as "${duplicatedTitle}"`,
+        })
+      } else {
+        throw new Error(data.error || "Failed to duplicate resume")
+      }
+    } catch (error) {
+      console.error("Error duplicating resume:", error)
+      toast({
+        variant: "destructive",
+        description: "Failed to duplicate resume. Please try again.",
+      })
     }
   }
-  const favoriteCount = resumes.filter((resume) => resume && resume.is_favorite).length
 
-  // Tab options for the dropdown
-  const tabOptions = [
-    {
-      value: "resumes",
-      label: "Resumes",
-      icon: FileText,
-      count: filteredResumes.length,
-      badge: favoriteCount > 0 ? favoriteCount : null,
-    },
-    {
-      value: "portfolios",
-      label: "Portfolios",
-      icon: Globe,
-      count: filteredPortfolios.length,
-    },
-    {
-      value: "ranker",
-      label: "Ranker",
-      icon: TrendingUp,
-    },
-    {
-      value: "files",
-      label: "Files",
-      icon: Download,
-    },
-  ]
+  // Handle create from template (from onboarding)
+  const handleCreateFromTemplate = (resumeData: ResumeData) => {
+    onLoadResume(resumeData)
+    setShowOnboarding(false)
+    toast({
+      description: "Resume created from template! You can now edit and customize it.",
+    })
+  }
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Please log in to view your resumes and portfolios.</p>
+      <div className="p-6 text-center">
+        <div className="mb-4">
+          <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+          <h3 className="text-lg font-semibold mb-2">Resume Gallery</h3>
+          <p className="text-muted-foreground">Please log in to save and manage your resumes.</p>
+        </div>
+        <Button onClick={onCreateNew} className="w-full">
+          <Plus className="h-4 w-4 mr-2" />
+          Create New Resume
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Quick Actions */}
-      <QuickActions
-        onCreateNew={onCreateNew}
-        onSaveResume={onSaveResume}
-        currentResumeData={currentResumeData}
-        autoSaveEnabled={autoSaveEnabled}
-        setAutoSaveEnabled={setAutoSaveEnabled}
-        lastSaved={lastSaved}
-      />
-
-      {/* Search Bar */}
-      <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-
-      {/* Dropdown Tab Selector */}
-      <div className="flex items-center gap-4">
-        <Select value={activeTab} onValueChange={setActiveTab}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select view" />
-          </SelectTrigger>
-          <SelectContent>
-            {tabOptions.map((option) => {
-              const Icon = option.icon
-              return (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    <span>{option.label}</span>
-                    {option.count !== undefined && <span className="text-muted-foreground">({option.count})</span>}
-                    {option.badge && (
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        <Star className="h-3 w-3 mr-1 fill-current" />
-                        {option.badge}
-                      </Badge>
-                    )}
-                  </div>
-                </SelectItem>
-              )
-            })}
-            <div className="px-2 py-1 border-t">
-              <div
-                onClick={handleStartCall}
-                className="flex items-center gap-2 cursor-pointer px-2 py-1 hover:bg-accent rounded"
-              >
-                <VideoIcon className="w-4 h-4" />
-                <span>Start Call</span>
-              </div>
-              <div
-                onClick={() => setShowTutorial(true)}
-                className="flex items-center gap-2 cursor-pointer px-2 py-1 hover:bg-accent rounded"
-              >
-                <span>🎓</span>
-                <span>Begin Tutorial</span>
-              </div>
-            </div>
-          </SelectContent>
-        </Select>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Resume Gallery</h3>
+          <p className="text-sm text-muted-foreground">Manage your saved resumes</p>
+        </div>
       </div>
 
-      {/* Tabs Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* Resumes Tab */}
-        <TabsContent value="resumes" className="space-y-4">
-          <ResumeList
-            resumes={resumes}
-            loading={loading}
-            searchQuery={searchQuery}
-            token={token}
-            onLoadResume={onLoadResume}
-            onCreateNew={onCreateNew}
-            onResumeUpdated={handleResumeUpdated}
-            onResumeDeleted={handleResumeDeleted}
-            onPortfolioCreated={handlePortfolioCreated}
-            setSearchQuery={setSearchQuery}
-          />
-        </TabsContent>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search resumes..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
 
-        {/* Portfolios Tab */}
-        <TabsContent value="portfolios" className="space-y-4">
-          <PortfolioList
-            portfolios={portfolios}
-            searchQuery={searchQuery}
-            token={token}
-            onPortfolioDeleted={handlePortfolioDeleted}
-            onPortfolioUpdated={fetchPortfolios}
-          />
-        </TabsContent>
+      {/* Action Buttons */}
+      <div className="grid grid-cols-1 gap-2">
+        <Button onClick={onCreateNew} className="w-full">
+          <Plus className="h-4 w-4 mr-2" />
+          Create New Resume
+        </Button>
 
-        {/* Ranker Tab */}
-        <TabsContent value="ranker" className="space-y-6">
-          <ResumeRanker resumes={resumes} token={token} />
-        </TabsContent>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full bg-transparent">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Begin Tutorial
+              <MoreVertical className="h-4 w-4 ml-auto" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={() => setShowOnboarding(true)}>
+              <BookOpen className="h-4 w-4 mr-2" />
+              Start Tutorial
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onCreateNew}>
+              <FileText className="h-4 w-4 mr-2" />
+              Create Blank Resume
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        {/* Files Tab */}
-        <TabsContent value="files">
-          <FileUploadManager searchQuery={searchQuery} />
-        </TabsContent>
-      </Tabs>
-      <OnboardingTutorial open={showTutorial} onOpenChange={setShowTutorial} onCreateNew={onCreateNew} />
+        {currentResumeData && (
+          <Button variant="outline" onClick={() => setShowNameEditor(true)} className="w-full">
+            <Download className="h-4 w-4 mr-2" />
+            Save Current Resume
+          </Button>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Document Upload */}
+      <DocumentUpload onResumeUploaded={onLoadResume} />
+
+      <Separator />
+
+      {/* Saved Resumes */}
+      <div>
+        <h4 className="font-medium mb-3 flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Saved Resumes ({filteredResumes.length})
+        </h4>
+
+        <ScrollArea className="h-64">
+          {isLoading ? (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-4">
+                    <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredResumes.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">
+                {searchTerm ? "No resumes match your search" : "No saved resumes yet"}
+              </p>
+              {!searchTerm && (
+                <Button variant="link" onClick={onCreateNew} className="mt-2">
+                  Create your first resume
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredResumes.map((resume) => (
+                <Card key={resume.id} className="hover:shadow-md transition-shadow cursor-pointer group">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0" onClick={() => handleResumeSelect(resume)}>
+                        <h5 className="font-medium truncate">{resume.title}</h5>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(resume.updatedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 mt-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {resume.resumeData.sections.length} sections
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleResumeSelect(resume)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Load Resume
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateResume(resume)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteResume(resume.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </div>
+
+      {/* Dialogs */}
+      <ResumeNameEditorDialog
+        open={showNameEditor}
+        onOpenChange={setShowNameEditor}
+        onSave={handleSaveCurrentResume}
+        defaultTitle={currentResumeData?.title || "My Resume"}
+      />
+
+      <OnboardingTutorial
+        open={showOnboarding}
+        onOpenChange={setShowOnboarding}
+        onCreateNew={onCreateNew}
+        onCreateFromTemplate={handleCreateFromTemplate}
+      />
     </div>
   )
 }
