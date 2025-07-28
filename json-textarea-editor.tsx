@@ -19,7 +19,7 @@ import type { ResumeAnalysis } from "./types/analysis"
 import { Footer } from "@/components/footer"
 import { AuthDialog } from "@/components/auth-dialog"
 import { ResumeCounter } from "@/components/resume-counter"
-
+import PwaInstallButton from "@/components/PwaInstallButton"
 import {
   FileText,
   Edit3,
@@ -829,6 +829,7 @@ export default function JsonTextareaEditor() {
             <p className="text-muted-foreground">
               Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
             </p>
+            <PwaInstallButton/>
           </div>
           <div className="flex items-center gap-2">
             {user ? (

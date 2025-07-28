@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://sparkjob.app
+
+# Sitemaps
+Sitemap: https://sparkjob.app/sitemap.xml
