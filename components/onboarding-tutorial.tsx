@@ -1,25 +1,26 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import {
   FileText,
+  Edit3,
+  Eye,
   Upload,
-  Edit,
-  Brain,
-  Sparkles,
-  Download,
-  Share,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  CheckCircle,
-  Globe,
   BarChart3,
+  Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  CheckCircle,
+  Play,
+  Target,
+  Download,
 } from "lucide-react"
 
 interface OnboardingTutorialProps {
@@ -28,289 +29,292 @@ interface OnboardingTutorialProps {
   onCreateNew?: () => void
 }
 
-const tutorialSteps = [
-  {
-    id: 1,
-    title: "Welcome to Resume Builder",
-    icon: FileText,
-    content: (
-      <div className="space-y-4">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-blue-600" />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Let's build your perfect resume!</h3>
+interface TutorialStep {
+  id: string
+  title: string
+  description: string
+  icon: React.ReactNode
+  content: React.ReactNode
+  action?: {
+    label: string
+    onClick: () => void
+  }
+}
+
+export function OnboardingTutorial({ open, onOpenChange, onCreateNew }: OnboardingTutorialProps) {
+  const [currentStep, setCurrentStep] = useState(0)
+  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set())
+
+  const steps: TutorialStep[] = [
+    {
+      id: "welcome",
+      title: "Welcome to SparkJob!",
+      description: "Your AI-powered resume builder and career optimization platform",
+      icon: <Play className="h-6 w-6" />,
+      content: (
+        <div className="space-y-4">
           <p className="text-muted-foreground">
-            This tutorial will guide you through creating, optimizing, and sharing your professional resume.
+            SparkJob helps you create, optimize, and analyze your resume using AI technology. Let's walk through the key
+            features to get you started.
           </p>
-        </div>
-        <div className="grid grid-cols-2 gap-4 mt-6">
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <Brain className="w-5 h-5 text-purple-600" />
-              <span className="font-medium">AI-Powered</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">Smart suggestions and improvements</p>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <Globe className="w-5 h-5 text-green-600" />
-              <span className="font-medium">Portfolio Ready</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">Create shareable online portfolios</p>
-          </Card>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: 2,
-    title: "Create or Upload Resume",
-    icon: Upload,
-    content: (
-      <div className="space-y-4">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Upload className="w-8 h-8 text-green-600" />
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="p-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-blue-500" />
+                <span className="text-sm font-medium">Create & Edit</span>
+              </div>
+            </Card>
+            <Card className="p-3">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-green-500" />
+                <span className="text-sm font-medium">AI Analysis</span>
+              </div>
+            </Card>
+            <Card className="p-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-500" />
+                <span className="text-sm font-medium">AI Improvement</span>
+              </div>
+            </Card>
+            <Card className="p-3">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-orange-500" />
+                <span className="text-sm font-medium">PDF Export</span>
+              </div>
+            </Card>
           </div>
-          <h3 className="text-xl font-semibold mb-2">Start with your resume</h3>
         </div>
-        <div className="space-y-3">
-          <Card className="p-4 border-2 border-dashed border-blue-200 bg-blue-50">
-            <div className="flex items-center gap-3">
-              <FileText className="w-6 h-6 text-blue-600" />
-              <div>
-                <p className="font-medium">Create from scratch</p>
-                <p className="text-sm text-muted-foreground">Start with our guided form builder</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <Upload className="w-6 h-6 text-gray-600" />
-              <div>
-                <p className="font-medium">Upload existing resume</p>
-                <p className="text-sm text-muted-foreground">PDF, Word, or text files supported</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    ),
-    action: {
-      label: "Create New Resume",
-      variant: "default" as const,
+      ),
     },
-  },
-  {
-    id: 3,
-    title: "Use the Form Editor",
-    icon: Edit,
-    content: (
-      <div className="space-y-4">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Edit className="w-8 h-8 text-purple-600" />
+    {
+      id: "create-resume",
+      title: "Create Your First Resume",
+      description: "Start by creating a new resume or uploading an existing one",
+      icon: <FileText className="h-6 w-6" />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-muted-foreground">You can start your resume journey in several ways:</p>
+          <div className="space-y-3">
+            <Card className="p-4 border-dashed border-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2  rounded-lg">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium">Create from Scratch</h4>
+                  <p className="text-sm text-muted-foreground">Start with a blank template</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2   rounded-lg">
+                  <Upload className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium">Upload Existing Resume</h4>
+                  <p className="text-sm text-muted-foreground">Upload PDF or Word document</p>
+                </div>
+              </div>
+            </Card>
           </div>
-          <h3 className="text-xl font-semibold mb-2">Edit with ease</h3>
-          <p className="text-muted-foreground">Our intuitive form editor makes updating your resume simple</p>
         </div>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <Badge variant="outline">1</Badge>
-            <span>Fill in your personal information</span>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <Badge variant="outline">2</Badge>
-            <span>Add your work experience and education</span>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <Badge variant="outline">3</Badge>
-            <span>Include skills and achievements</span>
-          </div>
-        </div>
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Tip:</strong> Use the live preview to see changes in real-time as you edit!
-          </p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: 4,
-    title: "AI Resume Analysis",
-    icon: Brain,
-    content: (
-      <div className="space-y-4">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Brain className="w-8 h-8 text-indigo-600" />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Get AI insights</h3>
-          <p className="text-muted-foreground">Our AI analyzes your resume and provides detailed feedback</p>
-        </div>
-        <div className="grid grid-cols-1 gap-3">
-          <Card className="p-4 bg-gradient-to-r from-green-50 to-emerald-50">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <span className="font-medium text-green-800">Content Analysis</span>
+      ),
+      action: {
+        label: "Create New Resume",
+        onClick: () => {
+          onCreateNew?.()
+          setCompletedSteps((prev) => new Set([...prev, "create-resume"]))
+        },
+      },
+    },
+    {
+      id: "form-editor",
+      title: "Edit Your Resume",
+      description: "Use the Form Editor to customize your resume content",
+      icon: <Edit3 className="h-6 w-6" />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-muted-foreground">The Form Editor panel allows you to easily modify your resume:</p>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <Badge variant="outline" className="mt-1">
+                1
+              </Badge>
+              <div>
+                <h4 className="font-medium">Edit Sections</h4>
+                <p className="text-sm text-muted-foreground">Add, remove, or reorder resume sections</p>
+              </div>
             </div>
-            <p className="text-sm text-green-700">Checks for completeness and relevance</p>
-          </Card>
-          <Card className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50">
-            <div className="flex items-center gap-2 mb-2">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              <span className="font-medium text-blue-800">ATS Compatibility</span>
+            <div className="flex items-start gap-3">
+              <Badge variant="outline" className="mt-1">
+                2
+              </Badge>
+              <div>
+                <h4 className="font-medium">Customize Fields</h4>
+                <p className="text-sm text-muted-foreground">Edit field names and content</p>
+              </div>
             </div>
-            <p className="text-sm text-blue-700">Ensures your resume passes applicant tracking systems</p>
-          </Card>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: 5,
-    title: "AI-Powered Improvements",
-    icon: Sparkles,
-    content: (
-      <div className="space-y-4">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Sparkles className="w-8 h-8 text-yellow-600" />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Enhance your resume</h3>
-          <p className="text-muted-foreground">Get AI-generated suggestions to make your resume stand out</p>
-        </div>
-        <div className="space-y-3">
-          <div className="p-4 border border-yellow-200 bg-yellow-50 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-yellow-600" />
-              <span className="font-medium text-yellow-800">Smart Suggestions</span>
+            <div className="flex items-start gap-3">
+              <Badge variant="outline" className="mt-1">
+                3
+              </Badge>
+              <div>
+                <h4 className="font-medium">Drag & Drop</h4>
+                <p className="text-sm text-muted-foreground">Reorder sections and items by dragging</p>
+              </div>
             </div>
-            <ul className="text-sm text-yellow-700 space-y-1">
-              <li>• Improved bullet point phrasing</li>
-              <li>• Industry-specific keywords</li>
-              <li>• Action verb recommendations</li>
-            </ul>
           </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <p className="text-sm text-purple-800">
-              <strong>Pro tip:</strong> Apply suggestions selectively to maintain your personal voice!
+        </div>
+      ),
+    },
+    {
+      id: "ai-analysis",
+      title: "AI Resume Analysis",
+      description: "Get detailed feedback on your resume's effectiveness",
+      icon: <BarChart3 className="h-6 w-6" />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-muted-foreground">Our AI analyzes your resume against job requirements:</p>
+          <div className="space-y-3">
+            <Card className="p-4  from-blue-50 to-indigo-50">
+              <div className="flex items-center gap-3">
+                <Target className="h-5 w-5 text-blue-600" />
+                <div>
+                  <h4 className="font-medium">Match Score</h4>
+                  <p className="text-sm text-muted-foreground">See how well your resume matches job requirements</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4   from-green-50 to-emerald-50">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <h4 className="font-medium">Detailed Feedback</h4>
+                  <p className="text-sm text-muted-foreground">Get specific suggestions for improvement</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+          <div className="p-3   rounded-lg border border-yellow-200">
+            <p className="text-sm text-yellow-800">
+              💡 <strong>Tip:</strong> Paste a job description in the Data Input panel, then click "Analyze Resume" for
+              best results.
             </p>
           </div>
         </div>
-      </div>
-    ),
-  },
-  {
-    id: 6,
-    title: "Export & Share",
-    icon: Download,
-    content: (
-      <div className="space-y-4">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Download className="w-8 h-8 text-emerald-600" />
+      ),
+    },
+    {
+      id: "ai-improvement",
+      title: "AI-Powered Improvements",
+      description: "Let AI enhance your resume content automatically",
+      icon: <Sparkles className="h-6 w-6" />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-muted-foreground">After analysis, use AI to automatically improve your resume:</p>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="p-1   rounded">
+                <Sparkles className="h-4 w-4 text-purple-600" />
+              </div>
+              <div>
+                <h4 className="font-medium">Content Enhancement</h4>
+                <p className="text-sm text-muted-foreground">Improve bullet points and descriptions</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="p-1  rounded">
+                <Target className="h-4 w-4 text-purple-600" />
+              </div>
+              <div>
+                <h4 className="font-medium">Keyword Optimization</h4>
+                <p className="text-sm text-muted-foreground">Add relevant keywords for ATS systems</p>
+              </div>
+            </div>
           </div>
-          <h3 className="text-xl font-semibold mb-2">Export and share</h3>
-          <p className="text-muted-foreground">Multiple ways to use your polished resume</p>
         </div>
-        <div className="grid grid-cols-1 gap-3">
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <Download className="w-5 h-5 text-blue-600" />
-              <div>
-                <p className="font-medium">Download as PDF</p>
-                <p className="text-sm text-muted-foreground">Perfect for job applications</p>
+      ),
+    },
+    {
+      id: "export-pdf",
+      title: "Export & Share",
+      description: "Generate professional PDFs and create online portfolios",
+      icon: <Eye className="h-6 w-6" />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-muted-foreground">Once your resume is ready, you can export and share it:</p>
+          <div className="grid grid-cols-1 gap-3">
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <Download className="h-5 w-5 text-blue-600" />
+                <div>
+                  <h4 className="font-medium">PDF Export</h4>
+                  <p className="text-sm text-muted-foreground">Download as professional PDF</p>
+                </div>
               </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <Globe className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="font-medium">Create Online Portfolio</p>
-                <p className="text-sm text-muted-foreground">Shareable link for networking</p>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <Eye className="h-5 w-5 text-green-600" />
+                <div>
+                  <h4 className="font-medium">Online Portfolio</h4>
+                  <p className="text-sm text-muted-foreground">Create shareable online version</p>
+                </div>
               </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <Share className="w-5 h-5 text-purple-600" />
-              <div>
-                <p className="font-medium">Share with Recruiters</p>
-                <p className="text-sm text-muted-foreground">Direct links and analytics</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: 7,
-    title: "You're All Set!",
-    icon: CheckCircle,
-    content: (
-      <div className="space-y-4">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-green-600" />
+            </Card>
           </div>
-          <h3 className="text-xl font-semibold mb-2">Congratulations!</h3>
-          <p className="text-muted-foreground mb-6">You're ready to create amazing resumes and portfolios</p>
         </div>
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg">
-          <h4 className="font-semibold mb-3">Quick Tips for Success:</h4>
-          <ul className="space-y-2 text-sm">
-            <li className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span>Keep your resume updated regularly</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span>Use AI analysis before applying to jobs</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span>Create multiple versions for different roles</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span>Share your portfolio to build your network</span>
-            </li>
-          </ul>
+      ),
+    },
+    {
+      id: "complete",
+      title: "You're All Set!",
+      description: "Start building your perfect resume",
+      icon: <CheckCircle className="h-6 w-6" />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-muted-foreground">Congratulations! You now know how to use SparkJob effectively.</p>
+          <Card className="p-4  border-green-200">
+            <div className="space-y-2">
+              <h4 className="font-medium text-green-800">Quick Tips for Success:</h4>
+              <ul className="text-sm text-green-700 space-y-1">
+                <li>• Always analyze your resume against specific job descriptions</li>
+                <li>• Use AI improvements to enhance your content</li>
+                <li>• Keep your resume updated with latest experiences</li>
+                <li>• Create multiple versions for different job types</li>
+              </ul>
+            </div>
+          </Card>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-4">Ready to create your first resume?</p>
+          </div>
         </div>
-      </div>
-    ),
-  },
-]
+      ),
+      action: {
+        label: "Start Creating",
+        onClick: () => {
+          onCreateNew?.()
+          onOpenChange(false)
+          setCompletedSteps((prev) => new Set([...prev, "complete"]))
+        },
+      },
+    },
+  ]
 
-export function OnboardingTutorial({ open, onOpenChange, onCreateNew }: OnboardingTutorialProps) {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [completedSteps, setCompletedSteps] = useState<number[]>([])
-
-  const currentStepData = tutorialSteps.find((step) => step.id === currentStep)
-  const progress = (currentStep / tutorialSteps.length) * 100
+  const currentStepData = steps[currentStep]
+  const progress = ((currentStep + 1) / steps.length) * 100
 
   const handleNext = () => {
-    if (currentStep < tutorialSteps.length) {
-      setCompletedSteps((prev) => [...prev, currentStep])
+    if (currentStep < steps.length - 1) {
+      setCompletedSteps((prev) => new Set([...prev, currentStepData.id]))
       setCurrentStep(currentStep + 1)
     }
   }
 
   const handlePrevious = () => {
-    if (currentStep > 1) {
+    if (currentStep > 0) {
       setCurrentStep(currentStep - 1)
-    }
-  }
-
-  const handleStepAction = () => {
-    if (currentStepData?.action && onCreateNew) {
-      onCreateNew()
-      onOpenChange(false)
     }
   }
 
@@ -318,65 +322,72 @@ export function OnboardingTutorial({ open, onOpenChange, onCreateNew }: Onboardi
     onOpenChange(false)
   }
 
-  const handleComplete = () => {
-    setCompletedSteps((prev) => [...prev, currentStep])
-    onOpenChange(false)
-  }
-
-  if (!currentStepData) return null
-
-  const Icon = currentStepData.icon
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="space-y-4">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <Icon className="w-5 h-5" />
-              {currentStepData.title}
-            </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={handleSkip}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>
-                Step {currentStep} of {tutorialSteps.length}
-              </span>
-              <span>{Math.round(progress)}% complete</span>
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg">{currentStepData.icon}</div>
+            <div>
+              <DialogTitle className="text-xl">{currentStepData.title}</DialogTitle>
+              <p className="text-muted-foreground">{currentStepData.description}</p>
             </div>
-            <Progress value={progress} className="w-full" />
           </div>
         </DialogHeader>
 
-        <div className="py-6">{currentStepData.content}</div>
+        <div className="space-y-6">
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                Step {currentStep + 1} of {steps.length}
+              </span>
+              <span className="text-muted-foreground">{Math.round(progress)}% Complete</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
 
-        <div className="flex items-center justify-between pt-4 border-t">
-          <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 1}>
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Previous
-          </Button>
+          {/* Step Content */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                {completedSteps.has(currentStepData.id) && <CheckCircle className="h-5 w-5 text-green-500" />}
+                <CardTitle className="text-lg">{currentStepData.title}</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>{currentStepData.content}</CardContent>
+          </Card>
 
-          <div className="flex items-center gap-2">
-            {currentStepData.action && (
-              <Button variant={currentStepData.action.variant} onClick={handleStepAction}>
-                {currentStepData.action.label}
+          {/* Navigation */}
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Previous
               </Button>
-            )}
+              <Button variant="ghost" onClick={handleSkip}>
+                Skip Tutorial
+              </Button>
+            </div>
 
-            {currentStep === tutorialSteps.length ? (
-              <Button onClick={handleComplete}>
-                Get Started
-                <CheckCircle className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleNext}>
-                Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {currentStepData.action && (
+                <Button onClick={currentStepData.action.onClick} className="bg-blue-600 hover:bg-blue-700">
+                  {currentStepData.action.label}
+                </Button>
+              )}
+              {currentStep < steps.length - 1 ? (
+                <Button onClick={handleNext}>
+                  Next
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button onClick={() => onOpenChange(false)} className="bg-green-600 hover:bg-green-700">
+                  Get Started
+                  <CheckCircle className="h-4 w-4 ml-2" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>

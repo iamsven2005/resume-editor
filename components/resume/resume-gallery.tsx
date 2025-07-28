@@ -68,7 +68,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("resumes")
   const [showTutorial, setShowTutorial] = useState(false)
-  const [portfoliosLoading, setPortfoliosLoading] = useState(true)
 
   // Quick Actions state
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
@@ -128,7 +127,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   }
 
   const fetchPortfolios = async () => {
-    setPortfoliosLoading(true)
     try {
       const response = await fetch("/api/portfolios", {
         headers: {
@@ -147,13 +145,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     } catch (error) {
       console.error("Error fetching portfolios:", error)
       setPortfolios([])
-      toast({
-        title: "Error",
-        description: "Failed to load portfolios",
-        variant: "destructive",
-      })
-    } finally {
-      setPortfoliosLoading(false)
     }
   }
 
@@ -333,7 +324,6 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
         <TabsContent value="portfolios" className="space-y-4">
           <PortfolioList
             portfolios={portfolios}
-            loading={portfoliosLoading}
             searchQuery={searchQuery}
             token={token}
             onPortfolioDeleted={handlePortfolioDeleted}
