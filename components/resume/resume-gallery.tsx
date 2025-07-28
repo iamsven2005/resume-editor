@@ -13,6 +13,7 @@ import { ResumeList } from "./ResumeList"
 import { PortfolioList } from "./PortfolioList"
 import { ResumeRanker } from "./ResumeRanker"
 import { FileUploadManager } from "./file-upload-manager"
+import { OnboardingTutorial } from "../onboarding-tutorial"
 
 interface Resume {
   id: number
@@ -66,6 +67,7 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("resumes")
+  const [showTutorial, setShowTutorial] = useState(false)
 
   // Quick Actions state
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
@@ -191,18 +193,18 @@ export function ResumeGallery({ onLoadResume, onCreateNew, currentResumeData, on
     const query = safeString(searchQuery).toLowerCase()
     return title.toLowerCase().includes(query)
   })
-const handleStartCall = () => {
+  const handleStartCall = () => {
     const callWindow = window.open(
       `https://meet.bihance.app/rooms/${token}`,
-      'callWindow',
-      'width=1200,height=800,left=200,top=100'
-    );
+      "callWindow",
+      "width=1200,height=800,left=200,top=100",
+    )
     if (callWindow) {
-      callWindow.focus();
+      callWindow.focus()
     } else {
-      toast.error("Unable to open call window. Please check your popup settings.");
+      toast.error("Unable to open call window. Please check your popup settings.")
     }
-  };
+  }
   const favoriteCount = resumes.filter((resume) => resume && resume.is_favorite).length
 
   // Tab options for the dropdown
@@ -280,26 +282,23 @@ const handleStartCall = () => {
                 </SelectItem>
               )
             })}
-                            <div className="px-2 py-1 border-t">
-  <div
-    onClick={handleStartCall}
-    className="flex items-center gap-2 cursor-pointer px-2 py-1 hover:bg-accent rounded"
-  >
-    <VideoIcon className="w-4 h-4" />
-    <span>Start Call</span>
-  </div>
-  <div
-    onClick={() => {
-      toast({ description: "Tutorial not implemented yet." })
-    }}
-    className="flex items-center gap-2 cursor-pointer px-2 py-1 hover:bg-accent rounded"
-  >
-    <span>🎓</span>
-    <span>Begin Tutorial</span>
-  </div>
-</div>
-
-          </SelectContent>  
+            <div className="px-2 py-1 border-t">
+              <div
+                onClick={handleStartCall}
+                className="flex items-center gap-2 cursor-pointer px-2 py-1 hover:bg-accent rounded"
+              >
+                <VideoIcon className="w-4 h-4" />
+                <span>Start Call</span>
+              </div>
+              <div
+                onClick={() => setShowTutorial(true)}
+                className="flex items-center gap-2 cursor-pointer px-2 py-1 hover:bg-accent rounded"
+              >
+                <span>🎓</span>
+                <span>Begin Tutorial</span>
+              </div>
+            </div>
+          </SelectContent>
         </Select>
       </div>
 
@@ -342,6 +341,7 @@ const handleStartCall = () => {
           <FileUploadManager searchQuery={searchQuery} />
         </TabsContent>
       </Tabs>
+      <OnboardingTutorial open={showTutorial} onOpenChange={setShowTutorial} onCreateNew={onCreateNew} />
     </div>
   )
 }
