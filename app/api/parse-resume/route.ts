@@ -31,13 +31,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if text is too long (optional safety check)
-    if (resumeText.length > 50000) {
-      return NextResponse.json(
-        { success: false, error: "Text too long. Please provide a shorter resume." },
-        { status: 400 },
-      )
-    }
 
     console.log(`Processing ${type || "unknown"} resume text, length:`, text.length)
     console.log("Text preview:", text.substring(0, 200) + "...")
