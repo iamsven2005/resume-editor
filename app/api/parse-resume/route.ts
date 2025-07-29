@@ -114,7 +114,7 @@ Return ONLY the JSON object with no additional formatting or text.
     let result
     try {
       const aiResponse = await generateText({
-        model: openai("gpt-4o"),
+        model: openai("gpt-4o-mini"),
         prompt,
         temperature: 0.1, // Low temperature for consistent parsing
       })
