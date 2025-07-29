@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge"
 import { JobCard } from "@/components/job-card"
 import { JobFormDialog } from "@/components/job-form-dialog"
 import { useAuth } from "@/contexts/auth-context"
-import { Search, Plus, Briefcase, Filter } from "lucide-react"
+import { Search, Plus, Briefcase, Filter, Users } from "lucide-react"
 import type { Job, CreateJobData } from "@/types/job"
- import Link from 'next/link'
+import Link from "next/link"
 
 interface JobsResponse {
   success: boolean
@@ -187,25 +187,31 @@ export default function JobsPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-                    <Button variant="outline" size="sm">
-              <Link href="/">
-              Home
-              </Link>
-              </Button>
+          <Button variant="outline" size="sm">
+            <Link href="/">Home</Link>
+          </Button>
           <h1 className="text-3xl font-bold mb-2">Job Board</h1>
           <p className="text-muted-foreground">Discover opportunities and find your next career move</p>
         </div>
         {user && (
-          <JobFormDialog
-            trigger={
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Post Job
-              </Button>
-            }
-            onSubmit={handleCreateJob}
-            isLoading={actionLoading}
-          />
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/jobs/candidates">
+                <Users className="h-4 w-4 mr-2" />
+                Search Candidates
+              </Link>
+            </Button>
+            <JobFormDialog
+              trigger={
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Post Job
+                </Button>
+              }
+              onSubmit={handleCreateJob}
+              isLoading={actionLoading}
+            />
+          </div>
         )}
       </div>
 
