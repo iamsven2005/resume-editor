@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   MessageSquare,
   Brain,
@@ -18,8 +18,6 @@ import {
   Lightbulb,
   ArrowRight,
   RotateCcw,
-  ChevronDown,
-  ChevronRight,
 } from "lucide-react"
 import type { InterviewQuestions, AnswerRating } from "../types/interview"
 import type { ResumeAnalysis } from "../types/analysis"
@@ -38,12 +36,6 @@ export const InterviewPracticePanel = ({ analysis, resumeData, jobRequirements }
   const [isRatingAnswer, setIsRatingAnswer] = useState(false)
   const [answerRating, setAnswerRating] = useState<AnswerRating | null>(null)
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(new Set())
-
-  // Collapsible states
-  const [scoreOpen, setScoreOpen] = useState(true)
-  const [feedbackOpen, setFeedbackOpen] = useState(false)
-  const [improvedOpen, setImprovedOpen] = useState(false)
-  const [tipsOpen, setTipsOpen] = useState(false)
 
   const generateQuestions = async () => {
     if (!analysis || !resumeData || !jobRequirements) return
@@ -101,11 +93,6 @@ export const InterviewPracticePanel = ({ analysis, resumeData, jobRequirements }
       if (data.success) {
         setAnswerRating(data.rating)
         setAnsweredQuestions((prev) => new Set([...prev, currentQuestion.id]))
-        // Auto-open score section when rating is received
-        setScoreOpen(true)
-        setFeedbackOpen(false)
-        setImprovedOpen(false)
-        setTipsOpen(false)
       }
     } catch (error) {
       console.error("Error rating answer:", error)
@@ -121,11 +108,6 @@ export const InterviewPracticePanel = ({ analysis, resumeData, jobRequirements }
       setCurrentQuestionIndex(currentQuestionIndex + 1)
       setCurrentAnswer("")
       setAnswerRating(null)
-      // Reset collapsible states
-      setScoreOpen(true)
-      setFeedbackOpen(false)
-      setImprovedOpen(false)
-      setTipsOpen(false)
     }
   }
 
@@ -134,11 +116,6 @@ export const InterviewPracticePanel = ({ analysis, resumeData, jobRequirements }
       setCurrentQuestionIndex(currentQuestionIndex - 1)
       setCurrentAnswer("")
       setAnswerRating(null)
-      // Reset collapsible states
-      setScoreOpen(true)
-      setFeedbackOpen(false)
-      setImprovedOpen(false)
-      setTipsOpen(false)
     }
   }
 
@@ -147,11 +124,6 @@ export const InterviewPracticePanel = ({ analysis, resumeData, jobRequirements }
     setAnswerRating(null)
     setCurrentQuestionIndex(0)
     setAnsweredQuestions(new Set())
-    // Reset collapsible states
-    setScoreOpen(true)
-    setFeedbackOpen(false)
-    setImprovedOpen(false)
-    setTipsOpen(false)
   }
 
   const getScoreColor = (score: number) => {
@@ -336,169 +308,128 @@ export const InterviewPracticePanel = ({ analysis, resumeData, jobRequirements }
             </div>
           </div>
 
-          {/* Rating Results - Collapsible Sections */}
+          {/* Rating Results */}
           {answerRating && (
-            <div className="space-y-3">
-              {/* Score Section */}
-              <Collapsible open={scoreOpen} onOpenChange={setScoreOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-transparent">
-                    <div className="flex items-center gap-2">
-                      <Star className="h-4 w-4" />
-                      Score: {answerRating.overallScore}/100
-                    </div>
-                    {scoreOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-4 pt-4">
-                  <div className="text-center">
-                    <div className={`text-3xl font-bold ${getScoreColor(answerRating.overallScore)}`}>
-                      {answerRating.overallScore}/100
-                    </div>
-                    <Badge variant={getScoreVariant(answerRating.overallScore)} className="mt-2">
-                      {answerRating.overallScore >= 90
-                        ? "Excellent"
-                        : answerRating.overallScore >= 75
-                          ? "Good"
-                          : answerRating.overallScore >= 60
-                            ? "Average"
-                            : "Needs Work"}
-                    </Badge>
-                  </div>
+            <Tabs defaultValue="score" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="score">Score</TabsTrigger>
+                <TabsTrigger value="feedback">Feedback</TabsTrigger>
+                <TabsTrigger value="improved">Improved</TabsTrigger>
+                <TabsTrigger value="tips">Tips</TabsTrigger>
+              </TabsList>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    {Object.entries(answerRating.scoreBreakdown).map(([key, value]) => (
-                      <div key={key} className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="capitalize">{key}</span>
-                          <span className={getScoreColor(value)}>{value}/100</span>
-                        </div>
-                        <Progress value={value} className="h-2" />
+              <TabsContent value="score" className="space-y-4">
+                <div className="text-center">
+                  <div className={`text-3xl font-bold ${getScoreColor(answerRating.overallScore)}`}>
+                    {answerRating.overallScore}/100
+                  </div>
+                  <Badge variant={getScoreVariant(answerRating.overallScore)} className="mt-2">
+                    {answerRating.overallScore >= 90
+                      ? "Excellent"
+                      : answerRating.overallScore >= 75
+                        ? "Good"
+                        : answerRating.overallScore >= 60
+                          ? "Average"
+                          : "Needs Work"}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(answerRating.scoreBreakdown).map(([key, value]) => (
+                    <div key={key} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="capitalize">{key}</span>
+                        <span className={getScoreColor(value)}>{value}/100</span>
                       </div>
+                      <Progress value={value} className="h-2" />
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="feedback" className="space-y-4">
+                <div>
+                  <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Strengths
+                  </h4>
+                  <ul className="space-y-1">
+                    {answerRating.strengths.map((strength, index) => (
+                      <li key={index} className="text-sm flex items-start gap-2">
+                        <CheckCircle className="h-3 w-3 text-green-500 mt-0.5 flex-shrink-0" />
+                        {strength}
+                      </li>
                     ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+                  </ul>
+                </div>
 
-              {/* Feedback Section */}
-              <Collapsible open={feedbackOpen} onOpenChange={setFeedbackOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-transparent">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4" />
-                      Detailed Feedback
-                    </div>
-                    {feedbackOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-4 pt-4">
+                <div>
+                  <h4 className="font-semibold text-orange-700 mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Areas for Improvement
+                  </h4>
+                  <ul className="space-y-1">
+                    {answerRating.areasForImprovement.map((area, index) => (
+                      <li key={index} className="text-sm flex items-start gap-2">
+                        <TrendingUp className="h-3 w-3 text-orange-500 mt-0.5 flex-shrink-0" />
+                        {area}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {answerRating.missedOpportunities.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4" />
-                      Strengths
+                    <h4 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Missed Opportunities
                     </h4>
                     <ul className="space-y-1">
-                      {answerRating.strengths.map((strength, index) => (
+                      {answerRating.missedOpportunities.map((missed, index) => (
                         <li key={index} className="text-sm flex items-start gap-2">
-                          <CheckCircle className="h-3 w-3 text-green-500 mt-0.5 flex-shrink-0" />
-                          {strength}
+                          <Target className="h-3 w-3 text-red-500 mt-0.5 flex-shrink-0" />
+                          {missed}
                         </li>
                       ))}
                     </ul>
                   </div>
+                )}
+              </TabsContent>
 
-                  <div>
-                    <h4 className="font-semibold text-orange-700 mb-2 flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4" />
-                      Areas for Improvement
-                    </h4>
-                    <ul className="space-y-1">
-                      {answerRating.areasForImprovement.map((area, index) => (
-                        <li key={index} className="text-sm flex items-start gap-2">
-                          <TrendingUp className="h-3 w-3 text-orange-500 mt-0.5 flex-shrink-0" />
-                          {area}
-                        </li>
-                      ))}
-                    </ul>
+              <TabsContent value="improved" className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4" />
+                    Improved Answer Suggestion
+                  </h4>
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <p className="text-sm whitespace-pre-wrap">{answerRating.improvedAnswer}</p>
                   </div>
+                </div>
 
-                  {answerRating.missedOpportunities.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
-                        <Target className="h-4 w-4" />
-                        Missed Opportunities
-                      </h4>
-                      <ul className="space-y-1">
-                        {answerRating.missedOpportunities.map((missed, index) => (
-                          <li key={index} className="text-sm flex items-start gap-2">
-                            <Target className="h-3 w-3 text-red-500 mt-0.5 flex-shrink-0" />
-                            {missed}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
+                <div>
+                  <h4 className="font-semibold mb-2">Interviewer's Perspective</h4>
+                  <p className="text-sm text-muted-foreground">{answerRating.interviewerPerspective}</p>
+                </div>
+              </TabsContent>
 
-              {/* Improved Answer Section */}
-              <Collapsible open={improvedOpen} onOpenChange={setImprovedOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-transparent">
-                    <div className="flex items-center gap-2">
-                      <Lightbulb className="h-4 w-4" />
-                      Improved Answer
-                    </div>
-                    {improvedOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-4 pt-4">
-                  <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Lightbulb className="h-4 w-4" />
-                      Improved Answer Suggestion
-                    </h4>
-                    <div className="bg-muted/50 p-4 rounded-lg">
-                      <p className="text-sm whitespace-pre-wrap">{answerRating.improvedAnswer}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-semibold mb-2">Interviewer's Perspective</h4>
-                    <p className="text-sm text-muted-foreground">{answerRating.interviewerPerspective}</p>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Tips Section */}
-              <Collapsible open={tipsOpen} onOpenChange={setTipsOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between bg-transparent">
-                    <div className="flex items-center gap-2">
-                      <ArrowRight className="h-4 w-4" />
-                      Next Steps & Tips
-                    </div>
-                    {tipsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-4 pt-4">
-                  <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Lightbulb className="h-4 w-4" />
-                      Next Steps
-                    </h4>
-                    <ul className="space-y-2">
-                      {answerRating.nextSteps.map((tip, index) => (
-                        <li key={index} className="text-sm flex items-start gap-2">
-                          <ArrowRight className="h-3 w-3 text-blue-500 mt-0.5 flex-shrink-0" />
-                          {tip}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
+              <TabsContent value="tips" className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4" />
+                    Next Steps
+                  </h4>
+                  <ul className="space-y-2">
+                    {answerRating.nextSteps.map((tip, index) => (
+                      <li key={index} className="text-sm flex items-start gap-2">
+                        <ArrowRight className="h-3 w-3 text-blue-500 mt-0.5 flex-shrink-0" />
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </TabsContent>
+            </Tabs>
           )}
         </div>
 
