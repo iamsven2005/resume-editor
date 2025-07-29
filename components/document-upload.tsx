@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef } from "react"
 import { DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { FileText, Upload, Lock, AlertCircle, CheckCircle2, Info } from "lucide-react"
+import { FileText, Upload, Lock, AlertCircle, CheckCircle2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
 import type { ResumeData } from "../types/resume"
@@ -79,9 +79,9 @@ export default function DocumentUpload({ onResumeExtracted, onClose }: DocumentU
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ file: base64 }),
         })
-        const data = await res.json()
+        const { success, data, error: serverError } = await res.json()
 
-        if (data.error) throw new Error(data.error)
+        if (!success) throw new Error(serverError || "Unknown error from server")
 
         setProgress(100)
         setCurrentStep("Success!")
@@ -118,9 +118,9 @@ export default function DocumentUpload({ onResumeExtracted, onClose }: DocumentU
         body: JSON.stringify({ text: textInput }),
       })
 
-      const data = await res.json()
+      const { success, data, error: serverError } = await res.json()
 
-      if (data.error) throw new Error(data.error)
+      if (!success) throw new Error(serverError || "Unknown error from server")
 
       setProgress(100)
       setCurrentStep("Success!")
