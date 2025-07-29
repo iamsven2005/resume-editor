@@ -30,8 +30,14 @@ if ((typeof resumeText !== "string" || resumeText.trim().length === 0) && !base6
 
 
 
-    console.log(`Processing ${type || "unknown"} resume text, length:`, resumeText.length)
-    console.log("Text preview:", resumeText.substring(0, 200) + "...")
+console.log(`Processing ${type || "unknown"} resume content`)
+if (resumeText) {
+  console.log("Resume text length:", resumeText.length)
+  console.log("Text preview:", resumeText.substring(0, 200) + "...")
+} else {
+  console.log("Using base64 resume input.")
+}
+
 
     const prompt = `
 You are an AI assistant that extracts structured information from resume text. 
@@ -95,8 +101,11 @@ Instructions:
 
 ${resumeText
   ? `Resume text to parse:\n${resumeText}`
-  : `This resume is provided in base64 format (PDF or DOCX). Decode and extract the text content for structuring.\nBase64 content:\n${base64Content}`
+  : base64Content
+    ? `This resume is provided in base64 format (PDF or DOCX). Decode and extract the text content for structuring.\nBase64 content:\n${base64Content}`
+    : "No resume content available."
 }
+
 
 
 Return ONLY the JSON object with no additional formatting or text.
