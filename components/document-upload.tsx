@@ -46,62 +46,69 @@ export default function DocumentUpload({ onResumeExtracted, onClose }: DocumentU
     e.target.value = ""
   }
 
-  const processFile = async (file: File) => {
-    resetState()
-    if (!user) return setError("Please log in to upload files.")
+const processFile = async (file: File) => {
+  resetState()
+  if (!user) return setError("Please log in to upload files.")
 
-    if (!["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type)) {
-      return setError("Unsupported file type. Only PDF and DOCX are allowed.")
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      return setError("File is too large. Max size is 10MB.")
-    }
-
-    setIsProcessing(true)
-    setCurrentStep("Reading file...")
-    setProgress(10)
-
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64 = reader.result?.toString()
-      if (!base64) {
-        setIsProcessing(false)
-        return setError("Failed to read file.")
-      }
-
-      setProgress(30)
-      setCurrentStep("Sending to AI for processing...")
-
-      try {
-        const res = await fetch("/api/parse-resume", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ file: base64 }),
-        })
-        const { success, data, error: serverError } = await res.json()
-
-        if (!success) throw new Error(serverError || "Unknown error from server")
-
-        setProgress(100)
-        setCurrentStep("Success!")
-        setPreview(JSON.stringify(data, null, 2))
-        setSuccess(true)
-
-        setTimeout(() => {
-          onResumeExtracted(data)
-          onClose()
-        }, 1000)
-      } catch (err: any) {
-        console.error(err)
-        setError("Failed to process resume. " + (err?.message || "Unknown error"))
-      } finally {
-        setIsProcessing(false)
-      }
-    }
-
-    reader.readAsDataURL(file)
+  if (!["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type)) {
+    return setError("Unsupported file type. Only PDF and DOCX are allowed.")
   }
+
+  if (file.size > 10 * 1024 * 1024) {
+    return setError("File is too large. Max size is 10MB.")
+  }
+
+  setIsProcessing(true)
+  setProgress(10)
+  setCurrentStep("Reading file...")
+
+  const reader = new FileReader()
+  reader.onload = async () => {
+    const result = reader.result as string
+    if (!result || !result.startsWith("data:")) {
+      setIsProcessing(false)
+      return setError("Failed to convert file to base64.")
+    }
+
+    console.log("Base64 preview:", result.substring(0, 100)) // ✅ should start with data:application/pdf;base64,
+
+    setProgress(30)
+    setCurrentStep("Sending to API...")
+
+    try {
+      const res = await fetch("/api/parse-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file: result }),
+      })
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error)
+
+      setProgress(100)
+      setSuccess(true)
+      setPreview(JSON.stringify(json.data, null, 2))
+
+      setTimeout(() => {
+        onResumeExtracted(json.data)
+        onClose()
+      }, 1000)
+    } catch (err: any) {
+      console.error(err)
+      setError("Failed to process resume. " + (err.message || "Unknown error"))
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  reader.onerror = () => {
+    console.error("FileReader failed:", reader.error)
+    setError("File reading failed.")
+    setIsProcessing(false)
+  }
+
+  reader.readAsDataURL(file) // ✅ this encodes to base64
+}
+
 
   const processText = async () => {
     resetState()
