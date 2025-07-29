@@ -15,11 +15,11 @@ export async function POST(request: NextRequest) {
 
     const { text, file, type } = body
     let resumeText = text
+    let base64Content: string | undefined
     if (!resumeText && typeof file === "string") {
-      const base64Content = file.split(",")[1] || file // remove "data:..." prefix if present
-      const buffer = Buffer.from(base64Content, "base64")
-      resumeText = buffer.toString("utf-8")
+      base64Content = file.includes(",") ? file.split(",")[1] : file
     }
+
     if (!resumeText || typeof resumeText !== "string" || resumeText.trim().length === 0) {
       return NextResponse.json({ success: false, error: "Invalid text provided. Expected non-empty string." }, { status: 400 })
     }
