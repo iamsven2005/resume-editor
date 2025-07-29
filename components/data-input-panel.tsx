@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { DocumentUpload } from "./document-upload"
+import  DocumentUpload  from "./document-upload"
 import type { TabType, ResumeData } from "../types/resume"
 import { FileText, Download, Upload, RefreshCw, Code, Eye, AlertCircle, Target } from "lucide-react"
 
