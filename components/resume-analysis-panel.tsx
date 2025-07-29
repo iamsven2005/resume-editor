@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckCircle, XCircle, AlertTriangle, TrendingUp, Target } from "lucide-react"
 import type { ResumeAnalysis } from "../types/analysis"
 import { EmailGeneratorPanel } from "./email-generator-panel"
+import { InterviewPracticePanel } from "./interview-practice-panel"
 
 interface ResumeAnalysisPanelProps {
   analysis: ResumeAnalysis | null
@@ -93,11 +94,12 @@ export const ResumeAnalysisPanel = ({ analysis, isLoading, resumeData, jobRequir
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="missing">Missing</TabsTrigger>
             <TabsTrigger value="keywords">Keywords</TabsTrigger>
             <TabsTrigger value="sections">Sections</TabsTrigger>
+            <TabsTrigger value="interview">Interview</TabsTrigger>
             <TabsTrigger value="email">Email</TabsTrigger>
           </TabsList>
 
@@ -200,6 +202,9 @@ export const ResumeAnalysisPanel = ({ analysis, isLoading, resumeData, jobRequir
                 <p className="text-sm text-muted-foreground">{analysis.sectionAnalysis.other}</p>
               </div>
             </div>
+          </TabsContent>
+          <TabsContent value="interview" className="space-y-4">
+            <InterviewPracticePanel analysis={analysis} resumeData={resumeData} jobRequirements={jobRequirements} />
           </TabsContent>
           <TabsContent value="email" className="space-y-4">
             <EmailGeneratorPanel analysis={analysis} resumeData={resumeData} jobRequirements={jobRequirements || ""} />
