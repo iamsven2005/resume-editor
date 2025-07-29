@@ -110,6 +110,7 @@ export const ResumeAnalysisPanel = ({ analysis, isLoading, resumeData, jobRequir
 
         {selectedTab === "overview" && (
             {/* Strengths */}
+            <>
             <div>
               <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
                 <CheckCircle className="h-4 w-4" />
@@ -140,6 +141,7 @@ export const ResumeAnalysisPanel = ({ analysis, isLoading, resumeData, jobRequir
                 ))}
               </ul>
             </div>
+            </>
         )}
         {selectedTab === "missing" && (
             <div>
