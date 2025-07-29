@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
     }
 
 
-    console.log(`Processing ${type || "unknown"} resume text, length:`, text.length)
-    console.log("Text preview:", text.substring(0, 200) + "...")
+    console.log(`Processing ${type || "unknown"} resume text, length:`, resumeText.length)
+    console.log("Text preview:", resumeText.substring(0, 200) + "...")
 
     const prompt = `
 You are an AI assistant that extracts structured information from resume text. 
