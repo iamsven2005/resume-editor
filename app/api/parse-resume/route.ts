@@ -13,13 +13,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid request body. Expected JSON." }, { status: 400 })
     }
 
-    const { text, type } = body
-
-    if (!text || typeof text !== "string") {
-      return NextResponse.json(
-        { success: false, error: "Invalid text provided. Expected non-empty string." },
-        { status: 400 },
-      )
+    const { text, file, type } = body
+    let resumeText = text
+    if (!resumeText && typeof file === "string") {
+      const base64Content = file.split(",")[1] || file // remove "data:..." prefix if present
+      const buffer = Buffer.from(base64Content, "base64")
+      resumeText = buffer.toString("utf-8")
+    }
+    if (!resumeText || typeof resumeText !== "string" || resumeText.trim().length === 0) {
+      return NextResponse.json({ success: false, error: "Invalid text provided. Expected non-empty string." }, { status: 400 })
     }
 
     if (text.trim().length === 0) {
@@ -101,7 +103,7 @@ Instructions:
 11. Always include at least Experience, Education, and Skills sections even if empty
 
 Resume text to parse:
-${text}
+${resumeText}
 
 Return ONLY the JSON object with no additional formatting or text.
 `
