@@ -28,12 +28,6 @@ if ((typeof resumeText !== "string" || resumeText.trim().length === 0) && !base6
 }
 
 
-    if (resumeText.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Empty text provided. Please provide resume content." },
-        { status: 400 },
-      )
-    }
 
 
     console.log(`Processing ${type || "unknown"} resume text, length:`, resumeText.length)
