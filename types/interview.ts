@@ -1,11 +1,10 @@
 export interface InterviewQuestion {
   id: number
   question: string
-  category: "Technical" | "Behavioral" | "Situational" | "Experience" | "Gap-Addressing" | "General"
+  category: "Technical" | "Behavioral" | "Situational" | "Experience" | "Gap-Addressing"
   difficulty: "Easy" | "Medium" | "Hard"
   whatInterviewerLooksFor: string
   keyPointsToAddress: string[]
-  resumeConnection: string
 }
 
 export interface InterviewQuestions {
@@ -28,11 +27,4 @@ export interface AnswerRating {
   improvedAnswer: string
   interviewerPerspective: string
   nextSteps: string[]
-}
-
-export interface InterviewAnswer {
-  questionId: number
-  answer: string
-  rating?: AnswerRating
-  timestamp: Date
 }
