@@ -14,15 +14,18 @@ export async function POST(request: NextRequest) {
     }
 
     const { text, file, type } = body
-    let resumeText = text
-    let base64Content: string | undefined
-    if (!resumeText && typeof file === "string") {
-      base64Content = file.includes(",") ? file.split(",")[1] : file
-    }
 
-    if (!resumeText || typeof resumeText !== "string" || resumeText.trim().length === 0) {
-      return NextResponse.json({ success: false, error: "Invalid text provided. Expected non-empty string." }, { status: 400 })
-    }
+let resumeText: string | undefined = text
+let base64Content: string | undefined
+
+if (!resumeText && typeof file === "string") {
+  base64Content = file.includes(",") ? file.split(",")[1] : file
+}
+
+// Validate: we need at least one valid source
+if ((!resumeText || resumeText.trim().length === 0) && !base64Content) {
+  return NextResponse.json({ success: false, error: "No resume content provided." }, { status: 400 })
+}
 
     if (resumeText.trim().length === 0) {
       return NextResponse.json(
@@ -95,8 +98,11 @@ Instructions:
 10. If you can't find a clear name, use "Resume" as the title
 11. Always include at least Experience, Education, and Skills sections even if empty
 
-Resume text to parse:
-${resumeText}
+${resumeText
+  ? `Resume text to parse:\n${resumeText}`
+  : `This resume is provided in base64 format (PDF or DOCX). Decode and extract the text content for structuring.\nBase64 content:\n${base64Content}`
+}
+
 
 Return ONLY the JSON object with no additional formatting or text.
 `
