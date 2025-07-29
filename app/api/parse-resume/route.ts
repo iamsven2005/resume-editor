@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid request body. Expected JSON." }, { status: 400 })
     }
 
-    const { text, file, type } = body
+const { text, file, type } = body
 
 let resumeText: string | undefined = text
 let base64Content: string | undefined
@@ -22,10 +22,11 @@ if (!resumeText && typeof file === "string") {
   base64Content = file.includes(",") ? file.split(",")[1] : file
 }
 
-// Validate: we need at least one valid source
-if ((!resumeText || resumeText.trim().length === 0) && !base64Content) {
+// Safe validation
+if ((typeof resumeText !== "string" || resumeText.trim().length === 0) && !base64Content) {
   return NextResponse.json({ success: false, error: "No resume content provided." }, { status: 400 })
 }
+
 
     if (resumeText.trim().length === 0) {
       return NextResponse.json(
