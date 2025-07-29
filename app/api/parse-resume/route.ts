@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid text provided. Expected non-empty string." }, { status: 400 })
     }
 
-    if (text.trim().length === 0) {
+    if (resumeText.trim().length === 0) {
       return NextResponse.json(
         { success: false, error: "Empty text provided. Please provide resume content." },
         { status: 400 },
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if text is too long (optional safety check)
-    if (text.length > 50000) {
+    if (resumeText.length > 50000) {
       return NextResponse.json(
         { success: false, error: "Text too long. Please provide a shorter resume." },
         { status: 400 },
