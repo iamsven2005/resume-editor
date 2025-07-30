@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "@/components/ui/use-toast"
 import { useResumeEditor } from "./hooks/use-resume-editor"
 import { generatePDFFromMarkdown } from "./utils/pdf-generator"
@@ -20,6 +20,7 @@ import { Footer } from "@/components/footer"
 import { AuthDialog } from "@/components/auth-dialog"
 import { ResumeCounter } from "@/components/resume-counter"
 import PwaInstallButton from "@/components/PwaInstallButton"
+import { OnboardingTutorial } from "./components/onboarding-tutorial"
 import {
   FileText,
   Edit3,
@@ -36,6 +37,7 @@ import {
 import { Button } from "@/components/ui/button"
 
 export default function JsonTextareaEditor() {
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
   const {
     jsonString,
     setJsonString,
@@ -64,6 +66,14 @@ export default function JsonTextareaEditor() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const { user, logout } = useAuth()
+  const [showTutorial, setShowTutorial] = useState(false)
+
+  // Show tutorial for new users
+  useEffect(() => {
+    if (!user && !showAuthDialog) {
+      setShowTutorial(true)
+    }
+  }, [user, showAuthDialog])
 
   // Handle resume upload from PDF
   const handleResumeUploaded = (data: ResumeData) => {
@@ -73,7 +83,6 @@ export default function JsonTextareaEditor() {
       description: "Resume uploaded and processed successfully!",
     })
   }
-  const [showAuthDialog, setShowAuthDialog] = useState(false)
 
   const handleResumeCreated = () => {
     // Refresh credits after resume creation
@@ -823,38 +832,43 @@ export default function JsonTextareaEditor() {
   return (
     <div className="min-h-screen w-full overflow-x-hidden">
       <div className="container mx-auto p-6 max-w-full">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">SparkJob</h1>
-            <p className="text-muted-foreground">
-              Drag panels to reorder • Collapse panels to save space • Upload, edit, analyze, and export your resume
-            </p>
-            <PwaInstallButton/>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold">SparkJob</h1>
+            <div className="flex items-center gap-3">
+              {user ? (
+                <>
+                  <ResumeCounter />
+                  <Button variant="outline" size="sm" onClick={logout}>
+                    <LogOut className="h-4 w-4 mr-1" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <AuthDialog>
+                  <Button variant="outline" size="sm">
+                    <User className="h-4 w-4 mr-1" />
+                    Login
+                  </Button>
+                </AuthDialog>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {user ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm text-muted-foreground">Welcome, {user.name || user.email}</span>
-                <Button variant="outline" size="sm" onClick={logout}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-                <ResumeCounter/>
-              </div>
-            ) : (
-              <AuthDialog>
-                <Button variant="outline" size="sm">
-                  <User className="h-4 w-4 mr-2" />
-                  Login / Sign Up
-                </Button>
-              </AuthDialog>
-            )}
+          <div className="flex items-center justify-between">
+            <p className="text-muted-foreground text-sm">
+              AI-powered resume builder • Upload, edit, analyze, and export your resume
+            </p>
+            <PwaInstallButton />
           </div>
         </div>
 
-        <PanelLayoutManager panels={panels}  onResumeCreated={handleResumeCreated} onAuthRequired={() => setShowAuthDialog(true)}/>
-                <AuthDialog open={showAuthDialog} onOpenChange={setShowAuthDialog} />
-
+        <PanelLayoutManager
+          panels={panels}
+          onResumeCreated={handleResumeCreated}
+          onAuthRequired={() => setShowAuthDialog(true)}
+        />
+        <AuthDialog open={showAuthDialog} onOpenChange={setShowAuthDialog} />
+        <OnboardingTutorial open={showTutorial} onOpenChange={setShowTutorial} onCreateNew={handleCreateNewResume} />
       </div>
       <Footer />
     </div>
